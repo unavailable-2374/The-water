@@ -27,9 +27,13 @@ export function poolGateId(providerId: string, pool: PoolName): string {
   return pool === 'chat' ? providerId : `${providerId}#${pool}`;
 }
 
-/** 任务侧的限流闸门；聊天侧走 `getRateGate(providerId)` 不变。 */
+/**
+ * 任务侧的限流闸门；聊天侧走 `getRateGate(providerId)` 不变。
+ * 两个池各排各的队（长篇写作不再让阅读器聊天等着），但 429 冷却按 providerId
+ * 共享——配额是按 API Key 算的，一侧撞限速另一侧也必须退让。
+ */
 export function taskGate(providerId: string): RateGate {
-  return getRateGate(poolGateId(providerId, 'task'));
+  return getRateGate(poolGateId(providerId, 'task'), { cooldownGroup: providerId });
 }
 
 export interface PoolLimits {

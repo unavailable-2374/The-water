@@ -256,3 +256,32 @@ describe('RateGate', () => {
     expect(getRateGate('deepseek')).not.toBe(a);
   });
 });
+
+describe('RateGate 冷却分组', () => {
+  it('同组的两个池共享 429 冷却', async () => {
+    resetRateGates();
+    let t = 0;
+    const now = () => t;
+    const slept: number[] = [];
+    const sleep = async (ms: number) => { slept.push(ms); t += ms; };
+    // 任务池与聊天池是两把不同的 gate，但 cooldownGroup 相同。
+    const task = getRateGate('p1#task', { cooldownGroup: 'p1', now, sleep, minIntervalMs: 0 });
+    const chat = getRateGate('p1', { cooldownGroup: 'p1', now, sleep, minIntervalMs: 0 });
+
+    task.reportRateLimit(5000);
+    expect(chat.cooldownUntil).toBe(5000);
+    await chat.acquire();
+    expect(slept).toEqual([5000]);
+  });
+
+  it('不同 providerId 的冷却互不影响', async () => {
+    resetRateGates();
+    const now = () => 0;
+    const sleep = async () => {};
+    const a = getRateGate('pa#task', { cooldownGroup: 'pa', now, sleep });
+    const b = getRateGate('pb#task', { cooldownGroup: 'pb', now, sleep });
+    a.reportRateLimit(3000);
+    expect(a.cooldownUntil).toBe(3000);
+    expect(b.cooldownUntil).toBe(0);
+  });
+});

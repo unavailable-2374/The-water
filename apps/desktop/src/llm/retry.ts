@@ -181,30 +181,43 @@ export interface RateGateOptions {
   minIntervalMs?: number;
   /** Cooldown applied on a 429 without Retry-After (default 2000ms). */
   defaultCooldownMs?: number;
+  /**
+   * 共享 429 冷却的分组键。同一把 API Key 被拆成任务池 / 聊天池两个 gate 时，
+   * 配额其实还是按 Key 算的——任务侧撞到 429，聊天侧也必须一起退让，
+   * 否则冷却期一到就会被另一个池立刻再撞一次。
+   * 不传则冷却只作用于这一个 gate 实例（默认行为）。
+   */
+  cooldownGroup?: string;
   now?: () => number;
   sleep?: SleepFn;
 }
+
+/** 分组 → 冷却截止时间。只有显式指定了 cooldownGroup 的 gate 才进这张表。 */
+const cooldowns = new Map<string, number>();
 
 export class RateGate {
   readonly id: string;
   readonly minIntervalMs: number;
   private readonly defaultCooldownMs: number;
+  /** null 表示冷却只作用于本实例。 */
+  readonly cooldownGroup: string | null;
+  private ownCooldownUntil = 0;
   private readonly now: () => number;
   private readonly sleep: SleepFn;
   private nextAllowedAt = 0;
-  private _cooldownUntil = 0;
   private queue: Promise<void> = Promise.resolve();
 
   constructor(id: string, opts: RateGateOptions = {}) {
     this.id = id;
     this.minIntervalMs = opts.minIntervalMs ?? 300;
     this.defaultCooldownMs = opts.defaultCooldownMs ?? 2000;
+    this.cooldownGroup = opts.cooldownGroup ?? null;
     this.now = opts.now ?? Date.now;
     this.sleep = opts.sleep ?? defaultSleep;
   }
 
   get cooldownUntil(): number {
-    return this._cooldownUntil;
+    return this.cooldownGroup === null ? this.ownCooldownUntil : (cooldowns.get(this.cooldownGroup) ?? 0);
   }
 
   /** Resolves when the caller may start a request. Callers are served FIFO. */
@@ -217,7 +230,7 @@ export class RateGate {
     try {
       await prev;
       if (signal?.aborted) throw new LLMError('aborted', 'Request aborted');
-      const waitUntil = Math.max(this.nextAllowedAt, this._cooldownUntil);
+      const waitUntil = Math.max(this.nextAllowedAt, this.cooldownUntil);
       const wait = waitUntil - this.now();
       if (wait > 0) await this.sleep(wait, signal);
       this.nextAllowedAt = this.now() + this.minIntervalMs;
@@ -226,10 +239,12 @@ export class RateGate {
     }
   }
 
-  /** Record a 429; subsequent `acquire` calls wait until the cooldown ends. */
+  /** Record a 429; subsequent `acquire` calls — 包括同组其它池的 —— wait until the cooldown ends. */
   reportRateLimit(retryAfterMs?: number): void {
     const ms = retryAfterMs !== undefined && retryAfterMs > 0 ? retryAfterMs : this.defaultCooldownMs;
-    this._cooldownUntil = Math.max(this._cooldownUntil, this.now() + ms);
+    const until = Math.max(this.cooldownUntil, this.now() + ms);
+    if (this.cooldownGroup === null) this.ownCooldownUntil = until;
+    else cooldowns.set(this.cooldownGroup, until);
   }
 }
 
@@ -247,4 +262,5 @@ export function getRateGate(providerId: string, opts?: RateGateOptions): RateGat
 /** Test helper: drop all registered gates. */
 export function resetRateGates(): void {
   gates.clear();
+  cooldowns.clear();
 }

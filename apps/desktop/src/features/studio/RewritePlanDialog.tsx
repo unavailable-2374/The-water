@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Sparkles, Square } from 'lucide-react';
 import { emptyBible, type ChapterPlan, type StorylineDoc } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Button, Dialog, Spinner, Textarea, cn } from '@/components/ui';
+import { Button, Dialog, Spinner, Textarea, cn, confirm } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import { listChapters, type Chapter } from '@/db/repos/chaptersRepo';
@@ -11,7 +11,10 @@ import { buildStorylineDoc, latestSnapshot, type StorylineSnapshot } from '@/db/
 import { diffStoryline, summarizeDiff, type StorylineDiff } from '@/novel/storyline/diff';
 import { buildRewritePlan, computeAffectedChapters, type AffectedChapter, type RewriteMode, type RewritePlanItem } from '@/novel/storyline/affected';
 import { bibleAppearances } from '@/novel/bible';
-import { startRewrite } from '@/novel/service';
+import { startRewrite, wantsStyleCheck } from '@/novel/service';
+import { estimateRewrite } from '@/novel/pricing';
+import { BudgetExceededError } from '@/db/repos/usageRepo';
+import { CostEstimateLine, previewCostForNovel, type CostPreview } from './UsagePanel';
 import type { RewriteItemInput } from '@/jobs/planner';
 import { rewritePlanPrompt } from '@/llm/prompts/rewritePlan';
 import { renderChapterPlan } from '@/llm/prompts/context';
@@ -85,7 +88,21 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
 
   const chapterByNo = useMemo(() => new Map((computed?.chapters ?? []).map((c) => [c.chapterNo, c] as const)), [computed]);
   const selectedRows = rows.filter((r) => r.selected);
-  const estTokens = selectedRows.filter((r) => r.mode !== 'name_replace').reduce((s, r) => s + (chapterByNo.get(r.chapterNo)?.targetChars ?? 0) * 2, 0);
+  const [cost, setCost] = useState<CostPreview | null>(null);
+  // §2.1 第 3 条：分开算输入 / 输出、强模型 / 便宜模型，并跳过不调模型的改名章。
+  useEffect(() => {
+    if (!computed) return;
+    let cancelled = false;
+    void (async () => {
+      const styleCheck = await wantsStyleCheck(novel.id);
+      const items = rows
+        .filter((r) => r.selected)
+        .map((r) => ({ targetChars: chapterByNo.get(r.chapterNo)?.targetChars ?? 0, mode: r.mode }));
+      const preview = await previewCostForNovel(novel.id, estimateRewrite(items, { styleCheck }));
+      if (!cancelled) setCost(preview);
+    })();
+    return () => { cancelled = true; };
+  }, [novel.id, rows, computed, chapterByNo]);
   const diffSummary = computed ? summarizeDiff(computed.diff, computed.current, computed.baseline.doc) : '';
 
   const generateInstructions = async () => {
@@ -137,7 +154,15 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
     if (items.length === 0) { toast.error('至少选一章'); return; }
     setStarting(true);
     try {
-      await startRewrite(novel.id, items, computed.baseline.id);
+      try {
+        await startRewrite(novel.id, items, computed.baseline.id);
+      } catch (e) {
+        if (!(e instanceof BudgetExceededError)) throw e;
+        // 超预算不是错误，是需要作者点头的一次决定。
+        const go = await confirm({ title: '超出预算上限', description: `${e.message} 仍然继续吗？`, confirmText: '继续', tone: 'danger' });
+        if (!go) return;
+        await startRewrite(novel.id, items, computed.baseline.id, { ignoreBudget: true });
+      }
       toast.success(`AI 开始改写 ${items.length} 章`);
       onStarted();
       onClose();
@@ -172,8 +197,9 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
                   后面的章节也顺一遍，保持连贯
                   <span className="font-serif text-xs text-ink-400">{rows.filter((r) => r.stale).length} 章</span>
                 </label>
-                <span className="text-xs text-ink-400">已选 <span className="font-serif">{selectedRows.length} / {rows.length}</span> 章 · 大约 <span className="font-serif">{estTokens.toLocaleString()}</span> tokens</span>
+                <span className="text-xs text-ink-400">已选 <span className="font-serif">{selectedRows.length} / {rows.length}</span> 章</span>
               </div>
+              <CostEstimateLine preview={cost} prefix="本次改写预计" />
 
               <ul className="space-y-2">
                 {rows.map((r) => {
