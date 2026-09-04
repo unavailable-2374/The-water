@@ -19,6 +19,15 @@ export const users = sqliteTable(
     displayName: text().notNull(),
     bio: text(),
     role: text({ enum: ['user', 'admin'] }).notNull().default('user'),
+    /** 账号状态：suspended 为限期禁言，banned 为永久封禁；两者都不可写入内容。 */
+    status: text({ enum: ['active', 'suspended', 'banned'] }).notNull().default('active'),
+    /** status='suspended' 时的解禁时间；到期后视为 active。 */
+    suspendedUntil: ts(),
+    statusReason: text(),
+    /** 邮箱验证通过时间；未验证的账号不可被 ADMIN_EMAILS 提权。 */
+    emailVerifiedAt: ts(),
+    /** 注销账号后置位；置位后邮箱与 handle 已被匿名化。 */
+    deletedAt: ts(),
     followerCount: integer().notNull().default(0),
     followingCount: integer().notNull().default(0),
     /** point_ledger 的缓存合计，与账本在同一事务内更新。 */
@@ -30,6 +39,7 @@ export const users = sqliteTable(
     uniqueIndex('users_email_uq').on(t.email),
     uniqueIndex('users_handle_uq').on(t.handle),
     index('users_points_idx').on(t.points),
+    index('users_status_idx').on(t.status),
   ],
 );
 
@@ -133,14 +143,18 @@ export const novelVersions = sqliteTable(
   ],
 );
 
-export const blobs = sqliteTable('blobs', {
-  hash: text().primaryKey(),
-  content: text().notNull(),
-  charCount: integer().notNull(),
-  byteSize: integer().notNull(),
-  firstUploaderId: text(),
-  createdAt: ts().notNull(),
-});
+export const blobs = sqliteTable(
+  'blobs',
+  {
+    hash: text().primaryKey(),
+    content: text().notNull(),
+    charCount: integer().notNull(),
+    byteSize: integer().notNull(),
+    firstUploaderId: text(),
+    createdAt: ts().notNull(),
+  },
+  (t) => [index('blobs_uploader_idx').on(t.firstUploaderId), index('blobs_created_idx').on(t.createdAt)],
+);
 
 export const versionChapters = sqliteTable(
   'version_chapters',
@@ -174,7 +188,11 @@ export const forks = sqliteTable(
     derivativeNovelId: text(),
     createdAt: ts().notNull(),
   },
-  (t) => [index('forks_user_idx').on(t.userId), index('forks_source_idx').on(t.sourceNovelId)],
+  (t) => [
+    index('forks_user_idx').on(t.userId),
+    index('forks_source_idx').on(t.sourceNovelId),
+    uniqueIndex('forks_user_source_uq').on(t.userId, t.sourceNovelId),
+  ],
 );
 
 export const likes = sqliteTable(
@@ -213,6 +231,8 @@ export const reports = sqliteTable(
     /** 非空表示举报的是该小说下的一条评论。 */
     commentId: text(),
     reporterId: text(),
+    /** `${novelId}:${commentId ?? '-'}:${reporterId ?? viewerKey}`，同人同对象只记一条。 */
+    dedupeKey: text().notNull().default(''),
     reason: text({ enum: ['plagiarism', 'illegal', 'adult', 'spam', 'other'] }).notNull(),
     detail: text(),
     status: text({ enum: ['open', 'resolved', 'dismissed'] }).notNull().default('open'),
@@ -220,7 +240,7 @@ export const reports = sqliteTable(
     createdAt: ts().notNull(),
     resolvedAt: ts(),
   },
-  (t) => [index('reports_status_idx').on(t.status, t.createdAt)],
+  (t) => [index('reports_status_idx').on(t.status, t.createdAt), uniqueIndex('reports_dedupe_uq').on(t.dedupeKey)],
 );
 
 export const follows = sqliteTable(
@@ -292,7 +312,11 @@ export const comments = sqliteTable(
       .references(() => users.id),
     parentId: text(),
     replyToId: text(),
+    /** 非空表示这条留言锚在某一章上；空表示作品级留言。 */
+    chapterIndex: integer(),
     body: text().notNull(),
+    likeCount: integer().notNull().default(0),
+    editedAt: ts(),
     status: text({ enum: ['ok', 'deleted', 'hidden'] }).notNull().default('ok'),
     /** 仅统计 status='ok' 的回复。 */
     replyCount: integer().notNull().default(0),
@@ -301,6 +325,7 @@ export const comments = sqliteTable(
   },
   (t) => [
     index('comments_novel_idx').on(t.novelId, t.parentId, t.createdAt),
+    index('comments_chapter_idx').on(t.novelId, t.chapterIndex, t.createdAt),
     index('comments_parent_idx').on(t.parentId, t.createdAt),
     index('comments_author_idx').on(t.authorId, t.createdAt),
   ],
@@ -344,6 +369,171 @@ export const userBadges = sqliteTable(
   (t) => [primaryKey({ columns: [t.userId, t.badge] })],
 );
 
+/** 邮箱验证 / 找回密码令牌。只存哈希，明文仅出现在邮件里。 */
+export const emailTokens = sqliteTable(
+  'email_tokens',
+  {
+    id: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text({ enum: ['verify', 'reset'] }).notNull(),
+    tokenHash: text().notNull(),
+    expiresAt: ts().notNull(),
+    usedAt: ts(),
+    createdAt: ts().notNull(),
+  },
+  (t) => [
+    uniqueIndex('email_tokens_hash_uq').on(t.tokenHash),
+    index('email_tokens_user_idx').on(t.userId, t.kind, t.createdAt),
+    index('email_tokens_expires_idx').on(t.expiresAt),
+  ],
+);
+
+/** 审核审计日志：每次人工或自动审核动作都必须留痕。 */
+export const moderationEvents = sqliteTable(
+  'moderation_events',
+  {
+    id: text().primaryKey(),
+    /** null 表示系统自动动作（如自动审核判定）。 */
+    actorId: text(),
+    targetType: text({ enum: ['novel', 'version', 'comment', 'user', 'report'] }).notNull(),
+    targetId: text().notNull(),
+    /** 如 novel_hide / novel_restore / comment_hide / user_ban / user_unban / report_resolve。 */
+    action: text().notNull(),
+    reason: text(),
+    note: text(),
+    meta: text({ mode: 'json' }).$type<Record<string, unknown> | null>(),
+    createdAt: ts().notNull(),
+  },
+  (t) => [
+    index('moderation_events_target_idx').on(t.targetType, t.targetId, t.createdAt),
+    index('moderation_events_actor_idx').on(t.actorId, t.createdAt),
+    index('moderation_events_created_idx').on(t.createdAt),
+  ],
+);
+
+/** 站内通知。积分引擎 award() 与审核动作是事件源。 */
+export const notifications = sqliteTable(
+  'notifications',
+  {
+    id: text().primaryKey(),
+    /** 收件人。 */
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** 触发者；系统通知为 null。 */
+    actorId: text(),
+    /** followed / commented / replied / forked / liked / badge / moderation / version_published。 */
+    kind: text().notNull(),
+    refType: text({ enum: ['novel', 'user', 'comment', 'badge', 'system'] }).notNull(),
+    refId: text().notNull(),
+    /** 渲染用的冗余字段，避免通知列表 N+1。 */
+    title: text().notNull().default(''),
+    body: text().notNull().default(''),
+    readAt: ts(),
+    /** 同一事件只通知一次。 */
+    dedupeKey: text().notNull(),
+    createdAt: ts().notNull(),
+  },
+  (t) => [
+    uniqueIndex('notifications_dedupe_uq').on(t.dedupeKey),
+    index('notifications_user_idx').on(t.userId, t.createdAt),
+    index('notifications_unread_idx').on(t.userId, t.readAt, t.createdAt),
+  ],
+);
+
+export const commentLikes = sqliteTable(
+  'comment_likes',
+  {
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    commentId: text()
+      .notNull()
+      .references(() => comments.id, { onDelete: 'cascade' }),
+    createdAt: ts().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.commentId] }), index('comment_likes_comment_idx').on(t.commentId)],
+);
+
+/** 「想读」书架，与 likes（喜欢）分开。 */
+export const bookmarks = sqliteTable(
+  'bookmarks',
+  {
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    novelId: text()
+      .notNull()
+      .references(() => novels.id, { onDelete: 'cascade' }),
+    createdAt: ts().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.novelId] }),
+    index('bookmarks_user_created_idx').on(t.userId, t.createdAt),
+  ],
+);
+
+/** 云端阅读进度，按作品记录到章。 */
+export const readingProgress = sqliteTable(
+  'reading_progress',
+  {
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    novelId: text()
+      .notNull()
+      .references(() => novels.id, { onDelete: 'cascade' }),
+    chapterIndex: integer().notNull().default(1),
+    /** 章内百分比 0–100，便于跨设备恢复到大致位置。 */
+    percent: integer().notNull().default(0),
+    updatedAt: ts().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.novelId] }),
+    index('reading_progress_user_idx').on(t.userId, t.updatedAt),
+  ],
+);
+
+/** 标签目录：归一化后的标签及其作品计数。 */
+export const tags = sqliteTable(
+  'tags',
+  {
+    /** 归一化后的键（小写、去空白、全角转半角）。 */
+    slug: text().primaryKey(),
+    /** 展示用的原始写法，取最常见的一种。 */
+    label: text().notNull(),
+    novelCount: integer().notNull().default(0),
+    updatedAt: ts().notNull(),
+  },
+  (t) => [index('tags_count_idx').on(t.novelCount)],
+);
+
+export const novelTags = sqliteTable(
+  'novel_tags',
+  {
+    novelId: text()
+      .notNull()
+      .references(() => novels.id, { onDelete: 'cascade' }),
+    slug: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.novelId, t.slug] }), index('novel_tags_slug_idx').on(t.slug)],
+);
+
+/** 旧 @用户名 → 用户，用于改名后的 301 跳转。 */
+export const handleHistory = sqliteTable(
+  'handle_history',
+  {
+    handle: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    releasedAt: ts().notNull(),
+  },
+  (t) => [index('handle_history_user_idx').on(t.userId, t.releasedAt)],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type NovelRow = typeof novels.$inferSelect;
@@ -358,3 +548,12 @@ export type ActivityRow = typeof activities.$inferSelect;
 export type CommentRow = typeof comments.$inferSelect;
 export type PointLedgerRow = typeof pointLedger.$inferSelect;
 export type UserBadgeRow = typeof userBadges.$inferSelect;
+export type EmailTokenRow = typeof emailTokens.$inferSelect;
+export type ModerationEventRow = typeof moderationEvents.$inferSelect;
+export type NotificationRow = typeof notifications.$inferSelect;
+export type CommentLikeRow = typeof commentLikes.$inferSelect;
+export type BookmarkRow = typeof bookmarks.$inferSelect;
+export type ReadingProgressRow = typeof readingProgress.$inferSelect;
+export type TagRow = typeof tags.$inferSelect;
+export type NovelTagRow = typeof novelTags.$inferSelect;
+export type HandleHistoryRow = typeof handleHistory.$inferSelect;

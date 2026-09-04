@@ -38,9 +38,24 @@ export const SECTION_HEADERS = {
   logline: '全书主线',
 } as const;
 
-export function buildContextBudget(input: { caps: ProviderCaps; maxTokens: number; safety?: number }): number {
+export interface ContextBudgetInput {
+  caps: ProviderCaps;
+  maxTokens: number;
+  safety?: number;
+  /**
+   * 额外预留：不在 `assembleChapterContext` 里、但确实会进 prompt 的 token。
+   * 目前唯一来源是 json_object / none 模式下注入的 JSON Schema
+   * （见 `llm/json.ts` 的 `schemaInstructionTokens`）。
+   */
+  reserved?: number;
+  /** 降档系数（见 `llm/contextBudget.ts`），1 表示不降档。 */
+  scale?: number;
+}
+
+export function buildContextBudget(input: ContextBudgetInput): number {
   const safety = input.safety ?? CONTEXT_SAFETY_TOKENS;
-  return Math.max(0, input.caps.contextWindow - input.maxTokens - safety);
+  const raw = input.caps.contextWindow - input.maxTokens - safety - (input.reserved ?? 0);
+  return Math.max(0, Math.floor(raw * (input.scale ?? 1)));
 }
 
 export interface ChapterContextParts {

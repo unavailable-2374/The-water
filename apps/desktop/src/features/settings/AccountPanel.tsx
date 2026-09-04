@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ExternalLink, LogOut, Pencil, RefreshCw, Trash2, UserRound } from 'lucide-react';
-import { LICENSE_LABELS, type NovelSummary } from '@the-water/shared';
+import { LICENSE_LABELS, validateHandle, type NovelSummary } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Badge, Button, Card, EmptyState, Field, Input, SectionTitle, Spinner, cn } from '@/components/ui';
+import { Badge, Button, Card, cn, confirm, EmptyState, Field, Input, SectionTitle, Spinner } from '@/components/ui';
 import { Avatar } from '@/components/Avatar';
 import { authorPath } from '@/components/UserChip';
 import { LevelBadge } from '@/features/community/LevelBadge';
 import { ProfileEditDialog } from './ProfileEditDialog';
+import { AccountSecuritySection, ForgotPasswordDialog } from './AccountSecurity';
 import { PointsCard } from './PointsCard';
 import { useCommunity } from '@/stores/communityStore';
 import { toast } from '@/components/Toast';
 import { listNovels, updateNovel } from '@/db/repos/novelsRepo';
 import { useAccount } from '@/stores/accountStore';
 import { DEFAULT_SERVER_URL, getClient, getServerUrl, login, logout, register, setServerUrl } from '@/sync/account';
-import { describeError } from '@/sync/api';
+import { checkServer, describeError } from '@/sync/api';
+import { validateBaseUrl } from './providerAdvanced';
 
 /** Login / register form. Reused by the settings panel and the public-area login dialog. */
 export function LoginForm({ onDone }: { onDone?: () => void }) {
@@ -24,16 +26,51 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [handle, setHandle] = useState('');
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [probing, setProbing] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => { void getServerUrl().then(setServer); }, []);
+
+  /** 地址不合法就不落库，免得把用户锁在一个打不通的地址上。 */
+  const commitServerUrl = async () => {
+    const err = validateBaseUrl(serverUrl);
+    setServerError(err);
+    if (err) return;
+    await setServerUrl(serverUrl.replace(/\/+$/, ''));
+  };
+
+  const testServer = async () => {
+    const err = validateBaseUrl(serverUrl);
+    setServerError(err);
+    if (err) return;
+    setProbing(true);
+    try {
+      const health = await checkServer(serverUrl);
+      await setServerUrl(serverUrl.replace(/\/+$/, ''));
+      toast.success(`连接正常：${health.service} v${health.version}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setServerError(msg);
+      toast.error(msg);
+    } finally {
+      setProbing(false);
+    }
+  };
 
   const submit = async () => {
     if (!serverUrl.trim() || !email.trim() || !password) { toast.error('请填写服务器地址、邮箱和密码'); return; }
     if (mode === 'register' && password.length < 8) { toast.error('密码至少 8 位'); return; }
     if (mode === 'register' && !displayName.trim()) { toast.error('请填写昵称'); return; }
+    const wantedHandle = handle.trim().toLowerCase();
+    if (mode === 'register' && wantedHandle) {
+      const invalid = validateHandle(wantedHandle);
+      if (invalid) { toast.error(invalid); return; }
+    }
     setBusy(true);
     try {
-      const account = mode === 'login' ? await login(serverUrl, email, password) : await register(serverUrl, email, password, displayName);
+      const account = mode === 'login' ? await login(serverUrl, email, password) : await register(serverUrl, email, password, displayName, wantedHandle);
       await refresh();
       toast.success(`已登录：${account.displayName}`);
       onDone?.();
@@ -53,20 +90,49 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
           </button>
         ))}
       </div>
-      <Field label={t.publicArea.serverUrl}>
-        <Input value={serverUrl} onChange={(e) => setServer(e.target.value)} onBlur={() => void setServerUrl(serverUrl)} placeholder={DEFAULT_SERVER_URL} />
+      <Field label={t.publicArea.serverUrl} hint={serverError ?? undefined}>
+        <div className="flex gap-2">
+          <Input
+            className="flex-1"
+            value={serverUrl}
+            onChange={(e) => { setServer(e.target.value); setServerError(null); }}
+            onBlur={() => void commitServerUrl()}
+            placeholder={DEFAULT_SERVER_URL}
+          />
+          <Button variant="ghost" disabled={probing} onClick={() => void testServer()}>
+            {probing ? <Spinner /> : null}测试连接
+          </Button>
+        </div>
       </Field>
       <Field label="邮箱"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" /></Field>
       <Field label="密码" hint={mode === 'register' ? '至少 8 位' : undefined}>
         <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
       </Field>
-      {mode === 'register' && <Field label="昵称"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={32} /></Field>}
-      <div className="flex justify-end pt-1">
+      {mode === 'register' && (
+        <>
+          <Field label="昵称"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={32} /></Field>
+          <Field label={t.community.handle} hint="留空的话，我们给你随机生成一个，之后可以改">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-400">@</span>
+              <Input className="pl-7" value={handle} maxLength={20} autoCapitalize="none" spellCheck={false} onChange={(e) => setHandle(e.target.value)} />
+            </div>
+          </Field>
+        </>
+      )}
+      <div className="flex items-center justify-between pt-1">
+        {mode === 'login' ? (
+          <button type="button" className="text-xs text-ink-400 underline-offset-2 hover:text-ink-700 hover:underline dark:hover:text-paper-100" onClick={() => setForgotOpen(true)}>
+            忘记密码？
+          </button>
+        ) : (
+          <span />
+        )}
         <Button variant="primary" onClick={submit} disabled={busy}>
           {busy && <Spinner className="h-3 w-3" />}
           {mode === 'login' ? t.publicArea.login : t.publicArea.register}
         </Button>
       </div>
+      <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} defaultEmail={email} />
     </div>
   );
 }
@@ -127,7 +193,7 @@ function LoggedIn() {
   };
 
   const unpublish = async (n: NovelSummary) => {
-    if (!confirm(`确定下架《${n.title}》？读者将无法再看到它，已派生的二创不受影响。`)) return;
+    if (!(await confirm({ title: `确定下架《${n.title}》？`, description: '读者将无法再看到它，已派生的二创不受影响。', confirmText: '下架', tone: 'danger' }))) return;
     try {
       const client = await getClient();
       if (!client) return;
@@ -179,6 +245,8 @@ function LoggedIn() {
       </div>
 
       <PointsCard />
+
+      <AccountSecuritySection />
 
       <section>
         <SectionTitle action={<Button size="sm" variant="ghost" onClick={() => load()} disabled={busy}><RefreshCw size={16} strokeWidth={1.75} className={busy ? 'animate-spin' : ''} />刷新</Button>}>我的发布</SectionTitle>

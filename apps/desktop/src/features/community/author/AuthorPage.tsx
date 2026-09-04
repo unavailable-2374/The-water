@@ -4,7 +4,7 @@ import { ArrowLeft, Ban, Eye, GitFork, Heart, Share2, ShieldOff } from 'lucide-r
 import { BADGE_BY_ID, type BadgeId, type NovelSummary, type UserProfile } from '@the-water/shared';
 import { t } from '@/i18n/zh';
 import { Avatar } from '@/components/Avatar';
-import { Badge, Button, EmptyState, Spinner, cn } from '@/components/ui';
+import { Badge, Button, cn, confirm, EmptyState, Spinner } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { friendlyError } from '@/community/errors';
 import { getBrowseClient, getClient, getServerUrl } from '@/sync/account';
@@ -65,7 +65,7 @@ export function AuthorPage() {
 
   const toggleBlock = async () => {
     if (!user || !requireLogin()) return;
-    if (!blocked && !confirm(t.community.blockConfirm)) return;
+    if (!blocked && !(await confirm({ title: t.community.blockConfirm, confirmText: t.common.confirm, tone: 'danger' }))) return;
     try {
       const c = await getClient();
       if (!c) return;

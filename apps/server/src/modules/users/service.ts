@@ -19,8 +19,10 @@ import { changes } from '../../db/client';
 import { blocks, follows, forks, novels, userBadges, users, type UserRow } from '../../db/schema';
 import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { ApiError, notFound, validation } from '../../lib/errors';
+import type { ModerationField } from '../../lib/moderation';
 import { iso } from '../../lib/time';
 import { authorShareUrl } from '../../lib/urls';
+import { assertTextAllowed } from '../admin/audit';
 import { publicListWhere } from '../browse/service';
 import { toNovelSummary } from '../novels/dto';
 import { type Viewer } from '../novels/service';
@@ -291,4 +293,24 @@ export function listRelations(
     items: page.map((r) => toUserCard(r.u)),
     nextCursor: rows.length > limit && last ? encodeCursor({ v: last.createdAt.getTime(), id: last.u.id }) : null,
   };
+}
+
+// ---- 个人资料审核（P0-2）----
+
+/**
+ * 昵称 / 简介 / handle 的准入检查。未过审直接抛 CONTENT_REJECTED，并留一条 auto_reject 审计记录。
+ *
+ * 供 auth/service.ts 的 updateProfile 调用（那个文件不归本模块所有）：
+ *   await moderateProfileFields(deps, patch, user.id);
+ */
+export async function moderateProfileFields(
+  deps: AppDeps,
+  patch: { displayName?: string; handle?: string; bio?: string | null },
+  userId?: string,
+): Promise<void> {
+  const fields: ModerationField[] = [];
+  if (patch.displayName !== undefined) fields.push({ label: '昵称', text: patch.displayName });
+  if (patch.handle !== undefined) fields.push({ label: '用户名', text: patch.handle });
+  if (patch.bio !== undefined && patch.bio !== null) fields.push({ label: '简介', text: patch.bio });
+  await assertTextAllowed(deps, fields, { type: 'user', id: userId ?? 'unknown', meta: { kind: 'profile' } });
 }

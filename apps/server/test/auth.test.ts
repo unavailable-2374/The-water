@@ -24,10 +24,25 @@ describe('auth', () => {
     expect(me.body.user.id).toBe(auth.user.id);
   });
 
-  it('admin role is derived from ADMIN_EMAILS', async () => {
+  it('注册时不按 ADMIN_EMAILS 提权（P0-3）', async () => {
     const t = makeTestApp();
-    const { user } = await t.register('admin@example.com', '管理员');
-    expect(user.role).toBe('admin');
+    const r = await t.json('POST', '/api/v1/auth/register', {
+      body: { email: 'admin@example.com', password: 'password123', displayName: '管理员' },
+    });
+    expect(r.status).toBe(201);
+    expect(r.body.user.role).toBe('user');
+  });
+
+  it('账号不存在时也走一次密码校验（恒定时间，§3.6）', async () => {
+    const t = makeTestApp();
+    await t.register('timing@example.com');
+    const missing = await t.json('POST', '/api/v1/auth/login', { body: { email: 'ghost@example.com', password: 'password123' } });
+    expect(missing.status).toBe(401);
+    expect(missing.body.error.code).toBe('INVALID_CREDENTIALS');
+    // 与「账号存在但密码错」的响应完全一致，外部看不出差别。
+    const wrong = await t.json('POST', '/api/v1/auth/login', { body: { email: 'timing@example.com', password: 'wrong-pass' } });
+    expect(wrong.status).toBe(missing.status);
+    expect(wrong.body.error).toEqual(missing.body.error);
   });
 
   it('rejects duplicate email (case-insensitive) with EMAIL_TAKEN', async () => {

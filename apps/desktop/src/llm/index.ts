@@ -32,7 +32,39 @@ export {
   type RateGateOptions,
   type SleepFn,
 } from './retry';
-export { estimateTokens, estimateMessagesTokens, countCjkChars } from './tokens';
+export {
+  estimateTokens,
+  estimateMessagesTokens,
+  countCjkChars,
+  countCjkAndOther,
+  truncateHead,
+  truncateTail,
+  DEFAULT_CJK_TOKEN_RATIO,
+} from './tokens';
+export {
+  DEFAULT_FIRST_BYTE_TIMEOUT_MS,
+  DEFAULT_IDLE_TIMEOUT_MS,
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_JSON_REPAIR_ROUNDS,
+  CONTEXT_DOWNGRADE_FACTOR,
+  CONTEXT_DOWNGRADE_MAX_ATTEMPTS,
+} from './config';
+export {
+  RequestTimer,
+  guardedIteration,
+  fetchWithTimeout,
+  resolveTimeouts,
+  timeoutError,
+  isTimeoutError,
+  type RequestTimeouts,
+  type TimeoutPhase,
+} from './timeout';
+export {
+  withContextDowngrade,
+  downgradeScale,
+  isContextLengthError,
+  type ContextDowngradeOptions,
+} from './contextBudget';
 export { complete, completeWithRetry, type CompleteWithRetryOptions, type DeltaHandler } from './complete';
 export {
   parseJsonLoose,
@@ -41,8 +73,19 @@ export {
   zodToJsonSchema,
   summarizeZodIssues,
   appendSchemaInstruction,
+  schemaInstructionTokens,
+  schemaReserveTokens,
   JSON_ONLY_INSTRUCTION,
   type RequestJsonOptions,
   type RequestJsonResult,
 } from './json';
-export { createProvider, getPreset, PROVIDER_PRESETS, type PresetId, type ProviderPreset } from './factory';
+export {
+  createProvider,
+  getPreset,
+  findPresetForModel,
+  modelParams,
+  PROVIDER_PRESETS,
+  type PresetId,
+  type PresetModel,
+  type ProviderPreset,
+} from './factory';

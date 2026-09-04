@@ -11,6 +11,7 @@ import { createVersion, setChapterStatus } from '@/db/repos/chaptersRepo';
 import { findReviewByStep, saveReview, type ChapterReviewJson } from '@/db/repos/reviewsRepo';
 import { requestJson } from '@/llm/json';
 import { completeWithRetry } from '@/llm/complete';
+import { withContextDowngrade } from '@/llm/contextBudget';
 import { styleReviewPrompt, reviewToInstructions, type StyleReviewResult } from '@/llm/prompts/styleReview';
 import { consistencyIssueCount, consistencyReviewPrompt, consistencyToInstructions, hasConsistencyMaterial, type ConsistencyResult } from '@/llm/prompts/consistencyReview';
 import { mergeLoreSettings } from '@/llm/prompts/context';
@@ -21,6 +22,8 @@ import { docTypeGuide } from '@/novel/docTypes';
 import { applyGenreToProfile, genreLoreSettings, genreTargets, isEmptyGenre, mergedGenreOf } from '@/novel/genrePacks';
 import { maxTokensForChapter } from '@/novel/wordBudget';
 import { emitJobEvent } from '../events';
+import { joinResumed, resumePrefix, withResumeSeed } from '../resume';
+import type { Usage } from '@/llm/types';
 import type { StepHandler } from '../context';
 import { buildChapterContextText, currentVersionOf, loadChapterEnv, styleExtrasOf, type ChapterEnv } from './common';
 
@@ -54,7 +57,8 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
       chapterNo: chapter.chapterNo, chapterText: text, profile, characters: doc.characters, derivative: doc.derivative,
       sourceTitle: novel.origin?.sourceTitle ?? null, canonFacts, metricHints: [...metricHints, ...lintHints], qcReminders,
     });
-    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    await ctx.recordUsage(r.usage, { purpose: 'styleReview' });
     llm = r.value;
   }
 
@@ -73,7 +77,10 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
     if (hasConsistencyMaterial(cInput)) {
       ctx.setMessage(`正在校对第 ${chapter.chapterNo} 章的设定与时间线`);
       const spec = consistencyReviewPrompt(cInput);
-      const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, onDelta: (_d, acc) => ctx.onDelta(acc) });
+      // 设定校对是独立职能，允许配一个更便宜的模型（§2.1 第 2 条）。
+      const checker = await ctx.providerFor('consistency');
+      const r = await requestJson(checker, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+      await ctx.recordUsage(r.usage, { purpose: 'consistency', provider: checker });
       consistency = r.value;
     }
   }
@@ -118,14 +125,25 @@ export const styleCheckStep: StepHandler = async (ctx) => {
     ctx.setMessage(`第 ${chapter.chapterNo} 章文风/人物未达标，正在定点修订（${a.instructions.length} 处）`);
     await setChapterStatus(chapter.id, 'generating');
     const target = chapter.targetChars || countZh(version.content) || 3000;
-    const maxTokens = maxTokensForChapter(target, ctx.provider.caps);
-    const contextUserText = await buildChapterContextText(env, ctx.provider, maxTokens);
-    const spec = rewriteChapterPrompt({ chapterNo: chapter.chapterNo, requirements: novel.requirements, contextUserText, oldText: version.content, instructions: a.instructions, mode: 'revise', targetChars: target, caps: ctx.provider.caps, style: styleExtrasOf(env) });
-    const r = await completeWithRetry(ctx.provider, { messages: spec.messages, maxTokens: spec.maxTokens, temperature: spec.temperature, signal: ctx.signal }, { onDelta: (_d, acc) => ctx.onDelta(acc) });
-    const text = r.text.trim();
+    // 定点修订是在写正文，用写作模型，不用审校用的便宜模型。
+    const writer = await ctx.providerFor('writing');
+    const maxTokens = maxTokensForChapter(target, writer.caps);
+    const oldText = version.content;
+    const seed = resumePrefix(ctx.takeResumeSeed());
+    const { text, usage } = await withContextDowngrade<{ text: string; usage: Usage }>(
+      async (scale) => {
+        const contextUserText = await buildChapterContextText(env, writer, maxTokens, { scale });
+        const spec = rewriteChapterPrompt({ chapterNo: chapter.chapterNo, requirements: novel.requirements, contextUserText, oldText, instructions: a.instructions, mode: 'revise', targetChars: target, caps: writer.caps, style: styleExtrasOf(env) });
+        const { messages } = withResumeSeed(spec.messages, seed);
+        const r = await completeWithRetry(writer, { messages, maxTokens: spec.maxTokens, temperature: spec.temperature, signal: ctx.signal }, { gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(joinResumed(seed, acc)) });
+        return { text: joinResumed(seed, r.text).trim(), usage: r.usage };
+      },
+      { onDowngrade: ({ nextScale }) => ctx.setMessage(`上下文超出模型窗口，已缩减到 ${Math.round(nextScale * 100)}% 重试第 ${chapter.chapterNo} 章`) },
+    );
+    await ctx.recordUsage(usage, { purpose: 'writing', provider: writer });
     if (countZh(text) < 50) break;
     const instructions = a.instructions;
-    version = await createVersion({ chapterId: chapter.id, content: text, source: 'rewritten', summary: version.summary, storylineSnapshotId: env.snapshotId, jobStepId: ctx.step.id, model: ctx.provider.model, usage: r.usage });
+    version = await createVersion({ chapterId: chapter.id, content: text, source: 'rewritten', summary: version.summary, storylineSnapshotId: env.snapshotId, jobStepId: ctx.step.id, model: writer.model, usage });
     emitJobEvent({ type: 'chapter:versionCreated', novelId: novel.id, chapterId: chapter.id, versionId: version.id });
     a = await assess(env, text, ctx);
     a.report.revisedVersionId = version.id;

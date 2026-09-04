@@ -4,7 +4,7 @@ import {
   DERIVATIVE_KIND_LABEL, DerivativeKind, SCENE_TYPE_LABEL, SceneType, VOICE_DIMENSIONS, VOICE_DIMENSION_LABEL, emptyDerivative, emptyStyleProfile,
   type DerivativeDecl, type StyleProfile,
 } from '@the-water/shared';
-import { Button, Field, Input, Select, Spinner, Textarea, cn } from '@/components/ui';
+import { Button, cn, confirm, Field, Input, Select, Spinner, Textarea } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import { getStyleExtras } from '@/db/repos/storylineRepo';
@@ -97,7 +97,7 @@ function StyleProfileEditor({ novel, profile, hasText, busy, onExtract, onSaved 
         {p.source.chaptersSampled.length > 0 && <span>· 取样第 {p.source.chaptersSampled.join('、')} 章</span>}
         <span className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="ai" disabled={!hasText || busy} onClick={onExtract}><Sparkles size={14} strokeWidth={1.75} />{p.source.kind === 'extracted' ? '重新提取' : '从正文提取文风'}</Button>
-          <Button size="sm" variant="ghost" className="text-cinnabar-600 dark:text-cinnabar-100" onClick={async () => { if (!confirm('清空文风档案？')) return; await saveStyleProfile(novel.id, null); onSaved(); }}>清空</Button>
+          <Button size="sm" variant="ghost" className="text-cinnabar-600 dark:text-cinnabar-100" onClick={async () => { if (!(await confirm({ title: '清空文风档案？', description: '已学到的文风偏好会一并清除，无法撤销。', confirmText: '清空', tone: 'danger' }))) return; await saveStyleProfile(novel.id, null); onSaved(); }}>清空</Button>
         </span>
       </div>
       <Field label="名称"><Input value={p.name} onChange={(e) => setP({ name: e.target.value })} /></Field>

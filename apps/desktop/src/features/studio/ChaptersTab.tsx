@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { History, Maximize2, Minimize2, CheckCircle2, RotateCcw, Sparkles, Download, BookOpen, ShieldCheck } from 'lucide-react';
 import { countZh } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Button, EmptyState, cn } from '@/components/ui';
+import { Button, Dialog, EmptyState, Field, Input, Select, cn } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import { createVersion, getVersion, listChapters, listVersions, restoreVersion, setChapterStatus, type Chapter, type ChapterVersion } from '@/db/repos/chaptersRepo';
@@ -16,7 +16,8 @@ import { lintText, type LintReport } from '@/novel/lint';
 import type { StyleProfile } from '@the-water/shared';
 import { kick } from '@/jobs/runner';
 import { activeJobsForNovel, useJobs } from '@/stores/jobsStore';
-import { exportNovel } from '@/novel/export';
+import { getSetting, setSetting } from '@/db/repos/settingsRepo';
+import { FORMAT_LABEL, exportNovel, type ExportFormat } from '@/novel/export';
 
 const STATUS: Record<Chapter['status'], { label: string; dot: string }> = {
   planned: { label: t.studio.planned, dot: 'bg-paper-400' }, generating: { label: t.studio.generating, dot: 'bg-tea-500 animate-pulse' }, draft: { label: t.studio.draft, dot: 'bg-amber-500' },
@@ -41,6 +42,7 @@ function zhNum(n: number): string {
 export function ChaptersTab({ novel }: { novel: Novel }) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const tick = useJobs((s) => s.novelTick[novel.id] ?? 0);
   const jobs = useJobs((s) => s.jobs);
   const live = useJobs((s) => s.live);
@@ -69,7 +71,7 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
               <div className="font-serif text-base font-semibold tracking-wide text-ink-900 dark:text-paper-100">目录</div>
               <div className="mt-0.5 text-xs text-ink-400">已写 <span className="font-serif">{chapters.length - unwritten}</span> / <span className="font-serif">{chapters.length}</span> 章</div>
             </div>
-            <Button size="sm" variant="ghost" className="px-2" title="导出为 TXT" onClick={async () => { try { const p = await exportNovel(novel, 'txt'); if (p) toast.success(`已导出到 ${p}`); } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); } }}><Download size={16} strokeWidth={1.75} /></Button>
+            <Button size="sm" variant="ghost" className="px-2" title="导出：TXT / Markdown / EPUB / DOCX" onClick={() => setExportOpen(true)}><Download size={16} strokeWidth={1.75} /></Button>
           </div>
           {unwritten > 0 && !active && (
             <Button size="sm" variant="ai" className="mt-3 w-full" onClick={async () => { try { await startGeneration(novel.id); toast.success('AI 开始动笔了'); } catch (e) { toast.error(String(e instanceof Error ? e.message : e)); } }}><Sparkles size={14} strokeWidth={1.75} />让 AI 写完剩下的 {unwritten} 章</Button>
@@ -99,7 +101,74 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
       <section className="min-w-0 overflow-hidden">
         {selected ? <ChapterEditor key={selected.id} novel={novel} chapter={selected} liveText={liveChapterId === selected.id ? liveText : undefined} busy={!!active} onChanged={reload} /> : <EmptyState icon={<BookOpen size={40} strokeWidth={1.25} />} title="从目录里挑一章" description="选中一章，就可以在这张稿纸上读、改，或者交给 AI 重写。" />}
       </section>
+      <ExportDialog novel={novel} chapters={chapters} open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
+  );
+}
+
+const FORMATS: ExportFormat[] = ['txt', 'md', 'epub', 'docx'];
+const DEFAULT_LICENSE = '保留所有权利';
+
+/** 导出对话框：选格式、挑章节范围、补作者与许可，元数据会写进文件里。 */
+function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapters: Chapter[]; open: boolean; onClose: () => void }) {
+  const written = chapters.filter((c) => c.currentVersionId);
+  const first = written[0]?.chapterNo ?? 1;
+  const last = written[written.length - 1]?.chapterNo ?? 1;
+  const [format, setFormat] = useState<ExportFormat>('txt');
+  const [whole, setWhole] = useState(true);
+  const [from, setFrom] = useState(first);
+  const [to, setTo] = useState(last);
+  const [author, setAuthor] = useState('');
+  const [license, setLicense] = useState(DEFAULT_LICENSE);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setFrom(first); setTo(last);
+    void (async () => {
+      setAuthor(await getSetting('exportAuthor', ''));
+      setLicense(await getSetting('exportLicense', DEFAULT_LICENSE));
+    })();
+  }, [open, first, last]);
+
+  const count = written.filter((c) => whole || (c.chapterNo >= from && c.chapterNo <= to)).length;
+  const doExport = async () => {
+    setBusy(true);
+    try {
+      await setSetting('exportAuthor', author);
+      await setSetting('exportLicense', license);
+      const path = await exportNovel(novel, format, { range: whole ? null : { from, to }, meta: { author, license } });
+      if (path) { toast.success(`已导出到 ${path}`); onClose(); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title="导出这本书" subtitle="书名、作者、简介、许可会一并写进文件" width="max-w-md">
+      <div className="space-y-4">
+        <Field label="格式">
+          <Select value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)}>
+            {FORMATS.map((f) => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
+          </Select>
+        </Field>
+        <Field label="章节范围" hint={written.length === 0 ? '还没有写好的章节' : `已写 ${written.length} 章（第 ${first}–${last} 章），这次导出 ${count} 章`}>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-ink-600 dark:text-ink-300">
+              <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} />全书
+            </label>
+            <Input type="number" className="w-20" min={first} max={last} value={from} disabled={whole} onChange={(e) => setFrom(Number(e.target.value))} />
+            <span className="text-ink-400">–</span>
+            <Input type="number" className="w-20" min={first} max={last} value={to} disabled={whole} onChange={(e) => setTo(Number(e.target.value))} />
+            <span className="text-sm text-ink-400">章</span>
+          </div>
+        </Field>
+        <Field label="作者" hint="会写进文件元数据，下次还用这个"><Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="署名" /></Field>
+        <Field label="许可"><Input value={license} onChange={(e) => setLicense(e.target.value)} placeholder={DEFAULT_LICENSE} /></Field>
+      </div>
+      <div className="mt-6 flex justify-end gap-2">
+        <Button onClick={onClose}>{t.common.cancel}</Button>
+        <Button variant="primary" disabled={busy || count === 0} onClick={doExport}><Download size={14} strokeWidth={1.75} />{busy ? '正在导出…' : '导出'}</Button>
+      </div>
+    </Dialog>
   );
 }
 

@@ -20,6 +20,7 @@
     "@tauri-apps/plugin-opener": "^2.5.5",
     "@tauri-apps/plugin-sql": "^2.4.1",
     "@the-water/shared": "workspace:*",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.39.0",
     "nanoid": "^6.0.1",
     "pdfjs-dist": "^6.3.289",

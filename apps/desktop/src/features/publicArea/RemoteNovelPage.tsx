@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, Eye, GitFork, Heart, List, MessageSquare, Share2 } from 'lucide-react';
 import { LICENSE_LABELS, type ChapterContent, type ChapterMeta, type LineageNode, type LineageResponse, type NovelDetail, type NovelRef } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Badge, BookCover, Button, Card, SectionTitle, Spinner, cn } from '@/components/ui';
+import { Badge, BookCover, Button, Card, cn, confirm, SectionTitle, Spinner } from '@/components/ui';
 import { UserChip } from '@/components/UserChip';
 import { FollowButton } from '@/features/community/FollowButton';
 import { ShareDialog } from './ShareDialog';
@@ -102,7 +102,7 @@ export function RemoteNovelPage() {
   const doFork = async () => {
     if (!detail || !requireLogin()) return;
     if (!detail.allowDerivatives) { toast.error('作者没有开放二创'); return; }
-    if (!confirm(`把《${detail.title}》第 v${detail.currentVersion?.versionNumber ?? '?'} 版带回你的书桌，作为二创的起点？`)) return;
+    if (!(await confirm({ title: `二创《${detail.title}》？`, description: `把第 v${detail.currentVersion?.versionNumber ?? '?'} 版带回你的书桌，作为二创的起点。`, confirmText: '带回书桌' }))) return;
     setForking('准备中…');
     try {
       const c = await getClient();

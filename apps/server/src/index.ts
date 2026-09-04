@@ -3,23 +3,35 @@ import type { AppDeps } from './context';
 import { createDb } from './db/client';
 import { runMigrations } from './db/migrate';
 import { loadEnv } from './env';
-import { noopModerator } from './lib/moderation';
+import { createMailer } from './lib/mailer';
+import { createModerator } from './lib/moderation';
 import { HOUR, systemClock } from './lib/time';
 import { gcSessions } from './modules/auth/service';
-import { gcDrafts } from './modules/versions/service';
+import { gcBlobs, gcDrafts } from './modules/versions/service';
 
 const env = loadEnv();
 const { db } = createDb(env.databaseUrl);
 runMigrations(db);
 
-const deps: AppDeps = { db, env, clock: systemClock, moderator: noopModerator, rateLimits: {} };
+const deps: AppDeps = {
+  db,
+  env,
+  clock: systemClock,
+  moderator: createModerator(env),
+  mailer: createMailer(env),
+  rateLimits: {},
+};
 const app = createApp(deps);
 
 function runGc(): void {
   try {
+    // 顺序要紧：先清过期草稿，草稿行还在时它的 manifest 仍算 blob 引用。
     const drafts = gcDrafts(deps);
     const sessions = gcSessions(deps);
-    if (drafts || sessions) console.log(`[gc] 清理草稿 ${drafts} 个，过期会话 ${sessions} 个`);
+    const orphanBlobs = gcBlobs(deps);
+    if (drafts || sessions || orphanBlobs) {
+      console.log(`[gc] 清理草稿 ${drafts} 个，过期会话 ${sessions} 个，孤儿 blob ${orphanBlobs} 个`);
+    }
   } catch (e) {
     console.error('[gc] 失败:', e);
   }

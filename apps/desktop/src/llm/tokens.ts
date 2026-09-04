@@ -1,24 +1,26 @@
-import type { ChatMessage } from './types';
-
-/** CJK Symbols/Punctuation + Kana + Han (U+3000–U+9FFF), CJK Compatibility Ideographs (U+F900–U+FAFF), Halfwidth/Fullwidth Forms (U+FF00–U+FFEF). */
-const CJK_RE = /[　-鿿豈-﫿＀-￯]/g;
-
-export function countCjkChars(text: string): number {
-  const m = text.match(CJK_RE);
-  return m ? m.length : 0;
-}
-
 /**
- * Rough token estimate: CJK chars count `cjkRatio` tokens each, everything else ~4 chars/token.
- * Anthropic tokenizes CJK closer to 1 token/char, OpenAI-family closer to 0.7.
+ * Token 估算的**唯一**实现在 `prompts/estimate.ts`（按 Unicode script 匹配、按码点
+ * 计数，代理对安全），这里只做转发 + 补一个「按消息列表估算」的便捷函数。
+ *
+ * 依赖方向是 transport → prompt，prompt 层仍然不依赖 transport 层（§4.6）。
  */
-export function estimateTokens(text: string, cjkRatio = 0.7): number {
-  if (!text) return 0;
-  const cjk = countCjkChars(text);
-  const other = text.length - cjk;
-  return Math.ceil(cjk * cjkRatio + other / 4);
+import type { ChatMessage } from './types';
+import { countCjkAndOther, estimateTokens } from './prompts/estimate';
+
+export {
+  DEFAULT_CJK_TOKEN_RATIO,
+  countCjkAndOther,
+  estimateTokens,
+  truncateHead,
+  truncateTail,
+} from './prompts/estimate';
+
+/** CJK（含全角标点）字符数。 */
+export function countCjkChars(text: string): number {
+  return countCjkAndOther(text).cjk;
 }
 
+/** 每条消息的角色/分隔开销（经验值）。 */
 const PER_MESSAGE_OVERHEAD = 4;
 
 export function estimateMessagesTokens(messages: readonly ChatMessage[], cjkRatio = 0.7): number {

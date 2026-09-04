@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, notExists, or, sql } from 'drizzle-orm';
 import {
   LIMITS,
   hashStoryline,
@@ -11,6 +11,7 @@ import {
 } from '@the-water/shared';
 import type { AppDeps, AuthUser } from '../../context';
 import {
+  blobs,
   novels,
   novelVersions,
   versionChapters,
@@ -18,6 +19,7 @@ import {
   type NovelRow,
   type NovelVersionRow,
 } from '../../db/schema';
+import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { ApiError, conflict, forbidden, notFound, validation } from '../../lib/errors';
 import { newId } from '../../lib/ids';
 import { DAY } from '../../lib/time';
@@ -26,8 +28,13 @@ import { recordActivity } from '../feed/service';
 import { awardPublish } from '../incentive/service';
 import { toVersionSummary } from '../novels/dto';
 import { buildNovelDetail, canView, findNovelRow, isOwnerOrAdmin, loadOwnedNovel, type Viewer } from '../novels/service';
+import { recordModerationEvent } from '../admin/audit';
 
 export const DRAFT_TTL_MS = DAY;
+/** 孤儿 blob 的回收宽限期：刚上传、还没来得及建草稿的内容不回收。 */
+export const BLOB_GC_GRACE_MS = DAY;
+/** 批量删除时每条 SQL 的最大参数个数。 */
+const GC_CHUNK = 400;
 
 function validateManifest(chapters: CreateVersionRequest['chapters']): ChapterManifestRow[] {
   const sorted = [...chapters].sort((a, b) => a.index - b.index);
@@ -151,20 +158,44 @@ export function getVersionStatus(
   return { version: toVersionSummary(v) };
 }
 
-export function listVersions(deps: AppDeps, novelId: string, viewer: Viewer): Page<VersionSummary> {
+export function listVersions(
+  deps: AppDeps,
+  novelId: string,
+  viewer: Viewer,
+  cursorRaw?: string,
+  limit = 20,
+): Page<VersionSummary> {
   const novel = findNovelRow(deps, novelId);
   if (!novel || !canView(novel, viewer)) throw notFound('小说');
   const owner = isOwnerOrAdmin(novel, viewer);
-  const where = owner
+  const base = owner
     ? eq(novelVersions.novelId, novelId)
     : and(eq(novelVersions.novelId, novelId), eq(novelVersions.status, 'committed'));
+  // 游标键为 (versionNumber, id)：已提交版本号唯一，草稿版本号同为 0，
+  // 但 id 是 UUIDv7（时间有序），倒序即“新草稿在前”，翻页不会漂移或漏项。
+  const cursor = decodeCursor(cursorRaw);
+  const where = cursor
+    ? and(
+        base,
+        or(
+          lt(novelVersions.versionNumber, cursor.v),
+          and(eq(novelVersions.versionNumber, cursor.v), lt(novelVersions.id, cursor.id)),
+        ),
+      )
+    : base;
   const rows = deps.db
     .select()
     .from(novelVersions)
     .where(where)
-    .orderBy(desc(novelVersions.versionNumber), desc(novelVersions.createdAt))
+    .orderBy(desc(novelVersions.versionNumber), desc(novelVersions.id))
+    .limit(limit + 1)
     .all();
-  return { items: rows.map(toVersionSummary), nextCursor: null };
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    items: page.map(toVersionSummary),
+    nextCursor: rows.length > limit && last ? encodeCursor({ v: last.versionNumber, id: last.id }) : null,
+  };
 }
 
 /** 仅允许中止草稿；已提交版本不可删除（不可变）。 */
@@ -247,6 +278,19 @@ export async function commitVersion(deps: AppDeps, user: AuthUser, novelId: stri
     if (!moderation.ok) {
       novelSet.moderationStatus = 'hidden';
       novelSet.moderationNote = moderation.reason;
+      // P0-6：自动隐藏也要留痕，否则作者申诉时无从追溯是哪条规则命中。
+      recordModerationEvent(
+        deps,
+        {
+          actorId: null,
+          targetType: 'version',
+          targetId: v.id,
+          action: 'auto_reject',
+          reason: moderation.reason,
+          meta: { novelId: novel.id, kind: 'commit' },
+        },
+        tx,
+      );
     } else if (novel.moderationStatus === 'hidden') {
       // 之前因审核挂起的小说，新版本通过审核后恢复。
       novelSet.moderationStatus = 'ok';
@@ -283,6 +327,55 @@ export function gcDrafts(deps: AppDeps): number {
     .where(inArray(novelVersions.id, stale.map((s) => s.id)))
     .run();
   return stale.length;
+}
+
+/**
+ * 回收孤儿 blob。判定为“被引用”的两条来源，缺一不可：
+ * 1. `version_chapters.blob_hash` —— 已提交版本的章节；
+ * 2. 未过期草稿版本的 `manifest` —— 草稿的章节 hash 只存在 JSON manifest 里，
+ *    还没写进 `version_chapters`，漏算会误删正在上传的内容。
+ * 另加宽限期（默认 24 小时）：只回收 `created_at` 早于宽限期的 blob，
+ * 避免删掉刚上传、草稿尚未创建的内容。
+ */
+export function gcBlobs(deps: AppDeps, graceMs: number = BLOB_GC_GRACE_MS): number {
+  const nowMs = deps.clock.now().getTime();
+  const cutoff = new Date(nowMs - graceMs);
+  const draftCutoff = new Date(nowMs - DRAFT_TTL_MS);
+
+  const liveDrafts = deps.db
+    .select({ manifest: novelVersions.manifest })
+    .from(novelVersions)
+    .where(and(eq(novelVersions.status, 'draft'), gte(novelVersions.createdAt, draftCutoff)))
+    .all();
+  const draftRefs = new Set<string>();
+  for (const d of liveDrafts) for (const c of d.manifest) draftRefs.add(c.hash);
+
+  const orphans = deps.db
+    .select({ hash: blobs.hash })
+    .from(blobs)
+    .where(
+      and(
+        lt(blobs.createdAt, cutoff),
+        notExists(
+          deps.db
+            .select({ one: sql`1` })
+            .from(versionChapters)
+            .where(eq(versionChapters.blobHash, blobs.hash)),
+        ),
+      ),
+    )
+    .all()
+    .map((r) => r.hash)
+    .filter((h) => !draftRefs.has(h));
+  if (!orphans.length) return 0;
+
+  for (let i = 0; i < orphans.length; i += GC_CHUNK) {
+    deps.db
+      .delete(blobs)
+      .where(inArray(blobs.hash, orphans.slice(i, i + GC_CHUNK)))
+      .run();
+  }
+  return orphans.length;
 }
 
 export function listVersionChapters(deps: AppDeps, versionId: string) {

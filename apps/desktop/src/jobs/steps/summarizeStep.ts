@@ -21,7 +21,8 @@ export const summarizeStep: StepHandler = async (ctx) => {
 
   ctx.setMessage(`正在总结第 ${chapter.chapterNo} 章并更新故事圣经`);
   const spec = summarizePrompt({ chapterNo: chapter.chapterNo, chapterText: version.content, bibleBefore: bible, doc });
-  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, onDelta: (_d, acc) => ctx.onDelta(acc) });
+  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+  await ctx.recordUsage(r.usage);
   const next = applyBibleDelta(bible, r.value.bibleDelta, chapter.chapterNo, doc, arcIdForChapter(doc, chapter.chapterNo));
   await updateVersionSummary(version.id, r.value.summary);
   const snap = await saveBible(novel.id, chapter.chapterNo, next, version.id);

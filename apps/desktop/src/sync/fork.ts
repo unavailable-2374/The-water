@@ -3,7 +3,7 @@
  * materialize a local novel (storyline rows, chapter plans, imported final versions, bible).
  */
 import { countZh, emptyBible, emptyDerivative, hashChapterContent, type NovelBundleV1, type NovelOrigin } from '@the-water/shared';
-import { createNovel, deleteNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
+import { createNovel, purgeNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
 import { createVersion, upsertChapterPlan } from '@/db/repos/chaptersRepo';
 import { buildStorylineDoc, createSnapshot, replaceStorylineRows, setDerivative } from '@/db/repos/storylineRepo';
 import { createJob, listJobs } from '@/db/repos/jobsRepo';
@@ -102,7 +102,8 @@ export async function forkToLocal(client: PublicApi, remoteNovelId: string, vers
     if (!bundle.storyline.styleProfile && chapters.length > 0) await queueStyleExtraction(novel.id, onProgress);
     return updated ?? novel;
   } catch (e) {
-    await deleteNovel(novel.id).catch(() => undefined);
+    // 二创失败要把半成品彻底抹掉，而不是丢进回收站
+    await purgeNovel(novel.id).catch(() => undefined);
     throw e;
   }
 }

@@ -96,23 +96,52 @@ export function recordView(deps: AppDeps, novelId: string, viewerKey: string, vi
   return { viewCount: fresh.viewCount, counted };
 }
 
-export function createReport(
-  deps: AppDeps,
-  novelId: string,
-  viewer: Viewer,
-  req: z.infer<typeof CreateReportRequestSchema>,
-): Report {
-  loadViewableNovel(deps, novelId, viewer);
+/** 同人同对象只留一条：`${novelId}:${commentId ?? '-'}:${reporterId ?? viewerKey}`。 */
+export function reportDedupeKey(novelId: string, commentId: string | null, reporterKey: string): string {
+  return `${novelId}:${commentId ?? '-'}:${reporterKey}`;
+}
+
+export interface ReportInput {
+  novelId: string;
+  commentId: string | null;
+  reporterId: string | null;
+  /** 未登录时的兜底身份（当前举报要求登录，保留是为了将来放开匿名举报）。 */
+  viewerKey: string;
+  reason: z.infer<typeof CreateReportRequestSchema>['reason'];
+  detail?: string | null;
+}
+
+/**
+ * 写入一条举报。重复举报同一对象直接返回既有记录，不报错也不新增队列条目
+ * （§3.3：举报队列曾可零成本刷爆）。
+ */
+export function insertReport(deps: AppDeps, input: ReportInput): ReportRow {
+  const dedupeKey = reportDedupeKey(input.novelId, input.commentId, input.reporterId ?? input.viewerKey);
   const row: typeof reports.$inferInsert = {
     id: newId(),
-    novelId,
-    commentId: null,
-    reporterId: viewer?.id ?? null,
-    reason: req.reason,
-    detail: req.detail ?? null,
+    novelId: input.novelId,
+    commentId: input.commentId,
+    reporterId: input.reporterId,
+    dedupeKey,
+    reason: input.reason,
+    detail: input.detail ?? null,
     status: 'open',
     createdAt: deps.clock.now(),
   };
-  deps.db.insert(reports).values(row).run();
-  return toReport(deps.db.select().from(reports).where(eq(reports.id, row.id!)).get()!);
+  const res = deps.db.insert(reports).values(row).onConflictDoNothing().run();
+  if (changes(res) > 0) return deps.db.select().from(reports).where(eq(reports.id, row.id!)).get()!;
+  return deps.db.select().from(reports).where(eq(reports.dedupeKey, dedupeKey)).get()!;
+}
+
+export function createReport(
+  deps: AppDeps,
+  novelId: string,
+  user: AuthUser,
+  viewerKey: string,
+  req: z.infer<typeof CreateReportRequestSchema>,
+): Report {
+  loadViewableNovel(deps, novelId, user);
+  return toReport(
+    insertReport(deps, { novelId, commentId: null, reporterId: user.id, viewerKey, reason: req.reason, detail: req.detail ?? null }),
+  );
 }

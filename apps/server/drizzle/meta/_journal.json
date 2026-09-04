@@ -15,6 +15,20 @@
       "when": 1788363067566,
       "tag": "0001_complex_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788557921382,
+      "tag": "0002_flippant_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788558448929,
+      "tag": "0003_lumpy_mister_fear",
+      "breakpoints": true
     }
   ]
 }

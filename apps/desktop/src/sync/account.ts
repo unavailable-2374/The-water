@@ -78,10 +78,47 @@ export async function login(serverUrl: string, email: string, password: string):
   return persistSession(serverUrl, res.user, res.token);
 }
 
-export async function register(serverUrl: string, email: string, password: string, displayName: string): Promise<SyncAccount> {
+/** 注册。handle 留空时由服务端按 id 生成一个 `u_xxxxxxxxxxxx`。 */
+export async function register(
+  serverUrl: string,
+  email: string,
+  password: string,
+  displayName: string,
+  handle?: string,
+): Promise<SyncAccount> {
   const api = await getAnonymousClient(serverUrl);
-  const res = await api.register({ email: email.trim(), password, displayName: displayName.trim(), clientLabel: 'The Water 桌面版' });
+  const wanted = handle?.trim().toLowerCase();
+  const res = await api.register({
+    email: email.trim(),
+    password,
+    displayName: displayName.trim(),
+    ...(wanted ? { handle: wanted } : {}),
+    clientLabel: 'The Water 桌面版',
+  });
   return persistSession(serverUrl, res.user, res.token);
+}
+
+/** 忘记密码：匿名调用，服务端不会说这个邮箱有没有注册过。 */
+export async function forgotPassword(serverUrl: string, email: string): Promise<void> {
+  const api = await getAnonymousClient(serverUrl);
+  await api.forgotPassword(email.trim());
+}
+
+/** 用邮件里的验证码重置密码。成功后全部会话失效，本地凭证也一并清掉。 */
+export async function resetPassword(serverUrl: string, token: string, password: string): Promise<void> {
+  const api = await getAnonymousClient(serverUrl);
+  await api.resetPassword(token.trim(), password);
+  await secrets().delete(ACCOUNT_TOKEN_REF).catch(() => undefined);
+  await clearSyncAccount();
+}
+
+/** 注销账号：服务端匿名化并吊销全部会话，本地凭证随即清空。 */
+export async function deleteAccount(password: string, mode: 'keep_works' | 'delete_works'): Promise<void> {
+  const api = await getClient();
+  if (!api) throw new Error('尚未登录');
+  await api.deleteAccount({ password, mode });
+  await secrets().delete(ACCOUNT_TOKEN_REF).catch(() => undefined);
+  await clearSyncAccount();
 }
 
 /** Best-effort server-side logout, then always clear local credentials. */

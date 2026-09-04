@@ -95,9 +95,14 @@ describe('comments', () => {
     const { token: admin } = await t.register('admin@example.com');
     const c = (await post(t, b, novelId, '广告广告')).body.comment;
 
-    const rep = await t.json('POST', `/api/v1/novels/${novelId}/comments/${c.id}/reports`, { body: { reason: 'spam' } });
+    // 举报要求登录（P0-6），且同人同对象去重（§3.3）。
+    expect((await t.json('POST', `/api/v1/novels/${novelId}/comments/${c.id}/reports`, { body: { reason: 'spam' } })).status).toBe(401);
+    const rep = await t.json('POST', `/api/v1/novels/${novelId}/comments/${c.id}/reports`, { token: admin, body: { reason: 'spam' } });
     expect(rep.status).toBe(201);
     expect(rep.body.report.commentId).toBe(c.id);
+    const dup = await t.json('POST', `/api/v1/novels/${novelId}/comments/${c.id}/reports`, { token: admin, body: { reason: 'other' } });
+    expect(dup.status).toBe(201);
+    expect(dup.body.report.id).toBe(rep.body.report.id);
     expect((await t.json('GET', '/api/v1/admin/reports?status=open', { token: admin })).body.items.length).toBe(1);
 
     const hidden = await t.json('PATCH', `/api/v1/admin/novels/${novelId}/comments/${c.id}`, { token: admin, body: { status: 'hidden' } });

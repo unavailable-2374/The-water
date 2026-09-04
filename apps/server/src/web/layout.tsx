@@ -15,6 +15,11 @@ ul.list h3{margin:0 0 4px;font-size:18px}.tags span{display:inline-block;margin-
 ol.toc{padding-left:2em;columns:2;column-gap:32px}ol.toc li{break-inside:avoid}
 article.chapter p{text-indent:2em;margin:0 0 1em}nav.pager{display:flex;justify-content:space-between;margin:32px 0 0;padding-top:16px;border-top:1px solid var(--line)}
 h1{font-size:26px;margin:8px 0}h2{font-size:20px;margin:28px 0 12px}.origin{padding:10px 14px;border-left:3px solid var(--link);background:rgba(42,93,159,.06);margin:16px 0}
+.card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:0 0 14px}
+.admin-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 0}
+.admin-form input,.admin-form select{flex:1 1 160px;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px}
+.admin-form button{padding:5px 12px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--link);font:inherit;font-size:14px;cursor:pointer}
+.admin-filters{display:flex;gap:14px;margin:0 0 14px;font-size:14px}
 `;
 
 export interface OpenGraph {

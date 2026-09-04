@@ -52,8 +52,15 @@ export function sceneTypeOf(env: Pick<ChapterEnv, 'chapter' | 'doc' | 'chapters'
   return guessSceneType(text);
 }
 
+export interface ChapterContextOptions {
+  /** 上下文预算降档系数（见 @/llm/contextBudget），1 表示不降档。 */
+  scale?: number;
+  /** 额外预留 token：json_object 模式注入的 schema。 */
+  reserved?: number;
+}
+
 /** Build the budgeted user context text for writing/rewriting a chapter. */
-export async function buildChapterContextText(env: ChapterEnv, provider: LLMProvider, maxTokens: number): Promise<string> {
+export async function buildChapterContextText(env: ChapterEnv, provider: LLMProvider, maxTokens: number, opts: ChapterContextOptions = {}): Promise<string> {
   const { novel, chapter, doc, bible, chapters } = env;
   const n = chapter.chapterNo;
   const plans = doc.chapters;
@@ -75,7 +82,7 @@ export async function buildChapterContextText(env: ChapterEnv, provider: LLMProv
     .join('\n');
   const genreLore = genreLoreSettings(mergedGenreOf(novel.requirements));
   const rel = selectRelevantBible(bible, doc, n, [...summaries.slice(-2), prevTail].join('\n'), genreLore);
-  const budget = buildContextBudget({ caps: provider.caps, maxTokens });
+  const budget = buildContextBudget({ caps: provider.caps, maxTokens, scale: opts.scale, reserved: opts.reserved });
   const style = doc.styleProfile ? renderStyleUserBlock(doc.styleProfile, sceneTypeOf(env)) : '';
   const { userText } = assembleChapterContext(
     {
@@ -100,4 +107,12 @@ export async function currentVersionOf(chapter: Chapter): Promise<ChapterVersion
 
 export function arcIdForChapter(doc: StorylineDoc, chapterNo: number): string | null {
   return doc.arcs.find((a) => a.startChapterNo <= chapterNo && chapterNo <= a.endChapterNo)?.id ?? null;
+}
+
+/**
+ * 一个步骤里产出多个版本时，每个 pass 用自己的幂等键（§2.1 第 7 条）。
+ * `adjust_length` 最多跑两轮扩写，崩在两轮之间时，靠这个键才认得出第二轮没跑完。
+ */
+export function passKey(stepId: string, pass: number): string {
+  return `${stepId}#${pass}`;
 }

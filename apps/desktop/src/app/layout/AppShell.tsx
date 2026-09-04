@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { BookOpen, Feather, Compass, MessageSquare, Settings } from 'lucide-react';
 import { cn } from '@/components/ui';
 import { JobProgressBar } from '@/features/studio/JobProgressBar';
+import { OnboardingGate } from '@/features/onboarding/OnboardingGate';
 
 const groups = [
   { title: '阅读', items: [{ to: '/library', match: (p: string, q: string) => p === '/library' && !q.includes('tab=novels'), label: '书架', icon: BookOpen }] },
@@ -46,6 +47,7 @@ export function AppShell() {
         </main>
         <JobProgressBar />
       </div>
+      <OnboardingGate />
     </div>
   );
 }

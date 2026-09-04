@@ -264,7 +264,7 @@ describe('publish protocol', () => {
   });
 
   it('moderator failure hides the novel (审核中)', async () => {
-    const t = makeTestApp({ moderator: { async check() { return { ok: false, reason: '疑似违规' }; } } });
+    const t = makeTestApp({ moderator: { async check() { return { ok: false, reason: '疑似违规' }; }, async checkText() { return { ok: true }; } } });
     const { token } = await t.register('a@example.com');
     const novel = await createNovel(t, token);
     const { novel: after } = await publish(t, token, novel.id, await makeChapters(2));

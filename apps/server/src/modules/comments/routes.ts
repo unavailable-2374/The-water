@@ -27,9 +27,9 @@ export function commentRoutes(deps: AppDeps) {
     return c.json(svc.listReplies(deps, c.req.param('id'), c.req.param('cid'), c.get('user'), q.cursor, q.limit));
   });
 
-  r.post('/novels/:id/comments', requireAuth(), rateLimit(deps, 'comment', keyByUser), validate('json', CreateCommentRequestSchema), (c) => {
+  r.post('/novels/:id/comments', requireAuth(), rateLimit(deps, 'comment', keyByUser), validate('json', CreateCommentRequestSchema), async (c) => {
     const body = getValid<CreateCommentRequest>(c, 'json');
-    const comment = svc.createComment(deps, currentUser(c), c.req.param('id'), body, {
+    const comment = await svc.createComment(deps, currentUser(c), c.req.param('id'), body, {
       onCommented: (tx, ctx) => awardComment(deps, tx, ctx),
     });
     return c.json({ comment }, 201);
@@ -40,9 +40,10 @@ export function commentRoutes(deps: AppDeps) {
     return c.json({ ok: true as const });
   });
 
-  r.post('/novels/:id/comments/:cid/reports', validate('json', CreateReportRequestSchema), (c) => {
+  // 与作品举报一致：要求登录 + 限流 + 同人同对象去重。
+  r.post('/novels/:id/comments/:cid/reports', requireAuth(), rateLimit(deps, 'report', keyByUser), validate('json', CreateReportRequestSchema), (c) => {
     const body = getValid<z.infer<typeof CreateReportRequestSchema>>(c, 'json');
-    const row = svc.reportComment(deps, c.req.param('id'), c.req.param('cid'), c.get('user'), body);
+    const row = svc.reportComment(deps, c.req.param('id'), c.req.param('cid'), currentUser(c), c.get('viewerKey'), body);
     return c.json({ report: toReport(row) }, 201);
   });
 

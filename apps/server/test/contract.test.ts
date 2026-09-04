@@ -23,7 +23,9 @@ import {
   HealthResponseSchema,
   LikeResponseSchema,
   LineageResponseSchema,
+  AccountExportResponseSchema,
   MeResponseSchema,
+  SessionListResponseSchema,
   NovelBundleV1Schema,
   NovelListResponseSchema,
   NovelResponseSchema,
@@ -77,6 +79,22 @@ describe('contract: every endpoint response validates against shared schemas', (
     await check('POST /auth/logout', 'POST', '/api/v1/auth/logout', OkResponseSchema, { token: login.token });
     const extra = await check('POST /auth/login (2)', 'POST', '/api/v1/auth/login', AuthResponseSchema, { body: { email: 'a@example.com', password: 'password123' } });
     await check('DELETE /auth/sessions', 'DELETE', '/api/v1/auth/sessions', OkResponseSchema, { token: extra.token });
+
+    // 账号生命周期（P0-4）与设备列表（§3.6）
+    const life = await check('POST /auth/register (life)', 'POST', '/api/v1/auth/register', AuthResponseSchema, { body: { email: 'life@example.com', password: 'password123', displayName: '生命周期' } }, 201);
+    const mailToken = () => /tw_[A-Za-z0-9_-]{43}/.exec(t.outbox.at(-1)!.text)![0]!;
+    await check('POST /auth/email/verify/request', 'POST', '/api/v1/auth/email/verify/request', OkResponseSchema, { token: life.token }, 202);
+    await check('POST /auth/email/verify', 'POST', '/api/v1/auth/email/verify', MeResponseSchema, { body: { token: mailToken() } });
+    await check('GET /auth/sessions', 'GET', '/api/v1/auth/sessions', SessionListResponseSchema, { token: life.token });
+    await check('GET /auth/me/export', 'GET', '/api/v1/auth/me/export', AccountExportResponseSchema, { token: life.token });
+    await check('PATCH /auth/password', 'PATCH', '/api/v1/auth/password', OkResponseSchema, { token: life.token, body: { currentPassword: 'password123', newPassword: 'password456' } });
+    await check('POST /auth/password/forgot', 'POST', '/api/v1/auth/password/forgot', OkResponseSchema, { body: { email: 'life@example.com' } }, 202);
+    await check('POST /auth/password/reset', 'POST', '/api/v1/auth/password/reset', OkResponseSchema, { body: { token: mailToken(), password: 'password789' } });
+    const life2 = await check('POST /auth/login (life)', 'POST', '/api/v1/auth/login', AuthResponseSchema, { body: { email: 'life@example.com', password: 'password789' } });
+    await check('POST /auth/login (life 2)', 'POST', '/api/v1/auth/login', AuthResponseSchema, { body: { email: 'life@example.com', password: 'password789', clientLabel: 'iPad' } });
+    const lifeSessions = await check('GET /auth/sessions (2)', 'GET', '/api/v1/auth/sessions', SessionListResponseSchema, { token: life2.token });
+    await check('DELETE /auth/sessions/:id', 'DELETE', `/api/v1/auth/sessions/${lifeSessions.sessions.find((s) => !s.current)!.id}`, OkResponseSchema, { token: life2.token });
+    await check('DELETE /auth/me', 'DELETE', '/api/v1/auth/me', OkResponseSchema, { token: life2.token, body: { password: 'password789', mode: 'keep_works' } });
     const relog = await check('POST /auth/login (3)', 'POST', '/api/v1/auth/login', AuthResponseSchema, { body: { email: 'a@example.com', password: 'password123' } });
     const author = relog.token;
     const b = (await t.register('b@example.com', '乙')).token;
@@ -196,7 +214,9 @@ describe('contract: every endpoint response validates against shared schemas', (
     await checkError('400 json', 'POST', '/api/v1/novels', { token: author, raw: '{' });
     await checkError('409 email', 'POST', '/api/v1/auth/register', { body: { email: 'a@example.com', password: 'password123', displayName: 'x' } });
     await checkError('401 creds', 'POST', '/api/v1/auth/login', { body: { email: 'a@example.com', password: 'nope-nope' } });
-    await checkError('403 derivatives', 'POST', `/api/v1/novels/${nid}/forks`, { token: b, body: { versionId: 'missing' } });
+    // fork 现在是幂等的，要真正拿到 403 得先关掉二创授权。
+    await t.json('PATCH', `/api/v1/novels/${nid}`, { token: author, body: { allowDerivatives: false } });
+    await checkError('403 derivatives', 'POST', `/api/v1/novels/${nid}/forks`, { token: b, body: {} });
     await checkError('404 route', 'GET', '/api/v1/does/not/exist');
 
     expect(covered.length).toBeGreaterThanOrEqual(70);

@@ -1,4 +1,4 @@
-import { eq, isNull, and } from 'drizzle-orm';
+import { asc, eq, isNull, and } from 'drizzle-orm';
 import type { LineageNode, LineageResponse, NovelRef } from '@the-water/shared';
 import type { AppDeps } from '../../context';
 import { novels, novelVersions, users, type NovelRow } from '../../db/schema';
@@ -40,14 +40,19 @@ export function buildLineage(deps: AppDeps, novelId: string, viewer: Viewer): Li
   }
   ancestors.reverse();
 
-  // 后代：同根全部节点。
-  const all = deps.db
+  // 后代：同根全部节点。按 (createdAt, id) 升序取，保证超限时截断是确定的：
+  // 派生作品必定晚于其来源创建，因此升序天然“先父后子”，被砍掉的是最新的一批叶子，
+  // 而不是任意切片；多取一条用于判断是否截断。
+  const fetched = deps.db
     .select({ n: novels, authorDisplayName: users.displayName })
     .from(novels)
     .innerJoin(users, eq(users.id, novels.authorId))
     .where(and(eq(novels.rootNovelId, self.rootNovelId), isNull(novels.deletedAt)))
-    .limit(MAX_DESCENDANTS)
+    .orderBy(asc(novels.createdAt), asc(novels.id))
+    .limit(MAX_DESCENDANTS + 1)
     .all();
+  const truncated = fetched.length > MAX_DESCENDANTS;
+  const all = truncated ? fetched.slice(0, MAX_DESCENDANTS) : fetched;
   const byId = new Map<string, RowWithAuthor>();
   const children = new Map<string, RowWithAuthor[]>();
   for (const r of all) {
@@ -89,5 +94,5 @@ export function buildLineage(deps: AppDeps, novelId: string, viewer: Viewer): Li
   const root =
     self.rootNovelId === self.id ? selfRef : (ancestors[0] ?? refOf(byId.get(self.rootNovelId), self.rootNovelId, viewer));
 
-  return { root, ancestors, self: selfRef, descendants };
+  return { root, ancestors, self: selfRef, descendants, descendantsTruncated: truncated };
 }

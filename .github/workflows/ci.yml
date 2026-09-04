@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: 类型检查与测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile
+
+      - name: 类型检查（shared / server / desktop）
+        run: bun run typecheck
+
+      - name: 测试（shared / server / desktop）
+        run: bun run test
+
+      - name: 迁移可回放性检查
+        run: bun run --filter server db:migrate
+        env:
+          DATABASE_URL: ./data/ci.sqlite
+
+  tauri:
+    name: 桌面端构建（macOS）
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile
+
+      - name: 前端构建
+        run: bun run --filter desktop build
+
+      - name: Rust 检查
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --locked

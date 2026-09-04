@@ -159,7 +159,10 @@ describe('OpenAICompatibleProvider', () => {
     await expect(
       collect(new OpenAICompatibleProvider(makeConfig(), 'k', abortFetch.fetch).stream({ messages: [], maxTokens: 1, signal: ac.signal })),
     ).rejects.toMatchObject({ kind: 'aborted' });
-    expect(abortFetch.calls[0]!.init?.signal).toBe(ac.signal);
+    // 传给 fetch 的是内部计时器的 signal（超时也要能中止），它跟随外部 signal 一起 abort。
+    const passed = abortFetch.calls[0]!.init?.signal as AbortSignal;
+    expect(passed).not.toBe(ac.signal);
+    expect(passed.aborted).toBe(true);
   });
 
   it('aborts mid-stream → aborted', async () => {

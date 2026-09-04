@@ -7,6 +7,7 @@ import type { Comment, CreateCommentRequest, Page } from '@the-water/shared';
 import type { AppDeps, AuthUser } from '../../context';
 import { changes } from '../../db/client';
 import { comments, novels, reports, users, type CommentRow } from '../../db/schema';
+import { assertTextAllowed } from '../admin/audit';
 import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { forbidden, notFound } from '../../lib/errors';
 import { newId } from '../../lib/ids';
@@ -14,6 +15,7 @@ import { iso } from '../../lib/time';
 import { toAuthorCard, type AuthorParts } from '../novels/dto';
 import { isPubliclyViewable, loadViewableNovel, type Viewer } from '../novels/service';
 import { assertNotBlocked, notBlockedEitherWay } from '../users/blocking';
+import { insertReport } from '../social/service';
 
 type Executor = Pick<AppDeps['db'], 'select' | 'insert' | 'update' | 'delete'>;
 
@@ -58,16 +60,22 @@ function displayNameOf(deps: AppDeps, userId: string): string | null {
   return deps.db.select({ n: users.displayName }).from(users).where(eq(users.id, userId)).get()?.n ?? null;
 }
 
-export function createComment(
+export async function createComment(
   deps: AppDeps,
   user: AuthUser,
   novelId: string,
   req: CreateCommentRequest,
   hooks: CommentHooks = {},
-): Comment {
+): Promise<Comment> {
   const novel = loadViewableNovel(deps, novelId, user);
   if (!isPubliclyViewable(novel)) throw notFound('小说');
   assertNotBlocked(deps, user.id, novel.authorId);
+  // P0-2：留言与正文走同一条审核通道，命中即拒绝。
+  await assertTextAllowed(deps, [{ label: '留言', text: req.body }], {
+    type: 'novel',
+    id: novelId,
+    meta: { kind: 'comment', authorId: user.id },
+  });
 
   let parentId: string | null = null;
   let replyToId: string | null = null;
@@ -243,27 +251,27 @@ function restore(deps: AppDeps, c: CommentRow): void {
   });
 }
 
-/** 举报一条留言：复用 reports 表，commentId 非空即为评论举报。 */
+/**
+ * 举报一条留言：复用 reports 表，commentId 非空即为评论举报。
+ * 要求登录并按 `${novelId}:${commentId}:${reporterId}` 去重（§3.3）。
+ */
 export function reportComment(
   deps: AppDeps,
   novelId: string,
   commentId: string,
-  viewer: Viewer,
+  user: AuthUser,
+  viewerKey: string,
   req: { reason: 'plagiarism' | 'illegal' | 'adult' | 'spam' | 'other'; detail?: string },
 ) {
-  loadViewableNovel(deps, novelId, viewer);
+  loadViewableNovel(deps, novelId, user);
   const c = findComment(deps, novelId, commentId);
   if (!c || c.status !== 'ok') throw notFound('留言');
-  const row: typeof reports.$inferInsert = {
-    id: newId(),
+  return insertReport(deps, {
     novelId,
     commentId,
-    reporterId: viewer?.id ?? null,
+    reporterId: user.id,
+    viewerKey,
     reason: req.reason,
     detail: req.detail ?? null,
-    status: 'open',
-    createdAt: deps.clock.now(),
-  };
-  deps.db.insert(reports).values(row).run();
-  return deps.db.select().from(reports).where(eq(reports.id, row.id!)).get()!;
+  });
 }

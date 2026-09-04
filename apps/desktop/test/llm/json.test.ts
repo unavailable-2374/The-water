@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { appendSchemaInstruction, normalizeJsonText, parseJsonLoose, requestJson, zodToJsonSchema } from '@/llm/json';
+import { appendSchemaInstruction, normalizeJsonText, parseJsonLoose, requestJson, schemaInstructionTokens, schemaReserveTokens, zodToJsonSchema } from '@/llm/json';
+import { DEFAULT_JSON_REPAIR_ROUNDS } from '@/llm/config';
+import { buildContextBudget } from '@/llm/prompts/context';
 import { complete, completeWithRetry } from '@/llm/complete';
 import { RateGate } from '@/llm/retry';
 import { LLMError, type CompletionRequest, type LLMProvider, type ProviderCaps, type StreamEvent } from '@/llm/types';
@@ -152,7 +154,7 @@ describe('requestJson', () => {
     }
   });
 
-  it('runs exactly one repair round at temperature 0 and sums usage', async () => {
+  it('runs a repair round at temperature 0 and sums usage', async () => {
     const { provider, requests } = scriptedProvider([
       { text: '{"title": "书", "chapters": "三"}', usage: { inputTokens: 10, outputTokens: 5 } },
       { text: '{"title": "书", "chapters": 3}', usage: { inputTokens: 20, outputTokens: 6 } },
@@ -172,14 +174,40 @@ describe('requestJson', () => {
     expect(onDelta.length).toBeGreaterThan(0);
   });
 
-  it('throws LLMError bad_request with raw after the repair round fails too', async () => {
+  it('throws LLMError bad_request with raw after every repair round fails', async () => {
     const { provider, requests } = scriptedProvider([{ text: 'not json at all' }, { text: '{"title": 1}' }]);
     const err = await requestJson(provider, spec, { gate: fastGate() }).catch((e) => e as LLMError);
     expect(err).toBeInstanceOf(LLMError);
     expect(err).toMatchObject({ kind: 'bad_request', raw: '{"title": 1}' });
     expect((err as LLMError).message).toContain('测试');
-    expect(requests).toHaveLength(2);
+    // 默认 2 轮修复：首轮 + 2 次修复 = 3 次请求。
+    expect(requests).toHaveLength(1 + DEFAULT_JSON_REPAIR_ROUNDS);
+    expect((err as LLMError).message).toContain(`${1 + DEFAULT_JSON_REPAIR_ROUNDS} 次校验失败`);
     expect(requests[1]!.messages[2]!.content).toContain('JSON 语法错误');
+  });
+
+  it('repairRounds is configurable (0 = no repair)', async () => {
+    const bad = [{ text: 'not json at all' }];
+    const noRepair = scriptedProvider(bad);
+    await expect(requestJson(noRepair.provider, spec, { gate: fastGate(), repairRounds: 0 })).rejects.toMatchObject({ kind: 'bad_request' });
+    expect(noRepair.requests).toHaveLength(1);
+
+    const three = scriptedProvider(bad);
+    await expect(requestJson(three.provider, spec, { gate: fastGate(), repairRounds: 3 })).rejects.toMatchObject({ kind: 'bad_request' });
+    expect(three.requests).toHaveLength(4);
+  });
+
+  it('counts the injected schema against the context budget only in json_object / none mode', async () => {
+    const jsonSchema = zodToJsonSchema(schema);
+    const injected = schemaInstructionTokens(jsonSchema, { jsonMode: 'json_object', cjkTokenRatio: 0.7 });
+    expect(injected).toBeGreaterThan(0);
+    expect(schemaInstructionTokens(jsonSchema, { jsonMode: 'json_schema', cjkTokenRatio: 0.7 })).toBe(0);
+    expect(schemaInstructionTokens(jsonSchema, { jsonMode: 'tool', cjkTokenRatio: 0.7 })).toBe(0);
+    expect(schemaReserveTokens(schema, { jsonMode: 'none', cjkTokenRatio: 0.7 })).toBe(injected);
+
+    const caps = { contextWindow: 128_000, maxOutputTokens: 8192, jsonMode: 'json_object' as const, cjkTokenRatio: 0.7 };
+    const plain = buildContextBudget({ caps, maxTokens: 4000 });
+    expect(buildContextBudget({ caps, maxTokens: 4000, reserved: injected })).toBe(plain - injected);
   });
 
   it('propagates transport errors without a repair round', async () => {

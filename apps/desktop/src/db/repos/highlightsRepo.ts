@@ -37,11 +37,12 @@ export async function createHighlight(input: { documentId: string; pageNo: numbe
   );
   return (await selectOne<Raw>('SELECT * FROM highlights WHERE id = ?', [id]).then((r) => (r ? map(r) : null)))!;
 }
-export async function updateHighlight(id: string, patch: { noteText?: string; color?: string; kind?: HighlightKind }): Promise<void> {
+export async function updateHighlight(id: string, patch: { noteText?: string; color?: string; kind?: HighlightKind; anchor?: Anchor }): Promise<void> {
   const cur = await selectOne<Raw>('SELECT * FROM highlights WHERE id = ?', [id]);
   if (!cur) return;
-  await getDb().execute('UPDATE highlights SET note_text = ?, color = ?, kind = ?, updated_at = ? WHERE id = ?', [
-    patch.noteText ?? cur.note_text, patch.color ?? cur.color, patch.kind ?? cur.kind, now(), id,
+  await getDb().execute('UPDATE highlights SET note_text = ?, color = ?, kind = ?, anchor = ?, updated_at = ? WHERE id = ?', [
+    patch.noteText ?? cur.note_text, patch.color ?? cur.color, patch.kind ?? cur.kind,
+    patch.anchor ? JSON.stringify(patch.anchor) : cur.anchor, now(), id,
   ]);
 }
 export async function deleteHighlight(id: string): Promise<void> {

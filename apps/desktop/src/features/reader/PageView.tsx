@@ -1,10 +1,14 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { pdfjs } from '@/pdf/pdfjs';
 import { useReader } from '@/stores/readerStore';
 import { HighlightLayer } from './HighlightLayer';
+import { SearchHitLayer } from './SearchHitLayer';
+import { usePageOverlays } from './usePageOverlays';
 import { normalizeRects } from '@/pdf/anchor';
 import { extractPageText } from '@/pdf/textIndex';
+import { mapContainer, type TextMap } from '@/documents/domText';
+import { READER_THEMES } from './theme';
 
 interface Props { pdf: PDFDocumentProxy; pageNo: number; width: number; height: number }
 
@@ -13,7 +17,11 @@ export const PageView = memo(function PageView({ pdf, pageNo, width, height }: P
   const textRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const pageTextRef = useRef<string>('');
+  const mapRef = useRef<TextMap | null>(null);
+  const [renderNonce, setRenderNonce] = useState(0);
   const scale = useReader((s) => s.scale);
+  const theme = READER_THEMES[useReader((s) => s.theme)];
+  const hitRects = usePageOverlays(pageNo, mapRef, wrapRef, renderNonce);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +50,8 @@ export const PageView = memo(function PageView({ pdf, pageNo, width, height }: P
       end.className = 'endOfContent';
       container.appendChild(end);
       pageTextRef.current = await extractPageText(page);
+      mapRef.current = mapContainer(container);
+      if (!cancelled) setRenderNonce((n) => n + 1);
     })().catch((e) => console.error('render page failed', pageNo, e));
     return () => { cancelled = true; task?.cancel(); };
   }, [pdf, pageNo, scale]);
@@ -71,18 +81,21 @@ export const PageView = memo(function PageView({ pdf, pageNo, width, height }: P
       while (cur !== -1) { if (Math.abs(cur - est) < Math.abs(bestIdx - est)) bestIdx = cur; cur = pageText.indexOf(text, cur + 1); }
       start = bestIdx;
     }
-    const rects = normalizeRects(range.getClientRects(), wrap.getBoundingClientRect());
-    const last = range.getClientRects()[range.getClientRects().length - 1];
+    const clientRects = range.getClientRects();
+    const rects = normalizeRects(clientRects, wrap.getBoundingClientRect());
+    const first = clientRects[0];
+    const last = clientRects[clientRects.length - 1];
     useReader.getState().setSelection({
       pageNo, text, start, end: start === -1 ? -1 : start + text.length, rects,
-      clientX: last ? last.right : 0, clientY: last ? last.bottom : 0,
+      clientX: last ? last.right : 0, clientY: last ? last.bottom : 0, clientTop: first ? first.top : 0,
     });
   };
 
   return (
-    <div ref={wrapRef} className="relative bg-white shadow" style={{ width, height }} onMouseUp={onMouseUp} data-page={pageNo}>
-      <canvas ref={canvasRef} className="block" />
+    <div ref={wrapRef} className="relative shadow" style={{ width, height, background: theme.pageBg }} onMouseUp={onMouseUp} data-page={pageNo}>
+      <canvas ref={canvasRef} className="block" style={{ filter: theme.canvasFilter }} />
       <HighlightLayer pageNo={pageNo} />
+      <SearchHitLayer hits={hitRects} />
       <div ref={textRef} className="textLayer" />
     </div>
   );

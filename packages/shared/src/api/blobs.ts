@@ -14,3 +14,11 @@ export const UploadBlobsResponseSchema = z.object({
   rejected: z.array(z.object({ hash: z.string(), code: z.enum(['HASH_MISMATCH', 'TOO_LARGE']) })),
 });
 export type UploadBlobsResponse = z.infer<typeof UploadBlobsResponseSchema>;
+
+/** `GET /me/storage`：当前用户的 blob 存储占用；quotaBytes 为 0 表示不限制。 */
+export const MyStorageResponseSchema = z.object({
+  usedBytes: z.number().int().min(0),
+  quotaBytes: z.number().int().min(0),
+  blobCount: z.number().int().min(0),
+});
+export type MyStorageResponse = z.infer<typeof MyStorageResponseSchema>;

@@ -25,6 +25,30 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0003_community.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "provider_runtime",
+            sql: include_str!("../migrations/0004_provider_runtime.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "soft_delete",
+            sql: include_str!("../migrations/0005_soft_delete.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "reader_fts",
+            sql: include_str!("../migrations/0006_reader_fts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 7,
+            description: "usage_pricing",
+            sql: include_str!("../migrations/0007_usage_pricing.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 

@@ -12,5 +12,8 @@ export function blobRoutes(deps: AppDeps) {
     const body = getValid<UploadBlobsRequest>(c, 'json');
     return c.json(await svc.uploadBlobs(deps, currentUser(c), body));
   });
+
+  r.get('/me/storage', requireAuth(), (c) => c.json(svc.storageUsage(deps, currentUser(c).id)));
+
   return r;
 }

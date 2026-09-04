@@ -1,5 +1,7 @@
 import type { StepKind } from '@/db/repos/jobsRepo';
 import type { StepHandler } from '../context';
+import { outlineStep } from './outlineStep';
+import { chapterTableStep } from './chapterTableStep';
 import { writeChapterStep } from './writeChapterStep';
 import { adjustLengthStep } from './adjustLengthStep';
 import { summarizeStep } from './summarizeStep';
@@ -7,7 +9,9 @@ import { nameReplaceStep, rewriteChapterStep } from './rewriteChapterStep';
 import { styleCheckStep } from './styleCheckStep';
 import { extractStyleStep } from './extractStyleStep';
 
-export const STEP_HANDLERS: Partial<Record<StepKind, StepHandler>> = {
+export const STEP_HANDLERS: Record<StepKind, StepHandler> = {
+  outline: outlineStep,
+  chapter_table: chapterTableStep,
   write_chapter: writeChapterStep,
   adjust_length: adjustLengthStep,
   summarize: summarizeStep,

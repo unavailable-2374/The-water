@@ -21,6 +21,14 @@ export interface ProviderConfig {
   extraHeaders: Record<string, string>;
   /** Keychain account name, or `env:VAR_NAME` to read from process env at runtime. */
   secretRef: string;
+  /** 首字节超时（毫秒）：发起请求到收到第一块数据。省略时用 config.ts 的默认值。 */
+  firstByteTimeoutMs?: number;
+  /** 流空闲超时（毫秒）：相邻两块数据之间的最大间隔。省略时用 config.ts 的默认值。 */
+  idleTimeoutMs?: number;
+  /** 代理地址，空字符串表示直连。 */
+  proxyUrl?: string;
+  /** 该供应商允许的并发请求数（预留给任务池，见 §2.1 第 8 条）。 */
+  concurrency?: number;
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;

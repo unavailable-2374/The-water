@@ -1,8 +1,10 @@
 import { z } from 'zod';
-import type { ChatMessage, CompletionRequest, LLMProvider, PromptSpec, Usage } from './types';
+import type { ChatMessage, CompletionRequest, LLMProvider, ProviderCaps, PromptSpec, Usage } from './types';
 import { LLMError } from './types';
 import { complete, completeWithRetry, type CompleteWithRetryOptions, type DeltaHandler } from './complete';
 import type { RateGate } from './retry';
+import { DEFAULT_JSON_REPAIR_ROUNDS } from './config';
+import { estimateTokens } from './tokens';
 
 // ---------------------------------------------------------------------------
 // Lenient JSON extraction
@@ -143,6 +145,29 @@ export function appendSchemaInstruction(messages: readonly ChatMessage[], schema
   return out;
 }
 
+/**
+ * json_object / none 模式下 `appendSchemaInstruction` 会把完整 schema 拼进最后一条
+ * user 消息，这部分 token 之前完全没算进上下文预算（§2.1 第 9 条）。调用方在
+ * `buildContextBudget({ reserved })` 里预留它，避免长上下文直接 400。
+ * json_schema / tool 模式由请求体承载 schema，不占 prompt，返回 0。
+ */
+export function schemaInstructionTokens(
+  schema: Record<string, unknown>,
+  caps: Pick<ProviderCaps, 'jsonMode' | 'cjkTokenRatio'>,
+): number {
+  if (caps.jsonMode !== 'json_object' && caps.jsonMode !== 'none') return 0;
+  return estimateTokens(`\n\n${JSON_ONLY_INSTRUCTION}\n${JSON.stringify(schema)}`, caps.cjkTokenRatio);
+}
+
+/** `schemaInstructionTokens` 的 zod 版本：调用方一般手里只有 zod schema。 */
+export function schemaReserveTokens(
+  schema: z.ZodType,
+  caps: Pick<ProviderCaps, 'jsonMode' | 'cjkTokenRatio'>,
+): number {
+  if (caps.jsonMode !== 'json_object' && caps.jsonMode !== 'none') return 0;
+  return schemaInstructionTokens(zodToJsonSchema(schema), caps);
+}
+
 export interface RequestJsonOptions {
   signal?: AbortSignal;
   onDelta?: DeltaHandler;
@@ -150,6 +175,8 @@ export interface RequestJsonOptions {
   retry?: boolean;
   gate?: RateGate;
   retryOptions?: Omit<CompleteWithRetryOptions, 'onDelta' | 'gate' | 'signal'>;
+  /** 校验失败后的修复轮次（不含首轮），默认 config.ts 的 DEFAULT_JSON_REPAIR_ROUNDS。 */
+  repairRounds?: number;
 }
 
 export interface RequestJsonResult<T> {
@@ -174,8 +201,9 @@ function tryParse<T>(raw: string, schema: z.ZodType<T>): ParseOutcome<T> {
 }
 
 /**
- * Request a schema-conforming JSON value. On validation failure runs one repair round at
- * temperature 0; a second failure throws `LLMError('bad_request')` carrying the raw text.
+ * Request a schema-conforming JSON value. 校验失败后按 `repairRounds`（默认 2）轮
+ * 在 temperature 0 下要求模型自纠；每轮都把上一轮的原文和错误摘要回灌，
+ * 全部用尽仍不合法才抛 `LLMError('bad_request')` 并带上最后一次的原文。
  */
 export async function requestJson<T>(
   provider: LLMProvider,
@@ -200,23 +228,30 @@ export async function requestJson<T>(
       ? complete(provider, req, opts.onDelta)
       : completeWithRetry(provider, req, { ...opts.retryOptions, signal: opts.signal, onDelta: opts.onDelta, gate: opts.gate });
 
-  const first = await run(baseReq);
-  const usage: Usage = { ...first.usage };
-  const outcome1 = tryParse(first.text, spec.schema);
-  if (outcome1.ok) return { value: outcome1.value, raw: first.text, usage };
+  const rounds = Math.max(0, Math.trunc(opts.repairRounds ?? DEFAULT_JSON_REPAIR_ROUNDS));
+  const usage: Usage = { inputTokens: 0, outputTokens: 0 };
 
-  const repairMessages: ChatMessage[] = [
-    ...messages,
-    { role: 'assistant', content: first.text },
-    { role: 'user', content: `上面的 JSON 无法通过校验，错误：${outcome1.error}。请只输出修正后的完整 JSON，不要解释。` },
-  ];
-  const second = await run({ ...baseReq, messages: repairMessages, temperature: 0 });
-  usage.inputTokens += second.usage.inputTokens;
-  usage.outputTokens += second.usage.outputTokens;
-  const outcome2 = tryParse(second.text, spec.schema);
-  if (outcome2.ok) return { value: outcome2.value, raw: second.text, usage };
+  let result = await run(baseReq);
+  usage.inputTokens += result.usage.inputTokens;
+  usage.outputTokens += result.usage.outputTokens;
+  let outcome = tryParse(result.text, spec.schema);
 
-  throw new LLMError('bad_request', `${spec.label}: 模型输出的 JSON 两次校验失败：${outcome2.error}`, {
-    raw: second.text,
+  for (let round = 0; !outcome.ok && round < rounds; round++) {
+    const repairMessages: ChatMessage[] = [
+      ...messages,
+      { role: 'assistant', content: result.text },
+      { role: 'user', content: `上面的 JSON 无法通过校验，错误：${outcome.error}。请只输出修正后的完整 JSON，不要解释。` },
+    ];
+    result = await run({ ...baseReq, messages: repairMessages, temperature: 0 });
+    usage.inputTokens += result.usage.inputTokens;
+    usage.outputTokens += result.usage.outputTokens;
+    outcome = tryParse(result.text, spec.schema);
+  }
+
+  if (outcome.ok) return { value: outcome.value, raw: result.text, usage };
+
+  const attempts = rounds + 1;
+  throw new LLMError('bad_request', `${spec.label}: 模型输出的 JSON ${attempts} 次校验失败：${outcome.error}`, {
+    raw: result.text,
   });
 }

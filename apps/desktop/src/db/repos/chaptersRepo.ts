@@ -112,6 +112,15 @@ export async function listCurrentVersions(novelId: string): Promise<Array<{ chap
   for (const c of chapters) out.push({ chapter: c, version: c.currentVersionId ? await getVersion(c.currentVersionId) : null });
   return out;
 }
+/** 一次聚合拿到所有小说的字数（书架页避免每本一次查询）。缺席的小说按 0 计。 */
+export async function novelCharCounts(): Promise<Record<string, number>> {
+  const rows = await getDb().select<{ novel_id: string; s: number | null }>(
+    'SELECT c.novel_id AS novel_id, SUM(v.char_count) AS s FROM chapters c JOIN chapter_versions v ON v.id = c.current_version_id GROUP BY c.novel_id',
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.novel_id] = num(r.s);
+  return out;
+}
 export async function novelCharCount(novelId: string): Promise<number> {
   const r = await selectOne<{ s: number | null }>(
     'SELECT SUM(v.char_count) AS s FROM chapters c JOIN chapter_versions v ON v.id = c.current_version_id WHERE c.novel_id = ?', [novelId],

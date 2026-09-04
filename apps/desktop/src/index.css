@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/*
+ * 主题三选：app/theme.ts 在 <html> 上写 data-theme="light|dark"，
+ * 所有 dark: 变体跟着这个属性走（不再直接跟随系统，跟随由 JS 解析）。
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
   --font-serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
@@ -59,8 +65,12 @@ body {
   font-family: var(--font-sans);
   font-feature-settings: "palt";
 }
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] body { @apply bg-paper-950 text-paper-100; }
+/* JS 还没跑起来时的兜底：跟随系统。 */
 @media (prefers-color-scheme: dark) {
-  body { @apply bg-paper-950 text-paper-100; }
+  :root:not([data-theme]) body { @apply bg-paper-950 text-paper-100; }
 }
 
 h1, h2, h3, .font-serif { font-family: var(--font-serif); }

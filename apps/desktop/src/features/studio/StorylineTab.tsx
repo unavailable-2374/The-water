@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { ChevronDown, ChevronRight, GitCompareArrows, History, Plus, Save, Trash2, ChevronUp } from 'lucide-react';
 import { emptyStoryline, type ChapterPlan, type StorylineDoc } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Button, Card, EmptyState, Spinner, cn } from '@/components/ui';
+import { Button, Card, cn, confirm, EmptyState, Spinner } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import { listChapters, upsertChapterPlan } from '@/db/repos/chaptersRepo';
@@ -99,7 +99,7 @@ export function StorylineTab({ novel }: { novel: Novel }) {
   });
 
   const remove = (kind: EntityKind, id: string) => run(async () => {
-    if (!data || !confirm(t.common.confirmDelete)) return;
+    if (!data || !(await confirm({ title: t.common.confirmDelete, confirmText: t.common.confirm, tone: 'danger' }))) return;
     const list = data[TABLE[kind]] as Array<{ id: string }>;
     const i = list.findIndex((x) => x.id === id);
     const neighbour = list[i + 1] ?? list[i - 1];

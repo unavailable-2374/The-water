@@ -1,6 +1,8 @@
 import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { create } from 'zustand';
 import { hashHue } from '@/community/avatar';
+import { t } from '@/i18n/zh';
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -126,5 +128,84 @@ export function BookCover({ title, subtitle, className, size = 'md' }: { title: 
       <div className={cn('vertical-title absolute right-3 top-3 max-h-[85%] overflow-hidden font-serif font-semibold text-paper-0/95 drop-shadow', text)}>{title || '未命名'}</div>
       {subtitle && <div className="absolute bottom-2 left-3 text-[9px] text-paper-0/70">{subtitle}</div>}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * 确认对话框：promise 化的 confirm()，替代原生 window.confirm。
+ *
+ *   import { confirm } from '@/components/ui';
+ *   if (!(await confirm('确定要删除吗？'))) return;
+ *   if (!(await confirm({ title: '删除这本小说？', description: '章节与版本会一起删掉。', tone: 'danger' }))) return;
+ *
+ * 用前要在应用根部挂一次 <ConfirmHost />（已在 app/App.tsx 挂好）。
+ * ------------------------------------------------------------------ */
+
+export interface ConfirmOptions {
+  title: string;
+  /** 补充说明，支持任意节点。 */
+  description?: ReactNode;
+  confirmText?: string;
+  cancelText?: string;
+  /** danger 用朱砂色主按钮，用于不可撤销的操作。 */
+  tone?: 'default' | 'danger';
+}
+
+interface ConfirmRequest extends ConfirmOptions { id: number; resolve: (ok: boolean) => void }
+
+interface ConfirmState {
+  queue: ConfirmRequest[];
+  push: (req: ConfirmRequest) => void;
+  settle: (id: number, ok: boolean) => void;
+}
+
+const useConfirmStore = create<ConfirmState>((set, get) => ({
+  queue: [],
+  push: (req) => set((s) => ({ queue: [...s.queue, req] })),
+  settle: (id, ok) => {
+    const req = get().queue.find((q) => q.id === id);
+    set((s) => ({ queue: s.queue.filter((q) => q.id !== id) }));
+    req?.resolve(ok);
+  },
+}));
+
+let confirmSeq = 1;
+
+/** 弹一个确认框，返回用户是否点了「确认」。取消 / Esc / 点遮罩都算 false。 */
+export function confirm(options: ConfirmOptions | string): Promise<boolean> {
+  const opts: ConfirmOptions = typeof options === 'string' ? { title: options } : options;
+  return new Promise<boolean>((resolve) => {
+    useConfirmStore.getState().push({ ...opts, id: confirmSeq++, resolve });
+  });
+}
+
+/** 确认框宿主，整个应用挂一次即可。 */
+export function ConfirmHost() {
+  const current = useConfirmStore((s) => s.queue[0] ?? null);
+  const settle = useConfirmStore((s) => s.settle);
+  const id = current?.id;
+  useEffect(() => {
+    if (id === undefined) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') { e.preventDefault(); settle(id, true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [id, settle]);
+  if (!current) return null;
+  return (
+    <Dialog open title={current.title} width="max-w-md" onClose={() => settle(current.id, false)}>
+      {current.description && <div className="text-sm leading-relaxed text-ink-600 dark:text-ink-300">{current.description}</div>}
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => settle(current.id, false)}>{current.cancelText ?? t.common.cancel}</Button>
+        <Button
+          variant={current.tone === 'danger' ? 'danger' : 'primary'}
+          autoFocus
+          onClick={() => settle(current.id, true)}
+        >
+          {current.confirmText ?? t.common.confirm}
+        </Button>
+      </div>
+    </Dialog>
   );
 }

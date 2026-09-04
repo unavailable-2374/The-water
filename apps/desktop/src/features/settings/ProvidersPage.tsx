@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Plus, Star, Trash2, Pencil, PlugZap } from 'lucide-react';
-import { t } from '@/i18n/zh';
-import { Badge, Button, EmptyState } from '@/components/ui';
+import { fmt, t } from '@/i18n/zh';
+import { Badge, Button, EmptyState, confirm } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { useSettings } from '@/stores/settingsStore';
 import { deleteProvider, setDefaultProvider } from '@/db/repos/providersRepo';
+import { planProviderCleanup } from './providerCleanup';
 import { invalidateProvider, providerFromConfig } from '@/llm/registry';
 import { complete } from '@/llm/complete';
 import { secrets } from '@/secrets/keychain';
@@ -12,7 +13,7 @@ import type { ProviderConfig } from '@/llm/types';
 import { ProviderForm } from './ProviderForm';
 
 export function ProvidersPage() {
-  const { providers, refreshProviders } = useSettings();
+  const { providers, settings, refreshProviders, update } = useSettings();
   const [editing, setEditing] = useState<ProviderConfig | null | 'new'>(null);
   const [testing, setTesting] = useState<string | null>(null);
 
@@ -30,11 +31,26 @@ export function ProvidersPage() {
     }
   };
   const remove = async (p: ProviderConfig) => {
-    if (!confirm(t.common.confirmDelete)) return;
+    const ok = await confirm({
+      title: fmt(t.settings.deleteProviderTitle, { name: p.name }),
+      description: t.settings.deleteProviderDesc,
+      confirmText: t.common.delete,
+      tone: 'danger',
+    });
+    if (!ok) return;
+    // 删之前先算好要连带清理什么：用途覆盖不能留着指向已删的 id，默认位也不能空着。
+    const plan = planProviderCleanup({
+      deleted: { id: p.id, name: p.name, isDefault: p.isDefault },
+      remaining: providers.filter((x) => x.id !== p.id).map((x) => ({ id: x.id, name: x.name })),
+      purposes: settings.defaultProviderId,
+    });
     await secrets().delete(p.secretRef).catch(() => undefined);
     await deleteProvider(p.id);
     invalidateProvider(p.id);
+    if (plan.purposes) await update({ defaultProviderId: plan.purposes });
+    if (plan.promoteDefaultTo) await setDefaultProvider(plan.promoteDefaultTo);
     await refreshProviders();
+    toast.info(plan.notice);
   };
   const makeDefault = async (p: ProviderConfig) => {
     await setDefaultProvider(p.id);

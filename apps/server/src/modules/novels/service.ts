@@ -13,9 +13,11 @@ import {
 import type { AppDeps, AuthUser } from '../../context';
 import { follows, forks, likes, novels, novelVersions, users, type NovelRow } from '../../db/schema';
 import { ApiError, conflict, forbidden, notFound, validation } from '../../lib/errors';
+import type { ModerationField } from '../../lib/moderation';
 import { newId } from '../../lib/ids';
 import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { novelShareUrl } from '../../lib/urls';
+import { assertTextAllowed } from '../admin/audit';
 import { recordActivity } from '../feed/service';
 import { awardCompleted } from '../incentive/service';
 import { hasBlocked } from '../users/blocking';
@@ -139,8 +141,10 @@ export function assertLicenseInheritance(sourceLicense: License, derivativeLicen
   }
 }
 
-export function createNovel(deps: AppDeps, user: AuthUser, req: CreateNovelRequest): NovelDetail {
+export async function createNovel(deps: AppDeps, user: AuthUser, req: CreateNovelRequest): Promise<NovelDetail> {
   const now = deps.clock.now();
+  // P0-2：元数据也要过审，否则“干净内容过审后改标题”就是现成的绕过路径。
+  await assertTextAllowed(deps, metaFields(req), { type: 'user', id: user.id, meta: { kind: 'novel_create' } });
   const count = deps.db
     .select({ c: sql<number>`count(*)` })
     .from(novels)
@@ -195,8 +199,18 @@ export function createNovel(deps: AppDeps, user: AuthUser, req: CreateNovelReque
   return buildNovelDetail(deps, findNovelRow(deps, id)!, user);
 }
 
-export function updateNovel(deps: AppDeps, user: AuthUser, id: string, patch: UpdateNovelRequest): NovelDetail {
+/** 参与审核的元数据字段。 */
+function metaFields(patch: { title?: string; summary?: string; tags?: string[] }): ModerationField[] {
+  const fields: ModerationField[] = [];
+  if (patch.title !== undefined) fields.push({ label: '标题', text: patch.title });
+  if (patch.summary !== undefined) fields.push({ label: '简介', text: patch.summary });
+  if (patch.tags !== undefined) fields.push({ label: '标签', text: patch.tags.join(' ') });
+  return fields;
+}
+
+export async function updateNovel(deps: AppDeps, user: AuthUser, id: string, patch: UpdateNovelRequest): Promise<NovelDetail> {
   const n = loadOwnedNovel(deps, id, user);
+  await assertTextAllowed(deps, metaFields(patch), { type: 'novel', id, meta: { kind: 'novel_meta', authorId: n.authorId } });
   const license = patch.license ?? n.license;
   if (n.sourceNovelId && patch.license) {
     const src = findNovelRow(deps, n.sourceNovelId);

@@ -6,6 +6,14 @@ export interface PlannedStep { kind: StepKind; chapterId: string | null; input: 
 /** generate_novel: write every chapter in `chapters` (already ordered) that has no text, or all when `force`. */
 export interface PlanOptions { force?: boolean; only?: Set<number>; /** Insert a style_check step between adjust_length and summarize (docs/writing/README.md §7 第二期 3). */ styleCheck?: boolean }
 
+/** 规划阶段：大纲 / 章节表（§2.1 第 1 条，改成后台步骤）。 */
+export function planPlanning(opts: { outline?: boolean; chapterTable?: boolean } = {}): PlannedStep[] {
+  const steps: PlannedStep[] = [];
+  if (opts.outline !== false) steps.push({ kind: 'outline', chapterId: null, input: {} });
+  if (opts.chapterTable !== false) steps.push({ kind: 'chapter_table', chapterId: null, input: {} });
+  return steps;
+}
+
 export function planGenerate(chapters: Chapter[], opts: PlanOptions = {}): PlannedStep[] {
   const steps: PlannedStep[] = [];
   for (const c of chapters) {

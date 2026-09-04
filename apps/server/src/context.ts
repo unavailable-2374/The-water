@@ -1,5 +1,6 @@
 import type { Db } from './db/client';
 import type { Env } from './env';
+import type { Mailer } from './lib/mailer';
 import type { ContentModerator } from './lib/moderation';
 import type { Clock } from './lib/time';
 import type { UserRow, SessionRow } from './db/schema';
@@ -8,13 +9,25 @@ export interface RateLimitRule {
   max: number;
   windowMs: number;
 }
-export type RateLimitName = 'login' | 'register' | 'blobs' | 'read' | 'comment' | 'social';
+export type RateLimitName =
+  | 'login'
+  | 'register'
+  | 'blobs'
+  | 'read'
+  | 'comment'
+  | 'social'
+  | 'report'
+  | 'fork'
+  | 'write'
+  | 'password'
+  | 'web';
 
 export interface AppDeps {
   db: Db;
   env: Env;
   clock: Clock;
   moderator: ContentModerator;
+  mailer: Mailer;
   /** false 表示测试中关闭限流。 */
   rateLimits: Partial<Record<RateLimitName, RateLimitRule>> | false;
 }
@@ -26,6 +39,9 @@ export interface AuthUser {
   displayName: string;
   bio: string | null;
   role: 'user' | 'admin';
+  status: 'active' | 'suspended' | 'banned';
+  suspendedUntil: Date | null;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
 }
 
@@ -48,6 +64,9 @@ export function toAuthUser(row: UserRow): AuthUser {
     displayName: row.displayName,
     bio: row.bio,
     role: row.role,
+    status: row.status,
+    suspendedUntil: row.suspendedUntil,
+    emailVerifiedAt: row.emailVerifiedAt,
     createdAt: row.createdAt,
   };
 }

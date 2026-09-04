@@ -9,6 +9,7 @@ import type { AppDeps } from '../context';
 import { createDb } from './client';
 import { runMigrations } from './migrate';
 import { loadEnv } from '../env';
+import { consoleMailer } from '../lib/mailer';
 import { noopModerator } from '../lib/moderation';
 import { systemClock } from '../lib/time';
 import { users } from './schema';
@@ -16,7 +17,7 @@ import { users } from './schema';
 const env = loadEnv();
 const { db } = createDb(env.databaseUrl);
 runMigrations(db);
-const deps: AppDeps = { db, env, clock: systemClock, moderator: noopModerator, rateLimits: false };
+const deps: AppDeps = { db, env, clock: systemClock, moderator: noopModerator, mailer: consoleMailer(), rateLimits: false };
 const app = createApp(deps);
 
 const adminEmail = env.adminEmails[0] ?? 'admin@example.com';
@@ -104,6 +105,8 @@ async function publishNovel(token: string, novelId: string, premise: string, cha
 }
 
 const adminToken = await ensureUser(adminEmail, '管理员');
+// P0-3：ADMIN_EMAILS 提权要求邮箱已验证，种子里直接置位并提权。
+db.update(users).set({ emailVerifiedAt: new Date(), role: 'admin' }).where(eq(users.email, adminEmail)).run();
 const writerToken = await ensureUser('writer@example.com', '守灯人');
 const readerToken = await ensureUser('reader@example.com', '夜读人');
 

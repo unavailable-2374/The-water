@@ -1,25 +1,29 @@
 /**
- * Studio service: the interactive planning steps (outline → chapter table) and job creation.
- * Planning runs in the foreground with streaming; chapter writing runs as background jobs.
+ * Studio service：建任务 + 少量同步操作。
+ *
+ * 大纲与章节表原来跑在前台（§2.1 第 1 条），现在一律走后台任务步骤
+ * （`jobs/steps/outlineStep.ts` / `chapterTableStep.ts`），这里只负责建任务、
+ * 按用途冻结模型选择（§2.1 第 2 条）以及开工前的预算检查（§2.1 第 3 条）。
  */
-import { nanoid } from 'nanoid';
-import { emptyBible, emptyDerivative, splitChapters, type DerivativeDecl, type StorylineDoc, type StyleProfile } from '@the-water/shared';
+import { emptyDerivative, splitChapters, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
+import { emptyBible } from '@the-water/shared';
 import { createNovel, getNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
-import { buildStorylineDoc, createSnapshot, getStyleExtras, replaceStorylineRows, setDerivative, setStyleProfile } from '@/db/repos/storylineRepo';
-import { createVersion, deleteChaptersFrom, listChapters, markStaleFrom, upsertChapterPlan, type Chapter } from '@/db/repos/chaptersRepo';
+import { buildStorylineDoc, createSnapshot, getStyleExtras, setDerivative, setStyleProfile } from '@/db/repos/storylineRepo';
+import { createVersion, listChapters, markStaleFrom, upsertChapterPlan } from '@/db/repos/chaptersRepo';
 import { saveBible } from '@/db/repos/bibleRepo';
-import { createJob, listJobs } from '@/db/repos/jobsRepo';
-import { providerForPurpose } from '@/llm/registry';
-import { requestJson } from '@/llm/json';
-import { outlinePrompt } from '@/llm/prompts/outline';
-import { chapterTableBatches, chapterTablePrompt } from '@/llm/prompts/chapterTable';
-import { matchBeatByTitle, toStorylineDoc, type ChapterTable, type OutlineDoc, type NovelRequirements } from '@/novel/types';
-import { normalizeTargets, planChapterCount } from '@/novel/wordBudget';
-import { planGenerate, planRegenerate, planRewrite, planStyleCheck, type RewriteItemInput } from '@/jobs/planner';
+import { createJob, listJobs, type Job } from '@/db/repos/jobsRepo';
+import { getSetting, setSetting } from '@/db/repos/settingsRepo';
+import { assertBudget } from '@/db/repos/usageRepo';
+import type { NovelRequirements } from '@/novel/types';
+import { storylineToOutline } from '@/novel/planning';
+import { planGenerate, planPlanning, planRegenerate, planRewrite, planStyleCheck, type PlannedStep, type RewriteItemInput } from '@/jobs/planner';
+import { cleanProviderMap, type StepProviderMap } from '@/jobs/purposes';
 import { profileFromFreeText } from '@/novel/stylePresets';
 import { isEmptyGenre, mergedGenreOf } from '@/novel/genrePacks';
 import { kick } from '@/jobs/runner';
 import { emitJobEvent } from '@/jobs/events';
+
+export { storylineToOutline };
 
 export interface WizardInput { title: string; premise: string; requirements: NovelRequirements; targetChars: number; styleProfile?: StyleProfile | null }
 
@@ -44,121 +48,126 @@ export async function wantsStyleCheck(novelId: string): Promise<boolean> {
   return styleProfile.metrics !== null || hasVoice || styleProfile.exemplars.length > 0 || styleProfile.injection.humanReadableConstraints.length > 0;
 }
 
-/** Convert current storyline rows back to the name-based OutlineDoc shape (for the chapter-table prompt). */
-export function storylineToOutline(doc: StorylineDoc, novel: Novel): OutlineDoc {
-  const nameOf = (id: string) => doc.characters.find((c) => c.id === id)?.name ?? id;
-  const setNameOf = (id: string) => doc.settings.find((s) => s.id === id)?.name ?? id;
-  return {
-    title: novel.title,
-    logline: novel.meta.logline,
-    themes: doc.themes,
-    settings: doc.settings.map((s) => ({ name: s.name, kind: s.kind, description: s.description })),
-    characters: doc.characters.map((c) => ({ name: c.name, aliases: c.aliases, role: c.role, description: c.description, arc: c.arc, relationships: c.relationships.map((r) => ({ targetName: nameOf(r.targetId), kind: r.kind, note: r.note })) })),
-    arcs: doc.arcs.map((a) => ({ title: a.title, summary: a.summary, startChapterNo: a.startChapterNo, endChapterNo: a.endChapterNo })),
-    beats: doc.beats.map((b) => ({ arcIndex: Math.max(0, doc.arcs.findIndex((a) => a.id === b.arcId)), title: b.title, summary: b.summary, characterNames: b.characterIds.map(nameOf), settingNames: b.settingIds.map(setNameOf), suggestedChapterNo: b.chapterNo })),
-  };
-}
-
-/** Step 1: outline → storyline rows (characters/settings/arcs/beats), novel title/logline/themes. */
-export async function generateOutline(novelId: string, onDelta?: (text: string) => void, signal?: AbortSignal): Promise<OutlineDoc> {
-  const novel = await getNovel(novelId);
-  if (!novel) throw new Error('小说不存在');
-  const { provider } = await providerForPurpose('planning');
-  const chapterCount = planChapterCount(novel.targetChars);
-  const spec = outlinePrompt({ premise: novel.premise, requirements: novel.requirements, targetChars: novel.targetChars, chapterCount });
-  const r = await requestJson(provider, { ...spec, schema: spec.schema! }, { signal, onDelta: (_d, acc) => onDelta?.(acc) });
-  const outline = r.value;
-  const doc = toStorylineDoc(outline, novel.premise, [], () => nanoid());
-  await replaceStorylineRows(novelId, doc);
-  await updateNovel(novelId, {
-    title: novel.title && novel.title !== '未命名小说' ? novel.title : outline.title || novel.title,
-    status: 'planning',
-    meta: { ...novel.meta, logline: outline.logline, themes: outline.themes, outlineDone: true, tableDone: false },
-  });
-  emitJobEvent({ type: 'novel:storylineUpdated', novelId });
-  return outline;
-}
-
-/** Step 2: chapter table (batched) → chapter rows; resolves beat titles / POV names against current rows. */
-export async function generateChapterTable(novelId: string, onProgress?: (msg: string, partial: string) => void, signal?: AbortSignal): Promise<Chapter[]> {
-  const novel = await getNovel(novelId);
-  if (!novel) throw new Error('小说不存在');
-  const { provider } = await providerForPurpose('planning');
-  const doc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
-  const outline = storylineToOutline(doc, novel);
-  const total = planChapterCount(novel.targetChars);
-  const perChapter = Math.round(novel.targetChars / total);
-  const table: ChapterTable = [];
-  for (const [from, to] of chapterTableBatches(total)) {
-    const count = to - from + 1;
-    onProgress?.(`正在规划第 ${from}–${to} 章（共 ${total} 章）`, '');
-    const spec = chapterTablePrompt({ outline, requirements: novel.requirements, fromChapter: from, toChapter: to, totalChapters: total, batchTotalChars: perChapter * count, minChars: Math.max(800, Math.round(perChapter * 0.6)), maxChars: Math.round(perChapter * 1.5), previousEntries: table.slice(-3) });
-    const r = await requestJson(provider, { ...spec, schema: spec.schema! }, { signal, onDelta: (_d, acc) => onProgress?.(`正在规划第 ${from}–${to} 章`, acc) });
-    const entries = r.value.filter((e) => e.chapterNo >= from && e.chapterNo <= to).sort((a, b) => a.chapterNo - b.chapterNo);
-    // fill gaps defensively
-    for (let n = from; n <= to; n++) if (!entries.some((e) => e.chapterNo === n)) entries.push({ chapterNo: n, title: `第${n}章`, goal: '', beatTitles: [], povCharacter: null, targetChars: perChapter, endHook: '' });
-    table.push(...entries.sort((a, b) => a.chapterNo - b.chapterNo));
-  }
-  const targets = normalizeTargets(table.map((e) => e.targetChars || perChapter), novel.targetChars);
-  await deleteChaptersFrom(novelId, 1);
-  const chapters: Chapter[] = [];
-  for (let i = 0; i < table.length; i++) {
-    const e = table[i]!;
-    const beatIds = e.beatTitles.map((t) => matchBeatByTitle(t, doc.beats)?.id).filter((x): x is string => !!x);
-    const pov = e.povCharacter ? doc.characters.find((c) => c.name === e.povCharacter || c.aliases.includes(e.povCharacter!))?.id ?? null : null;
-    chapters.push(await upsertChapterPlan(novelId, { chapterNo: e.chapterNo, title: e.title, goal: e.goal, targetChars: targets[i]!, povCharacterId: pov, beatIds, endHook: e.endHook }));
-  }
-  // beats without chapterNo → take it from the first chapter that lists them
-  for (const b of doc.beats) {
-    if (b.chapterNo != null) continue;
-    const ch = chapters.find((c) => c.beatIds.includes(b.id));
-    if (ch) { const { upsertBeat } = await import('@/db/repos/storylineRepo'); await upsertBeat(novelId, { ...b, chapterNo: ch.chapterNo }); }
-  }
-  const finalDoc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
-  await createSnapshot(novelId, finalDoc, 'generated');
-  await saveBible(novelId, 0, initialBible(finalDoc));
-  await updateNovel(novelId, { meta: { ...novel.meta, tableDone: true } });
-  emitJobEvent({ type: 'novel:storylineUpdated', novelId });
-  return chapters;
-}
-
-function initialBible(doc: StorylineDoc) {
-  const b = emptyBible();
-  for (const c of doc.characters) b.characters[c.id] = { name: c.name, state: c.description.slice(0, 300), location: '', knowledge: '', relationships: c.relationships.map((r) => `${doc.characters.find((x) => x.id === r.targetId)?.name ?? ''}：${r.kind}${r.note ? '，' + r.note : ''}`) };
-  b.facts = doc.settings.map((s) => `${s.name}：${s.description}`.slice(0, 300));
-  return b;
-}
-
 async function ensureNoActiveJob(novelId: string): Promise<void> {
   const active = await listJobs({ novelId, statuses: ['queued', 'running', 'pausing', 'paused'] });
   if (active.length) throw new Error('该小说已有进行中的任务，请先完成或取消');
 }
 
+// ---------------------------------------------------------------------------
+// 按用途选模型 + 预算检查（§2.1 第 2、3 条）
+// ---------------------------------------------------------------------------
+
+/** 每本书自己的模型选择存在设置表里（向导第三步 / 规划页写入）。 */
+export const novelProviderKey = (novelId: string) => `novelProviders:${novelId}`;
+
+export async function getNovelProviders(novelId: string): Promise<StepProviderMap> {
+  return cleanProviderMap(await getSetting<StepProviderMap>(novelProviderKey(novelId), {}));
+}
+export async function setNovelProviders(novelId: string, map: StepProviderMap): Promise<void> {
+  await setSetting(novelProviderKey(novelId), cleanProviderMap(map));
+}
+
+export interface StartOptions {
+  /** 覆盖这本书已保存的模型选择（只影响这一个任务）。 */
+  providerIds?: StepProviderMap;
+  /** 已经向用户确认过费用超预算，照跑。 */
+  ignoreBudget?: boolean;
+}
+
+/**
+ * 建任务的统一入口：把「用途 → 供应商」的选择冻结进任务参数，
+ * 这样任务跑到一半用户改了设置也不会换模型；`provider_id` 列存写作模型，
+ * 任务池的供应商级并发数按它算。
+ */
+async function submitJob(input: { novelId: string; type: Job['type']; params: Record<string, unknown>; steps: PlannedStep[] }, opts: StartOptions = {}): Promise<Job> {
+  const providerIds = cleanProviderMap({ ...(await getNovelProviders(input.novelId)), ...opts.providerIds });
+  if (!opts.ignoreBudget) await assertBudget(input.novelId);
+  return createJob({
+    novelId: input.novelId,
+    type: input.type,
+    params: { ...input.params, providerIds },
+    providerId: providerIds.writing ?? null,
+    steps: input.steps,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 规划阶段：大纲 / 章节表（§2.1 第 1 条）
+// ---------------------------------------------------------------------------
+
+/** 重排章节表会删掉已有章节，必须先让用户确认。 */
+export class ConfirmRequiredError extends Error {
+  readonly chapterCount: number;
+  constructor(chapterCount: number) {
+    super(`重排章节表会替换已有的 ${chapterCount} 章（正文与版本历史都会一起删除），确定要继续吗？`);
+    this.name = 'ConfirmRequiredError';
+    this.chapterCount = chapterCount;
+  }
+}
+
+export interface PlanningOptions extends StartOptions {
+  /** 只跑大纲 / 只跑章节表，缺省两步都跑。 */
+  outline?: boolean;
+  chapterTable?: boolean;
+  /** 用户已确认「重排会删掉已有章节」。 */
+  confirmReplaceChapters?: boolean;
+}
+
+/**
+ * 规划任务：大纲 → 章节表。走的是普通任务通道，所以可暂停、可恢复、
+ * 崩溃后能接着跑，失败还能单步重试。
+ */
+export async function startPlanning(novelId: string, opts: PlanningOptions = {}): Promise<string> {
+  await ensureNoActiveJob(novelId);
+  const wantTable = opts.chapterTable !== false;
+  if (wantTable && !opts.confirmReplaceChapters) {
+    const existing = await listChapters(novelId);
+    if (existing.length > 0) throw new ConfirmRequiredError(existing.length);
+  }
+  const steps = planPlanning({ outline: opts.outline, chapterTable: opts.chapterTable });
+  if (steps.length === 0) throw new Error('没有需要执行的规划步骤');
+  const job = await submitJob({ novelId, type: 'generate_novel', params: { stage: 'plan' }, steps }, opts);
+  await updateNovel(novelId, { status: 'planning' });
+  kick();
+  return job.id;
+}
+
+/** 只生成大纲。 */
+export const startOutline = (novelId: string, opts: StartOptions = {}) => startPlanning(novelId, { ...opts, chapterTable: false });
+/** 只排章节表（已有章节时需要 confirmReplaceChapters）。 */
+export const startChapterTable = (novelId: string, opts: Omit<PlanningOptions, 'outline' | 'chapterTable'> = {}) => startPlanning(novelId, { ...opts, outline: false });
+
+/** 这个任务是不是「规划」任务（大纲 / 章节表），用于界面上区分标题。 */
+export function isPlanningJob(job: Pick<Job, 'params'>): boolean {
+  return (job.params as { stage?: unknown }).stage === 'plan';
+}
+
+
 /** Start writing all unwritten chapters (or a subset). */
-export async function startGeneration(novelId: string, opts: { only?: number[]; force?: boolean } = {}): Promise<string> {
+export async function startGeneration(novelId: string, opts: { only?: number[]; force?: boolean } & StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
   const chapters = await listChapters(novelId);
   const steps = planGenerate(chapters, { force: opts.force, only: opts.only ? new Set(opts.only) : undefined, styleCheck: await wantsStyleCheck(novelId) });
   if (steps.length === 0) throw new Error('没有需要生成的章节');
-  const job = await createJob({ novelId, type: 'generate_novel', params: { only: opts.only ?? null }, providerId: null, steps });
+  const job = await submitJob({ novelId, type: 'generate_novel', params: { only: opts.only ?? null }, steps }, opts);
   await updateNovel(novelId, { status: 'generating' });
   kick();
   return job.id;
 }
 
-export async function regenerateChapter(novelId: string, chapterNo: number, opts: { cascade?: boolean } = {}): Promise<string> {
+export async function regenerateChapter(novelId: string, chapterNo: number, opts: { cascade?: boolean } & StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
   const chapters = await listChapters(novelId);
   const target = chapters.find((c) => c.chapterNo === chapterNo);
   if (!target) throw new Error('章节不存在');
   const following = opts.cascade ? chapters.filter((c) => c.chapterNo > chapterNo && c.currentVersionId) : [];
   if (!opts.cascade) await markStaleFrom(novelId, chapterNo + 1, '上游章节已重新生成');
-  const job = await createJob({ novelId, type: 'regenerate_chapter', params: { chapterNo, cascade: !!opts.cascade }, providerId: null, steps: planRegenerate(target, following, { styleCheck: await wantsStyleCheck(novelId) }) });
+  const job = await submitJob({ novelId, type: 'regenerate_chapter', params: { chapterNo, cascade: !!opts.cascade }, steps: planRegenerate(target, following, { styleCheck: await wantsStyleCheck(novelId) }) }, opts);
   kick();
   return job.id;
 }
 
-export async function startRewrite(novelId: string, items: RewriteItemInput[], snapshotBeforeId: string | null): Promise<string> {
+export async function startRewrite(novelId: string, items: RewriteItemInput[], snapshotBeforeId: string | null, opts: StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
   const novel = await getNovel(novelId);
   if (!novel) throw new Error('小说不存在');
@@ -167,26 +176,26 @@ export async function startRewrite(novelId: string, items: RewriteItemInput[], s
   // snapshot the NEW storyline so rewritten versions reference it
   const doc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
   await createSnapshot(novelId, doc, 'user_commit');
-  const job = await createJob({ novelId, type: 'rewrite', params: { snapshotBeforeId, chapterNos: items.map((i) => i.chapter.chapterNo) }, providerId: null, steps });
+  const job = await submitJob({ novelId, type: 'rewrite', params: { snapshotBeforeId, chapterNos: items.map((i) => i.chapter.chapterNo) }, steps }, opts);
   kick();
   return job.id;
 }
 
 /** 拆书：从现有正文提取文风档案 + 人物言行规格 + 规矩（后台任务）。 */
-export async function startStyleExtraction(novelId: string): Promise<string> {
+export async function startStyleExtraction(novelId: string, opts: StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
-  const job = await createJob({ novelId, type: 'extract_style', params: {}, providerId: null, steps: [{ kind: 'extract_style', chapterId: null, input: {} }] });
+  const job = await submitJob({ novelId, type: 'extract_style', params: {}, steps: [{ kind: 'extract_style', chapterId: null, input: {} }] }, opts);
   kick();
   return job.id;
 }
 
 /** 单章审校（不改写流程，只出报告并在不达标时定点修订一次）。 */
-export async function startStyleCheck(novelId: string, chapterNo: number): Promise<string> {
+export async function startStyleCheck(novelId: string, chapterNo: number, opts: StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
   const chapter = (await listChapters(novelId)).find((c) => c.chapterNo === chapterNo);
   if (!chapter) throw new Error('章节不存在');
   if (!chapter.currentVersionId) throw new Error('这一章还没有正文');
-  const job = await createJob({ novelId, type: 'style_check', params: { chapterNo }, providerId: null, steps: planStyleCheck(chapter) });
+  const job = await submitJob({ novelId, type: 'style_check', params: { chapterNo }, steps: planStyleCheck(chapter) }, opts);
   kick();
   return job.id;
 }

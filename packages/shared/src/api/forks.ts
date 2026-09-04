@@ -37,6 +37,8 @@ export const LineageResponseSchema = z.object({
   ancestors: z.array(NovelRefSchema),
   self: NovelRefSchema,
   descendants: z.array(LineageNodeSchema),
+  /** 后代节点数超过服务端上限、树被截断时为 true（缺失的是最新的一批派生）。 */
+  descendantsTruncated: z.boolean().optional(),
 });
 export type LineageResponse = z.infer<typeof LineageResponseSchema>;
 

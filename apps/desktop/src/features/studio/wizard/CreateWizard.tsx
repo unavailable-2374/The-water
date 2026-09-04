@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Check, Sparkles } from 'lucide-react';
 import { fmt, t } from '@/i18n/zh';
@@ -7,7 +7,11 @@ import { toast } from '@/components/Toast';
 import { useSettings } from '@/stores/settingsStore';
 import { defaultRequirements, type NovelRequirements } from '@/novel/types';
 import { planChapterCount } from '@/novel/wordBudget';
-import { createNovelFromWizard } from '@/novel/service';
+import { createNovelFromWizard, setNovelProviders } from '@/novel/service';
+import { estimateGeneration, estimatePlanning } from '@/novel/pricing';
+import type { StepProviderMap } from '@/jobs/purposes';
+import { CostEstimateLine, previewCost, type CostPreview } from '../UsagePanel';
+import { ModelPurposePicker } from '../ModelPicker';
 import { DOC_TYPES, DOC_TYPE_IDS } from '@/novel/docTypes';
 import { presetsForGenre } from '@/novel/stylePresets';
 import { GENRE_PACKS, isEmptyGenre, mergedGenreOf, orderPresetsByGenre, packIdsForGenre } from '@/novel/genrePacks';
@@ -15,7 +19,7 @@ import { GENRE_PACKS, isEmptyGenre, mergedGenreOf, orderPresetsByGenre, packIdsF
 const GENRES = ['都市', '玄幻', '仙侠', '科幻', '悬疑', '历史', '言情', '武侠', '奇幻', '现实', '其他'];
 const POVS = ['第三人称有限', '第一人称', '第三人称全知'];
 const NUMERALS = ['一', '二', '三'];
-const STEP_INTRO = ['先定下题材、视角和篇幅。', '你想看一个什么样的故事？', '确认一下，然后交给 AI。'];
+const STEP_INTRO = ['先定下题材、视角和篇幅。', '你想看一个什么样的故事？', '挑好模型、看一眼预算，然后交给 AI。'];
 
 export function CreateWizard() {
   const nav = useNavigate();
@@ -30,6 +34,8 @@ export function CreateWizard() {
   const presets = orderPresetsByGenre(presetsForGenre(req.genre), genre);
   const preset = presets.find((p) => p.id === presetId) ?? null;
   const [busy, setBusy] = useState(false);
+  const [providerIds, setProviderIds] = useState<StepProviderMap>({});
+  const [cost, setCost] = useState<CostPreview | null>(null);
   const set = <K extends keyof NovelRequirements>(k: K, v: NovelRequirements[K]) => setReq((r) => ({ ...r, [k]: v }));
   // 选题材时自动带出对应的题材包，之后用户仍可自由增删（科幻 + 悬疑这类组合就是这么来的）。
   const setGenre = (g: string) => setReq((r) => ({ ...r, genre: g, genrePackIds: packIdsForGenre(g) }));
@@ -38,12 +44,25 @@ export function CreateWizard() {
   const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
   const chapters = planChapterCount(target);
+
+  // 第三步「模型与确认」：模型一换，预估费用就跟着重算（§2.1 第 2、3 条）。
+  useEffect(() => {
+    if (step !== 2) return;
+    void (async () => {
+      const per = Math.round(target / chapters);
+      const gen = estimateGeneration(Array.from({ length: chapters }, () => ({ targetChars: per })), { styleCheck: !!preset });
+      const plan = estimatePlanning(chapters);
+      setCost(await previewCost({ writing: gen.writing, auxiliary: { inputTokens: gen.auxiliary.inputTokens + plan.inputTokens, outputTokens: gen.auxiliary.outputTokens + plan.outputTokens } }, providerIds));
+    })();
+  }, [step, target, chapters, providerIds, presetId]);
+
   const create = async () => {
     if (!premise.trim()) { toast.error('先写几句故事的设想吧'); setStep(1); return; }
     if (providers.length === 0) { toast.error(t.chat.noProvider); return; }
     setBusy(true);
     try {
       const novel = await createNovelFromWizard({ title: title.trim(), premise: premise.trim(), requirements: req, targetChars: target, styleProfile: preset });
+      await setNovelProviders(novel.id, providerIds);
       nav(`/studio/${novel.id}/plan?auto=1`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -166,6 +185,15 @@ export function CreateWizard() {
                 <dt className="text-ink-500">篇幅</dt><dd className="font-serif text-ink-800 dark:text-paper-100">约 {wan} 万字 · {chapters} 章</dd>
                 <dt className="text-ink-500">不想出现</dt><dd className="text-ink-800 dark:text-paper-100">{req.taboos.join('、') || '—'}</dd>
               </dl>
+              <div>
+                <h3 className="mb-1 font-serif text-sm tracking-wide text-ink-700 dark:text-ink-200">用哪些模型</h3>
+                <p className="mb-4 text-xs text-ink-400">写正文用好模型，总结与审校用便宜的；不选就跟随「设置 → 模型供应商」里的默认。</p>
+                <ModelPurposePicker value={providerIds} onChange={setProviderIds} />
+              </div>
+              <div className="rounded-2xl bg-paper-100 p-5 dark:bg-paper-800">
+                <div className="mb-1 text-xs font-medium tracking-wide text-ink-600 dark:text-ink-300">预计花费</div>
+                <CostEstimateLine preview={cost} prefix="大纲 + 章节表 + 整本正文约" />
+              </div>
               <p className="leading-relaxed text-ink-500">
                 {providers.length ? '点下面的按钮后，AI 会先写一份大纲给你看；你满意了，再让它排出章节、逐章动笔。' : t.chat.noProvider}
               </p>

@@ -1,4 +1,5 @@
 import { expect } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import type { z } from 'zod';
 import {
   hashChapterContent,
@@ -14,7 +15,9 @@ import { createApp } from '../src/app';
 import type { AppDeps } from '../src/context';
 import { createDb } from '../src/db/client';
 import { runMigrations } from '../src/db/migrate';
+import { users } from '../src/db/schema';
 import { testEnv } from '../src/env';
+import { memoryMailer } from '../src/lib/mailer';
 import { noopModerator, type ContentModerator } from '../src/lib/moderation';
 import { FakeClock } from '../src/lib/time';
 
@@ -29,6 +32,8 @@ export interface TestApp {
   app: ReturnType<typeof createApp>;
   deps: AppDeps;
   clock: FakeClock;
+  /** 已发出的邮件，供找回密码 / 邮箱验证用例断言。 */
+  outbox: ReturnType<typeof memoryMailer>['outbox'];
   request(method: string, path: string, opts?: RequestOpts): Promise<Response>;
   json<T = any>(method: string, path: string, opts?: RequestOpts): Promise<{ status: number; body: T; res: Response }>;
   register(email: string, displayName?: string): Promise<{ token: string; user: { id: string; role: string } }>;
@@ -40,11 +45,13 @@ export function makeTestApp(
   const { db } = createDb(':memory:');
   runMigrations(db);
   const clock = new FakeClock();
+  const mailer = memoryMailer();
   const deps: AppDeps = {
     db,
     env: testEnv(overrides.env),
     clock,
     moderator: overrides.moderator ?? noopModerator,
+    mailer,
     rateLimits: overrides.rateLimits ?? false,
   };
   const app = createApp(deps);
@@ -76,9 +83,17 @@ export function makeTestApp(
   const register: TestApp['register'] = async (email, displayName = email.split('@')[0]!) => {
     const r = await json('POST', '/api/v1/auth/register', { body: { email, password: 'password123', displayName } });
     if (r.status !== 201) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.body)}`);
-    return { token: r.body.token, user: r.body.user };
+    // P0-3 后注册一律是未验证的普通用户。测试账号默认视为已验证邮箱，
+    // ADMIN_EMAILS 中的账号直接同步为管理员，省得每个用例都跑一遍验证流程。
+    const normalized = email.trim().toLowerCase();
+    const isAdmin = deps.env.adminEmails.includes(normalized);
+    db.update(users)
+      .set({ emailVerifiedAt: clock.now(), ...(isAdmin ? { role: 'admin' as const } : {}) })
+      .where(eq(users.id, r.body.user.id))
+      .run();
+    return { token: r.body.token, user: { ...r.body.user, role: isAdmin ? 'admin' : r.body.user.role } };
   };
-  return { app, deps, clock, request, json, register };
+  return { app, deps, clock, outbox: mailer.outbox, request, json, register };
 }
 
 export function expectSchema<T extends z.ZodTypeAny>(schema: T, value: unknown): z.infer<T> {

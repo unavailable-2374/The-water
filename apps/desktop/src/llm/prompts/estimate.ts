@@ -1,7 +1,8 @@
 /**
- * Local token estimator for prompt budgeting: `cjk * ratio + other / 4`.
- * Kept here (not in llm/tokens.ts) so the prompt layer has no coupling to the
- * transport layer.
+ * Token 估算的唯一实现：`cjk * ratio + other / 4`。
+ *
+ * 放在 prompt 层（而不是 llm/tokens.ts）是为了让 prompt 层不依赖传输层；
+ * `llm/tokens.ts` 反过来转发这里的实现，全仓只有这一份算法（§4.6）。
  */
 
 const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿＀-￯]/gu;

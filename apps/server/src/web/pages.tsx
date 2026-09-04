@@ -1,5 +1,16 @@
 import type { FC } from 'hono/jsx';
-import { BADGE_BY_ID, LICENSE_LABELS, type ChapterContent, type ChapterMeta, type NovelDetail, type NovelSummary, type UserProfile } from '@the-water/shared';
+import {
+  BADGE_BY_ID,
+  LICENSE_LABELS,
+  type AdminUser,
+  type ChapterContent,
+  type ChapterMeta,
+  type ModerationEvent,
+  type NovelDetail,
+  type NovelSummary,
+  type Report,
+  type UserProfile,
+} from '@the-water/shared';
 import { Layout, type OpenGraph } from './layout';
 
 const fmtDate = (s: string | null) => (s ? s.slice(0, 10) : '—');
@@ -169,3 +180,206 @@ const AuthorSection: FC<{ title: string; items: NovelSummary[]; empty: string }>
     )}
   </>
 );
+
+// ---- 审核后台（P0-6）----
+
+export interface AdminReportView {
+  report: Report;
+  novelTitle: string;
+  novelModerationStatus: 'ok' | 'hidden' | 'removed';
+  commentBody: string | null;
+  commentStatus: string | null;
+}
+
+export interface AdminPageData {
+  /** 会话 token：零 JS 下只能靠链接与隐藏表单字段带着走。 */
+  token: string;
+  /** 动作完成后跳回的地址（含筛选条件）。 */
+  back: string;
+  adminName: string;
+  reports: AdminReportView[];
+  reportsNextCursor: string | null;
+  reportStatus: 'open' | 'resolved' | 'dismissed';
+  users: AdminUser[];
+  usersNextCursor: string | null;
+  q: string;
+  userStatus: string;
+  events: ModerationEvent[];
+}
+
+const REPORT_REASONS: Record<string, string> = {
+  plagiarism: '抄袭',
+  illegal: '违法',
+  adult: '成人内容',
+  spam: '垃圾信息',
+  other: '其它',
+};
+
+const MOD_STATUS: Record<string, string> = { ok: '正常', hidden: '审核中', removed: '已下架' };
+const USER_STATUS: Record<string, string> = { active: '正常', suspended: '禁言中', banned: '已封禁' };
+
+const ACTION_LABELS: Record<string, string> = {
+  auto_reject: '自动拦截',
+  novel_hide: '作品转审核中',
+  novel_remove: '作品下架',
+  novel_restore: '作品恢复',
+  comment_hide: '留言隐藏',
+  comment_restore: '留言恢复',
+  report_resolve: '举报已处理',
+  report_dismiss: '举报被驳回',
+  user_ban: '账号封禁',
+  user_suspend: '账号禁言',
+  user_unban: '解除封禁',
+  user_auto_unban: '禁言到期自动恢复',
+};
+
+const Hidden: FC<{ token: string; back: string; id: string }> = ({ token, back, id }) => (
+  <>
+    <input type="hidden" name="token" value={token} />
+    <input type="hidden" name="back" value={back} />
+    <input type="hidden" name="id" value={id} />
+  </>
+);
+
+/** 零 JS 管理页：读取用链接，动作用表单 POST 到 /admin/actions/*，完成后 303 跳回。 */
+export const AdminPage: FC<{ data: AdminPageData }> = ({ data }) => {
+  const { token, back } = data;
+  const link = (extra: string) => `/admin?token=${encodeURIComponent(token)}${extra}`;
+  return (
+    <Layout title="审核后台">
+      <h1>审核后台</h1>
+      <p class="muted">当前管理员：{data.adminName}。所有动作都会记进审计日志。</p>
+
+      <h2>举报队列</h2>
+      <div class="admin-filters">
+        {(['open', 'resolved', 'dismissed'] as const).map((s) => (
+          <a href={link(`&reportStatus=${s}`)}>{s === 'open' ? '待处理' : s === 'resolved' ? '已处理' : '已驳回'}</a>
+        ))}
+      </div>
+      {data.reports.length === 0 ? <p class="muted">没有符合条件的举报。</p> : null}
+      {data.reports.map((r) => (
+        <div class="card">
+          <div class="muted">
+            {fmtDate(r.report.createdAt)} · {REPORT_REASONS[r.report.reason] ?? r.report.reason} · 举报人 {r.report.reporterId ?? '匿名'} · 状态{' '}
+            {r.report.status === 'open' ? '待处理' : r.report.status === 'resolved' ? '已处理' : '已驳回'}
+          </div>
+          <div>
+            作品：<a href={`/n/${r.report.novelId}`}>{r.novelTitle}</a>（{MOD_STATUS[r.novelModerationStatus]}）
+          </div>
+          {r.report.commentId ? (
+            <div>
+              留言：{r.commentBody ? `「${r.commentBody.slice(0, 80)}」` : '（已不可见）'}（{r.commentStatus === 'ok' ? '正常' : '已隐藏'}）
+            </div>
+          ) : null}
+          {r.report.detail ? <p>{r.report.detail}</p> : null}
+          <form class="admin-form" method="post" action="/admin/actions/report">
+            <Hidden token={token} back={back} id={r.report.id} />
+            <input name="note" placeholder="处理备注（可选）" maxlength={500} />
+            <button name="status" value="resolved" type="submit">
+              标记已处理
+            </button>
+            <button name="status" value="dismissed" type="submit">
+              驳回
+            </button>
+          </form>
+          <form class="admin-form" method="post" action="/admin/actions/novel">
+            <Hidden token={token} back={back} id={r.report.novelId} />
+            <input name="note" placeholder="处置理由（可选）" maxlength={500} />
+            <button name="moderationStatus" value="hidden" type="submit">
+              转审核中
+            </button>
+            <button name="moderationStatus" value="removed" type="submit">
+              下架作品
+            </button>
+            <button name="moderationStatus" value="ok" type="submit">
+              恢复作品
+            </button>
+          </form>
+          {r.report.commentId ? (
+            <form class="admin-form" method="post" action="/admin/actions/comment">
+              <Hidden token={token} back={back} id={r.report.commentId} />
+              <button name="action" value="hide" type="submit">
+                隐藏留言
+              </button>
+              <button name="action" value="restore" type="submit">
+                恢复留言
+              </button>
+            </form>
+          ) : null}
+        </div>
+      ))}
+      {data.reportsNextCursor ? (
+        <p>
+          <a href={link(`&reportStatus=${data.reportStatus}&reportCursor=${encodeURIComponent(data.reportsNextCursor)}`)}>下一页举报 ›</a>
+        </p>
+      ) : null}
+
+      <h2>用户</h2>
+      <form class="admin-form" method="get" action="/admin">
+        <input type="hidden" name="token" value={token} />
+        <input name="q" value={data.q} placeholder="邮箱 / 用户名 / 昵称" maxlength={120} />
+        <select name="userStatus">
+          {['', 'active', 'suspended', 'banned'].map((s) => (
+            <option value={s} selected={data.userStatus === s}>
+              {s === '' ? '全部状态' : USER_STATUS[s]}
+            </option>
+          ))}
+        </select>
+        <button type="submit">搜索</button>
+      </form>
+      {data.users.length === 0 ? <p class="muted">没有匹配的用户。</p> : null}
+      {data.users.map((u) => (
+        <div class="card">
+          <div>
+            <a href={`/u/${u.handle}`}>{u.displayName}</a> <span class="muted">@{u.handle} · {u.email} · {u.role === 'admin' ? '管理员' : '普通用户'}</span>
+          </div>
+          <div class="muted">
+            状态：{USER_STATUS[u.status]}
+            {u.suspendedUntil ? ` · 解禁于 ${u.suspendedUntil.slice(0, 19).replace('T', ' ')}` : ''}
+            {u.statusReason ? ` · 理由：${u.statusReason}` : ''}
+          </div>
+          {u.role === 'admin' ? (
+            <div class="muted">管理员账号不提供封禁入口。</div>
+          ) : u.status === 'active' ? (
+            <form class="admin-form" method="post" action="/admin/actions/ban">
+              <Hidden token={token} back={back} id={u.id} />
+              <input name="reason" placeholder="封禁理由（必填）" maxlength={500} required />
+              <input name="days" type="number" min="0" max="3650" placeholder="天数，留空为永久" />
+              <button type="submit">封禁</button>
+            </form>
+          ) : (
+            <form class="admin-form" method="post" action="/admin/actions/unban">
+              <Hidden token={token} back={back} id={u.id} />
+              <input name="note" placeholder="解封备注（可选）" maxlength={500} />
+              <button type="submit">解除封禁</button>
+            </form>
+          )}
+        </div>
+      ))}
+      {data.usersNextCursor ? (
+        <p>
+          <a href={link(`&q=${encodeURIComponent(data.q)}&userStatus=${data.userStatus}&userCursor=${encodeURIComponent(data.usersNextCursor)}`)}>
+            下一页用户 ›
+          </a>
+        </p>
+      ) : null}
+
+      <h2>操作记录</h2>
+      {data.events.length === 0 ? <p class="muted">还没有审核记录。</p> : null}
+      <ul class="list">
+        {data.events.map((e) => (
+          <li>
+            <div>
+              {ACTION_LABELS[e.action] ?? e.action} · {e.targetType}/{e.targetId}
+            </div>
+            <div class="muted">
+              {e.createdAt.slice(0, 19).replace('T', ' ')} · 操作者 {e.actorId ?? '系统'}
+              {e.reason ? ` · ${e.reason}` : ''}
+              {e.note ? ` · ${e.note}` : ''}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Layout>
+  );
+};

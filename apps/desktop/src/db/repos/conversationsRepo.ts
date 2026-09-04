@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { getDb, now, selectOne } from '../db';
 import { parseJsonLoose } from '../mappers';
+import { recordUsage } from './usageRepo';
 import type { ChatRole } from '@/llm/types';
 
 export type ConversationKind = 'pdf_discuss' | 'novel_assist' | 'scratch';
@@ -68,6 +69,15 @@ export async function appendMessage(input: { conversationId: string; role: ChatR
       input.usage ? JSON.stringify(input.usage) : null, input.model ?? null, now()],
   );
   await db.execute('UPDATE ai_conversations SET updated_at = ? WHERE id = ?', [now(), input.conversationId]);
+  // 聊天的 token 用量以前只存在 ai_messages.usage 里、从没被聚合过（§2.1 第 3 条）。
+  // 在这里顺手记一条用量事件，「本月花了多少钱」才算得上完整。
+  if (input.usage) {
+    const conv = await getConversation(input.conversationId);
+    await recordUsage({
+      usage: input.usage, purpose: 'chat', model: input.model ?? '',
+      conversationId: input.conversationId, novelId: conv?.novelId ?? null,
+    }).catch((e) => console.error('记录聊天用量失败', e));
+  }
   return (await selectOne<RawM>('SELECT * FROM ai_messages WHERE id = ?', [id]).then((r) => (r ? mapM(r) : null)))!;
 }
 export async function updateMessageContent(id: string, content: string, usage?: Message['usage'], model?: string | null): Promise<void> {

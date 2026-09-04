@@ -7,6 +7,7 @@ import { fetch } from '@tauri-apps/plugin-http';
 import { z } from 'zod';
 import {
   ApiErrorSchema,
+  AccountExportResponseSchema,
   AuthResponseSchema,
   BlockResponseSchema,
   CommentListResponseSchema,
@@ -31,6 +32,7 @@ import {
   NovelResponseSchema,
   OkResponseSchema,
   ReportResponseSchema,
+  SessionListResponseSchema,
   StorylineResponseSchema,
   UploadBlobsResponseSchema,
   VersionListResponseSchema,
@@ -41,6 +43,8 @@ import {
   type CreateNovelRequest,
   type FeedQuery,
   type LeaderboardQuery,
+  type ChangePasswordRequest,
+  type DeleteAccountRequest,
   type UpdateProfileRequestSchema,
   type UserNovelsQuery,
   type CreateReportRequestSchema,
@@ -48,6 +52,8 @@ import {
   type ErrorCode,
   type UpdateNovelRequest,
   type UploadBlobsRequest,
+  HealthResponseSchema,
+  type HealthResponse,
 } from '@the-water/shared';
 
 export const API_PREFIX = '/api/v1';
@@ -91,6 +97,24 @@ export type TokenProvider = () => Promise<string | null>;
 
 export function normalizeServerUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
+}
+
+/**
+ * 连通性探测：只打只读的 /api/v1/health，不需要登录，也不写任何本地状态。
+ * 返回服务名与版本，好让用户确认自己连的是 The Water 服务而不是随便一个 200。
+ */
+export async function checkServer(baseUrl: string): Promise<HealthResponse> {
+  const url = new URL(API_PREFIX + '/health', normalizeServerUrl(baseUrl) + '/');
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), { method: 'GET', headers: { Accept: 'application/json' } });
+  } catch (e) {
+    throw new Error(`连不上这个地址：${e instanceof Error ? e.message : String(e)}`);
+  }
+  if (!res.ok) throw new Error(`服务器返回 ${res.status}，这可能不是 The Water 的服务地址`);
+  const parsed = HealthResponseSchema.safeParse(await res.json().catch(() => null));
+  if (!parsed.success) throw new Error('响应不是 The Water 的健康检查格式，请确认地址填对了');
+  return parsed.data;
 }
 
 export class PublicApi {
@@ -154,7 +178,7 @@ export class PublicApi {
   }
 
   // ---- auth ----
-  register(body: { email: string; password: string; displayName: string; clientLabel?: string }) {
+  register(body: { email: string; password: string; displayName: string; handle?: string; clientLabel?: string }) {
     return this.request('POST', '/auth/register', { body, schema: AuthResponseSchema });
   }
   login(body: { email: string; password: string; clientLabel?: string }) {
@@ -168,6 +192,48 @@ export class PublicApi {
   }
   updateProfile(body: z.input<typeof UpdateProfileRequestSchema>) {
     return this.request('PATCH', '/auth/me', { body, schema: MeResponseSchema });
+  }
+
+  // ---- 账号生命周期（P0-4）----
+  /** 请求发送邮箱验证信（登录态）。 */
+  requestEmailVerification() {
+    return this.request('POST', '/auth/email/verify/request', { schema: OkResponseSchema });
+  }
+  /** 用邮件里的验证码完成邮箱验证（无需登录态）。 */
+  verifyEmail(token: string) {
+    return this.request('POST', '/auth/email/verify', { body: { token }, schema: MeResponseSchema });
+  }
+  /** 忘记密码：无论邮箱有没有注册过，服务端都返回 202。 */
+  forgotPassword(email: string) {
+    return this.request('POST', '/auth/password/forgot', { body: { email }, schema: OkResponseSchema });
+  }
+  /** 用邮件里的验证码重置密码；成功后该账号全部会话失效。 */
+  resetPassword(token: string, password: string) {
+    return this.request('POST', '/auth/password/reset', { body: { token, password }, schema: OkResponseSchema });
+  }
+  /** 登录态改密；成功后其它设备被登出，当前设备保留。 */
+  changePassword(body: ChangePasswordRequest) {
+    return this.request('PATCH', '/auth/password', { body, schema: OkResponseSchema });
+  }
+  /** 注销账号：作品可选保留为匿名作者或一并下架。 */
+  deleteAccount(body: DeleteAccountRequest) {
+    return this.request('DELETE', '/auth/me', { body, schema: OkResponseSchema });
+  }
+  /** 登录设备列表。 */
+  listSessions() {
+    return this.request('GET', '/auth/sessions', { schema: SessionListResponseSchema });
+  }
+  /** 注销单台设备。 */
+  revokeSession(id: string) {
+    return this.request('DELETE', `/auth/sessions/${enc(id)}`, { schema: OkResponseSchema });
+  }
+  /** 全部设备退出。 */
+  revokeAllSessions() {
+    return this.request('DELETE', '/auth/sessions', { schema: OkResponseSchema });
+  }
+  /** 数据导出：个人资料 + 自己全部作品的 bundle。 */
+  exportAccount() {
+    return this.request('GET', '/auth/me/export', { schema: AccountExportResponseSchema });
   }
 
   // ---- browse ----

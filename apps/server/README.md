@@ -25,8 +25,17 @@ bun run --filter server db:seed          # 种子：2 用户 / 3 本小说（含
 | `DATABASE_URL` | `./data/dev.sqlite` | SQLite 文件路径（WAL、foreign_keys=ON、busy_timeout=5000） |
 | `TRUST_PROXY` | 0 | 为 1 时信任 `X-Forwarded-For` 作为客户端 IP（限流、浏览去重） |
 | `EXTRA_ORIGINS` | 空 | 逗号分隔的额外 CORS 来源；默认已允许 `tauri://localhost`、`http://tauri.localhost`、`http://localhost:1420` |
-| `ADMIN_EMAILS` | 空 | 逗号分隔；注册/登录时匹配的邮箱自动获得 `admin` 角色 |
+| `ADMIN_EMAILS` | 空 | 逗号分隔的管理员名单。**仅当邮箱已验证时才生效**（P0-3）；名单为空时完全不动 `role`，授权交给 `bun run admin:grant` |
 | `PUBLIC_BASE_URL` | 空 | 写入 bundle 的 `server.baseUrl` |
+| `TRUSTED_PROXIES` | 空 | 可信代理 IP / CIDR 列表；`TRUST_PROXY=1` 且来源命中才采信 `X-Forwarded-For` |
+| `MAIL_TRANSPORT` | `console` | 邮件出口：`console` 只打印（开发）、`smtp`（nodemailer）、`resend` |
+| `MAIL_FROM` | `The Water <no-reply@localhost>` | 发件人 |
+| `SMTP_URL` | 空 | `MAIL_TRANSPORT=smtp` 必填，形如 `smtps://user:pass@smtp.example.com:465` |
+| `RESEND_API_KEY` | 空 | `MAIL_TRANSPORT=resend` 必填 |
+| `MODERATION_MODE` | `rules` | `off` 关闭审核（仅测试）、`rules` 本地规则引擎 |
+| `MODERATION_BLOCKLIST_PATH` | 空 | 追加违禁词表文件（每行一条，`#` 注释）。**生产必须按当地法规维护此表，内置种子表只是兜底** |
+| `STORAGE_QUOTA_BYTES` | 200MB | 每用户 blob 存储配额，0 表示不限 |
+| `BACKUP_DIR` | `./data/backups` | `bun run db:backup` 的输出目录，见 [BACKUP.md](./BACKUP.md) |
 
 ## 目录
 
@@ -61,7 +70,16 @@ drizzle/                drizzle-kit 生成的迁移，随仓库提交
 | POST | `/auth/login` | — | `AuthResponse` |
 | POST | `/auth/logout` | 登录 | 注销当前会话，`OkResponse` |
 | DELETE | `/auth/sessions` | 登录 | 注销全部会话，`OkResponse` |
-| GET / PATCH | `/auth/me` | 登录 | `MeResponse`（PATCH 体 `UpdateProfileRequest`） |
+| GET | `/auth/sessions` | 登录 | 设备列表，当前会话带 `current: true`，`SessionListResponse` |
+| DELETE | `/auth/sessions/:id` | 登录 | 注销单个设备，`OkResponse` |
+| GET / PATCH | `/auth/me` | 登录 | `MeResponse`（PATCH 体 `UpdateProfileRequest`，昵称 / handle / 简介过审核） |
+| DELETE | `/auth/me` | 登录 | 注销账号，体 `{ password, mode: keep_works\|delete_works }`；匿名化而非物理删除 |
+| GET | `/auth/me/export` | 登录 | 数据导出（资料 + 全部作品 bundle） |
+| POST | `/auth/email/verify/request` | 登录 | 发送验证邮件（202） |
+| POST | `/auth/email/verify` | — | 体 `{ token }`，完成邮箱验证，`MeResponse` |
+| POST | `/auth/password/forgot` | — | **恒返回 202**，不泄露邮箱是否注册 |
+| POST | `/auth/password/reset` | — | 体 `{ token, password }`，成功后吊销该用户全部会话 |
+| PATCH | `/auth/password` | 登录 | 体 `{ currentPassword, newPassword }`，吊销其它会话保留当前 |
 | POST | `/novels` | 登录 | 创建小说，体 `CreateNovelRequest`（可带 `source.forkId` 创建二创），`NovelResponse`（201）。首次提交前 `visibility=unpublished` |
 | GET | `/me/novels` | 登录 | 我的小说，`NovelListResponse` |
 | GET | `/novels` | — | 浏览，查询 `BrowseQuery`（sort / q / tag / license / writingStatus / allowDerivatives / originalsOnly / cursor / limit），`NovelListResponse` |
@@ -71,7 +89,8 @@ drizzle/                drizzle-kit 生成的迁移，随仓库提交
 | GET | `/novels/:id/versions/:vid` | — | `VersionStatusResponse`（草稿对作者附 `missingHashes`） |
 | DELETE | `/novels/:id/versions/:vid` | 作者 | 中止草稿，`OkResponse`；已提交版本不可删 |
 | POST | `/novels/:id/versions/:vid/commit` | 作者 | 提交：blob 不齐 → 409 `BLOBS_MISSING`（`details.missingHashes`）；已提交则幂等返回；`CommitVersionResponse` |
-| POST | `/blobs` | 登录 | 体 `UploadBlobsRequest`（≤20 个），服务端归一化后重算 sha256，不匹配进 `rejected`；`UploadBlobsResponse` |
+| POST | `/blobs` | 登录 | 体 `UploadBlobsRequest`（≤20 个），服务端归一化后重算 sha256，不匹配进 `rejected`；超配额 413 `STORAGE_QUOTA_EXCEEDED`；`UploadBlobsResponse` |
+| GET | `/me/storage` | 登录 | `{ usedBytes, quotaBytes, blobCount }` |
 | GET | `/novels/:id/versions/:vid/storyline` | — | `StorylineResponse`（storyline + bible + storylineHash） |
 | GET | `/novels/:id/versions/:vid/chapters?from&limit` | — | `ChapterListResponse` |
 | GET | `/novels/:id/versions/:vid/chapters/:index` | — | `ChapterContent`（含 prev/next） |
@@ -85,9 +104,37 @@ drizzle/                drizzle-kit 生成的迁移，随仓库提交
 | POST | `/novels/:id/reports` | — | 体 `CreateReportRequest`，`ReportResponse`（201） |
 | GET | `/admin/reports?status&cursor&limit` | 管理员 | `ReportListResponse` |
 | PATCH | `/admin/reports/:id` | 管理员 | 体 `{ status: resolved\|dismissed, note? }`，`ReportResponse` |
-| PATCH | `/admin/novels/:id/moderation` | 管理员 | 体 `ModerationUpdate`，`NovelResponse` |
+| PATCH | `/admin/novels/:id/moderation` | 管理员 | 体 `ModerationUpdate`，`NovelResponse`；每次动作写 `moderation_events` |
+| GET | `/admin/users?q&status&cursor&limit` | 管理员 | 用户搜索 + 状态筛选，`AdminUserListResponse` |
+| POST | `/admin/users/:id/ban` | 管理员 | 体 `{ reason, until? }`；`until` 为空 = 永久封禁，有值 = 限期禁言 |
+| POST | `/admin/users/:id/unban` | 管理员 | 解封 |
+| GET | `/admin/moderation-events?targetType&targetId&actorId&action&cursor&limit` | 管理员 | 审计日志，时间倒序 |
+| POST | `/admin/comments/:id/hide` \| `/restore` | 管理员 | 留言处理 |
 
-网页阅读（`text/html`，严格 CSP，零 JS）：`GET /`（最新 20 本）、`GET /n/:id`（详情、目录、“改编自 X 第 vN 版”）、`GET /n/:id/c/:index`（正文、上下章、服务端计浏览）。
+社交 / 社区（此前 README 遗漏，§4.7）：
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| PUT / DELETE | `/users/:id/follow` | 登录 | 关注 / 取关 |
+| GET | `/users/:id`、`/u/:handle` | — | 作者资料 |
+| GET | `/users/:id/followers`、`/following` | — | 关注关系分页 |
+| PUT / DELETE | `/users/:id/block` | 登录 | 拉黑 / 取消 |
+| GET | `/feed` | 登录 | 关注动态流 |
+| GET / POST | `/novels/:id/comments` | POST 需登录 | 两级留言；POST 过审核 |
+| DELETE | `/novels/:id/comments/:cid` | 作者或管理员 | 删除留言 |
+| POST | `/novels/:id/comments/:cid/reports` | 登录 | 举报留言（去重 + 限流） |
+| GET | `/me/points`、`/me/badges` | 登录 | 积分与徽章 |
+| GET | `/ranking` | — | 榜单（进程内缓存 120s） |
+
+网页（`text/html`，严格 CSP，零 JS，整体挂 `web` 读限流）：`GET /`（最新 20 本）、`GET /n/:id`（详情、目录、“改编自 X 第 vN 版”）、`GET /n/:id/c/:index`（正文、上下章、服务端计浏览）、`GET /u/:handle`（作者主页）、`GET /admin`（管理页：举报队列 / 用户封禁 / 操作记录，`?token=` 或 Bearer 鉴权，表单动作 POST 到 `/admin/actions/*`）。
+
+> 管理页的 `?token=` 会进地址栏与访问日志，只适合内网或少量管理员应急使用；正式后台应改为带 cookie 的前端。
+
+## 运维
+
+- **备份与恢复**：`bun run db:backup` / `bun run db:restore`，策略与演练流程见 [BACKUP.md](./BACKUP.md)。
+- **管理员授予**：`bun run admin:grant <email>` / `admin:revoke` / `admin:list`。注意 `ADMIN_EMAILS` 非空时它是权威名单，CLI 授予但不在名单里的管理员会在下次登录时被降级。
+- **定时 GC**：进程内每小时清理过期草稿、过期会话与孤儿 blob（24 小时宽限期）。
 
 ## 许可与二创规则
 

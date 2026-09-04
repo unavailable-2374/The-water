@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { DocumentSource } from '@/documents/types';
 import { useReader } from '@/stores/readerStore';
 import { PageView } from './PageView';
+import { TextPageView } from './TextPageView';
 import { SelectionPopover } from './SelectionPopover';
+import { READER_THEMES } from './theme';
 
 const GAP = 12;
 
-/** Virtualized vertical page list. Renders pages near the viewport, keeps placeholders for the rest. */
-export function PdfViewer({ pdf }: { pdf: PDFDocumentProxy }) {
+/** 竖向翻页列表：只渲染视口附近的页，其余留占位。PDF 与文本文档共用。 */
+export function DocViewer({ source }: { source: DocumentSource }) {
   const scale = useReader((s) => s.scale);
+  const zoomBy = useReader((s) => s.zoomBy);
   const setCurrentPage = useReader((s) => s.setCurrentPage);
   const scrollToPage = useReader((s) => s.scrollToPage);
   const consumeJump = useReader((s) => s.consumeJump);
+  const theme = READER_THEMES[useReader((s) => s.theme)];
   const containerRef = useRef<HTMLDivElement>(null);
   const [sizes, setSizes] = useState<Array<{ w: number; h: number }>>([]);
   const [scrollTop, setScrollTop] = useState(0);
@@ -20,16 +24,16 @@ export function PdfViewer({ pdf }: { pdf: PDFDocumentProxy }) {
   // page sizes at scale 1 (points)
   useEffect(() => {
     let cancelled = false;
+    setSizes([]);
     (async () => {
-      const first = await pdf.getPage(1);
-      const vp = first.getViewport({ scale: 1 });
-      const base = { w: vp.width, h: vp.height };
-      const arr = Array.from({ length: pdf.numPages }, () => base);
+      const first = await source.pageSize(1);
+      const base = { w: first.width, h: first.height };
+      const arr = Array.from({ length: source.numPages }, () => base);
       if (!cancelled) setSizes(arr);
+      if (source.renderMode !== 'canvas') return;
       // refine sizes lazily for mixed-size docs
-      for (let i = 2; i <= Math.min(pdf.numPages, 400); i++) {
-        const p = await pdf.getPage(i);
-        const v = p.getViewport({ scale: 1 });
+      for (let i = 2; i <= Math.min(source.numPages, 400); i++) {
+        const v = await source.pageSize(i);
         if (cancelled) return;
         if (Math.abs(v.width - base.w) > 1 || Math.abs(v.height - base.h) > 1) {
           setSizes((s) => { const n = [...s]; n[i - 1] = { w: v.width, h: v.height }; return n; });
@@ -37,7 +41,7 @@ export function PdfViewer({ pdf }: { pdf: PDFDocumentProxy }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [pdf]);
+  }, [source]);
 
   const layout = useMemo(() => {
     let y = GAP;
@@ -55,12 +59,25 @@ export function PdfViewer({ pdf }: { pdf: PDFDocumentProxy }) {
     return () => ro.disconnect();
   }, []);
 
+  // Ctrl / Cmd + 滚轮缩放
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      zoomBy(e.deltaY > 0 ? -0.1 : 0.1);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomBy]);
+
   // jump requests
   useEffect(() => {
     if (scrollToPage == null || layout.tops.length === 0) return;
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTop = (layout.tops[scrollToPage - 1] ?? 0) - GAP;
+    el.scrollTop = (layout.tops[Math.min(scrollToPage, layout.tops.length) - 1] ?? 0) - GAP;
     consumeJump();
   }, [scrollToPage, layout.tops.length]);
 
@@ -91,12 +108,16 @@ export function PdfViewer({ pdf }: { pdf: PDFDocumentProxy }) {
   }
 
   return (
-    <div ref={containerRef} onScroll={onScroll} className="relative h-full overflow-auto scrollbar-thin">
+    <div ref={containerRef} onScroll={onScroll} className="relative h-full overflow-auto scrollbar-thin" style={theme.stageBg === 'transparent' ? undefined : { background: theme.stageBg }}>
       <div style={{ height: layout.total, position: 'relative' }}>
         {visible.map((n) => (
           <div key={n} style={{ position: 'absolute', top: layout.tops[n - 1], left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
             <div className="shadow-book">
-              <PageView pdf={pdf} pageNo={n} width={sizes[n - 1]!.w * scale} height={sizes[n - 1]!.h * scale} />
+              {source.renderMode === 'canvas' ? (
+                <PageView pdf={source.pdf} pageNo={n} width={sizes[n - 1]!.w * scale} height={sizes[n - 1]!.h * scale} />
+              ) : (
+                <TextPageView source={source} pageNo={n} width={sizes[n - 1]!.w * scale} height={sizes[n - 1]!.h * scale} />
+              )}
             </div>
           </div>
         ))}

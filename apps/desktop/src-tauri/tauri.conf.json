@@ -21,11 +21,15 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; media-src 'self' blob: asset: http://asset.localhost; worker-src 'self' blob:; connect-src 'self' blob: ipc: http://ipc.localhost asset: http://asset.localhost https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/**", "$APPDATA/pdfs/*"]
-      }
+        "scope": [
+          "$APPDATA/**",
+          "$APPDATA/pdfs/*"
+        ]
+      },
+      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; media-src 'self' blob: asset: http://asset.localhost; worker-src 'self' blob:; connect-src 'self' blob: ipc: http://ipc.localhost asset: http://asset.localhost https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
   },
   "bundle": {

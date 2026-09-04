@@ -144,3 +144,101 @@ describe('web: author page, share images and OG tags', () => {
     expect(author).toContain('property="og:type" content="profile"');
   });
 });
+
+describe('web: 审核后台（P0-6）', () => {
+  async function setup() {
+    const t = makeTestApp();
+    const { token: admin } = await t.register('admin@example.com', '管理员');
+    const { token: a } = await t.register('a@example.com', '作者');
+    const { token: b, user: bu } = await t.register('b@example.com', '读者');
+    const n = await createNovel(t, a, { title: '灯下长街' });
+    await publish(t, a, n.id, await makeChapters(1));
+    const comment = (await t.json('POST', `/api/v1/novels/${n.id}/comments`, { token: b, body: { body: '广告广告' } })).body.comment;
+    const report = (await t.json('POST', `/api/v1/novels/${n.id}/reports`, { token: b, body: { reason: 'spam', detail: '刷屏' } })).body.report;
+    const commentReport = (
+      await t.json('POST', `/api/v1/novels/${n.id}/comments/${comment.id}/reports`, { token: a, body: { reason: 'spam', detail: '像广告' } })
+    ).body.report;
+    return { t, admin, a, b, bu, novelId: n.id, comment, report, commentReport };
+  }
+
+  const form = (t: any, path: string, fields: Record<string, string>) =>
+    t.request('POST', path, {
+      raw: new URLSearchParams(fields).toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+
+  it('要求管理员 token，页面列出举报队列、用户与操作记录', async () => {
+    const { t, admin, a, novelId, report } = await setup();
+    expect((await t.request('GET', '/admin')).status).toBe(401);
+    expect((await t.request('GET', '/admin?token=tw_not-a-real-token')).status).toBe(401);
+    expect((await t.request('GET', `/admin?token=${a}`)).status).toBe(403);
+
+    const res = await t.request('GET', `/admin?token=${admin}`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('审核后台');
+    expect(html).toContain('管理员 @');
+    expect(html).toContain('灯下长街');
+    expect(html).toContain('垃圾信息');
+    expect(html).toContain('刷屏');
+    expect(html).toContain('广告广告');
+    expect(html).toContain('读者');
+    expect(html).toContain('action="/admin/actions/novel"');
+    expect(html).toContain(`value="${report.id}"`);
+    expect(html).toContain(`value="${novelId}"`);
+    expect(html).not.toContain('<script');
+    // 管理页放开 form-action，阅读页仍然禁止提交。
+    expect(res.headers.get('Content-Security-Policy')).toContain("form-action 'self'");
+    const home = await t.request('GET', '/');
+    expect(home.headers.get('Content-Security-Policy')).toContain("form-action 'none'");
+    // Authorization 头也可以。
+    expect((await t.request('GET', '/admin', { token: admin })).status).toBe(200);
+  });
+
+  it('表单动作走真实审核服务，并记进审计日志', async () => {
+    const { t, admin, novelId, comment, report, bu } = await setup();
+    const back = `/admin?token=${admin}&reportStatus=open`;
+
+    const hide = await form(t, '/admin/actions/novel', { token: admin, back, id: novelId, moderationStatus: 'hidden', note: '待复核' });
+    expect(hide.status).toBe(303);
+    expect(hide.headers.get('location')).toBe(back);
+    expect((await t.json('GET', `/api/v1/novels/${novelId}`)).status).toBe(404);
+
+    expect((await form(t, '/admin/actions/novel', { token: admin, back, id: novelId, moderationStatus: 'ok' })).status).toBe(303);
+    expect((await t.json('GET', `/api/v1/novels/${novelId}`)).status).toBe(200);
+
+    expect((await form(t, '/admin/actions/comment', { token: admin, back, id: comment.id, action: 'hide' })).status).toBe(303);
+    expect((await t.json('GET', `/api/v1/novels/${novelId}/comments`)).body.items).toEqual([]);
+    expect((await form(t, '/admin/actions/comment', { token: admin, back, id: comment.id, action: 'restore' })).status).toBe(303);
+
+    expect((await form(t, '/admin/actions/report', { token: admin, back, id: report.id, status: 'dismissed', note: '误报' })).status).toBe(303);
+    expect((await t.json('GET', '/api/v1/admin/reports?status=dismissed', { token: admin })).body.items.length).toBe(1);
+
+    expect((await form(t, '/admin/actions/ban', { token: admin, back, id: bu.id, reason: '刷屏', days: '3' })).status).toBe(303);
+    const suspended = (await t.json('GET', `/api/v1/admin/users?q=b@example.com`, { token: admin })).body.items[0];
+    expect(suspended.status).toBe('suspended');
+    expect(suspended.suspendedUntil).toBe(new Date(t.clock.now().getTime() + 3 * 86_400_000).toISOString());
+    expect((await form(t, '/admin/actions/unban', { token: admin, back, id: bu.id })).status).toBe(303);
+    expect((await t.json('GET', `/api/v1/admin/users?q=b@example.com`, { token: admin })).body.items[0].status).toBe('active');
+
+    const events = (await t.json('GET', '/api/v1/admin/moderation-events?limit=50', { token: admin })).body.items;
+    const adminId = (await t.json('GET', '/api/v1/auth/me', { token: admin })).body.user.id;
+    expect(events.map((e: { action: string }) => e.action).sort()).toEqual(
+      ['comment_hide', 'comment_restore', 'novel_hide', 'novel_restore', 'report_dismiss', 'user_suspend', 'user_unban'].sort(),
+    );
+    for (const e of events) expect(e.actorId).toBe(adminId);
+  });
+
+  it('动作端点同样要求管理员，且不接受站外跳转', async () => {
+    const { t, admin, b, novelId } = await setup();
+    const evil = 'https://evil.example/';
+    expect((await form(t, '/admin/actions/novel', { token: b, back: evil, id: novelId, moderationStatus: 'removed' })).status).toBe(403);
+    expect((await form(t, '/admin/actions/novel', { back: evil, id: novelId, moderationStatus: 'removed' })).status).toBe(401);
+    const ok = await form(t, '/admin/actions/novel', { token: admin, back: evil, id: novelId, moderationStatus: 'removed' });
+    expect(ok.headers.get('location')).toBe(`/admin?token=${encodeURIComponent(admin)}`);
+    // 缺 id / 状态非法都要报错，不能静默通过。
+    expect((await form(t, '/admin/actions/novel', { token: admin, moderationStatus: 'ok' })).status).toBe(400);
+    expect((await form(t, '/admin/actions/novel', { token: admin, id: novelId, moderationStatus: 'nope' })).status).toBe(400);
+    expect((await form(t, '/admin/actions/ban', { token: admin, id: novelId })).status).toBe(400);
+  });
+});

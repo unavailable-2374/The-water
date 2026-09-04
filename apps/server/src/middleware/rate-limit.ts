@@ -10,6 +10,15 @@ export const DEFAULT_RATE_LIMITS: Record<RateLimitName, RateLimitRule> = {
   read: { max: 300, windowMs: MINUTE },
   comment: { max: 10, windowMs: MINUTE },
   social: { max: 60, windowMs: MINUTE },
+  /** 举报：登录用户 5/小时，避免零成本刷爆审核队列。 */
+  report: { max: 5, windowMs: HOUR },
+  fork: { max: 20, windowMs: HOUR },
+  /** 通用写端点（创建作品 / 版本 / 提交）。 */
+  write: { max: 120, windowMs: MINUTE },
+  /** 找回密码 / 改密 / 发验证邮件。 */
+  password: { max: 5, windowMs: HOUR },
+  /** 网页路由读限流（按 IP）。 */
+  web: { max: 240, windowMs: MINUTE },
 };
 
 /** 内存滑动窗口限流器（单实例）。 */

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CreateForkRequestSchema, CursorQuerySchema } from '@the-water/shared';
 import type { AppDeps, AppEnv } from '../../context';
 import { currentUser, requireAuth } from '../../middleware/auth';
+import { keyByUser, rateLimit } from '../../middleware/rate-limit';
 import { getValid, validate } from '../../middleware/validate';
 import { buildBundle } from './bundle';
 import { buildLineage } from './lineage';
@@ -13,7 +14,8 @@ const BundleQuerySchema = z.object({ forkId: z.string().max(64).optional() });
 export function forkRoutes(deps: AppDeps) {
   const r = new Hono<AppEnv>();
 
-  r.post('/novels/:id/forks', requireAuth(), validate('json', CreateForkRequestSchema), (c) => {
+  // fork 幂等 + 限流，避免单账号循环刷 forkCount 与徽章（§3.3）。
+  r.post('/novels/:id/forks', requireAuth(), rateLimit(deps, 'fork', keyByUser), validate('json', CreateForkRequestSchema), (c) => {
     const body = getValid<z.infer<typeof CreateForkRequestSchema>>(c, 'json');
     return c.json({ fork: svc.createFork(deps, currentUser(c), c.req.param('id'), body.versionId) }, 201);
   });

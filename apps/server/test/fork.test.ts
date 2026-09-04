@@ -140,6 +140,21 @@ describe('fork & lineage', () => {
     expect(d.status).toBe(201);
   });
 
+  it('fork 限流：超出 fork 规则返回 429', async () => {
+    const t = makeTestApp({ rateLimits: { fork: { max: 1, windowMs: 60 * 60_000 } } });
+    const { token: a } = await t.register('a@example.com');
+    const { token: b } = await t.register('b@example.com');
+    const n1 = await createNovel(t, a, { title: '一', license: 'cc-by' });
+    await publish(t, a, n1.id, await makeChapters(1));
+    const n2 = await createNovel(t, a, { title: '二', license: 'cc-by' });
+    await publish(t, a, n2.id, await makeChapters(1, 3));
+
+    expect((await t.json('POST', `/api/v1/novels/${n1.id}/forks`, { token: b, body: {} })).status).toBe(201);
+    const limited = await t.json('POST', `/api/v1/novels/${n2.id}/forks`, { token: b, body: {} });
+    expect(limited.status).toBe(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+  });
+
   it('fork pins a specific committed version; unpublished/unknown versions rejected', async () => {
     const t = makeTestApp();
     const { token: a } = await t.register('a@example.com');
@@ -154,7 +169,15 @@ describe('fork & lineage', () => {
     expect(bundle.body.version.id).toBe(v1.version.id);
     expect(bundle.body.chapters.length).toBe(2);
     expect((await t.json('GET', `/api/v1/novels/${n.id}/versions/${v2.version.id}/bundle`)).body.chapters.length).toBe(3);
-    expect((await t.json('POST', `/api/v1/novels/${n.id}/forks`, { token: b, body: { versionId: 'nope' } })).status).toBe(404);
+    // §3.3：同一用户对同一原作重复 fork 是幂等的，返回既有记录，forkCount 不变。
+    const again = await t.json('POST', `/api/v1/novels/${n.id}/forks`, { token: b, body: { versionId: v2.version.id } });
+    expect(again.status).toBe(201);
+    expect(again.body.fork.id).toBe(f.body.fork.id);
+    expect(again.body.fork.sourceVersionId).toBe(v1.version.id);
+    expect((await t.json('GET', `/api/v1/novels/${n.id}`)).body.novel.forkCount).toBe(1);
+    // 未知版本仍然 404（换一个还没 fork 过的人）。
+    const { token: c } = await t.register('c@example.com');
+    expect((await t.json('POST', `/api/v1/novels/${n.id}/forks`, { token: c, body: { versionId: 'nope' } })).status).toBe(404);
     const unpub = await createNovel(t, a, { license: 'cc0' });
     expect((await t.json('POST', `/api/v1/novels/${unpub.id}/forks`, { token: b, body: {} })).status).toBe(404);
   });

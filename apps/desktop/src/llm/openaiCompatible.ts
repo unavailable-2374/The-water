@@ -9,7 +9,8 @@ import type {
 } from './types';
 import { LLMError } from './types';
 import { parseSSE } from './sse';
-import { classifyHttpError, toLLMError } from './retry';
+import { classifyHttpError } from './retry';
+import { RequestTimer, guardedIteration, resolveTimeouts, type RequestTimeouts } from './timeout';
 
 const CHAT_COMPLETIONS_SUFFIX = '/chat/completions';
 
@@ -70,6 +71,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
   readonly kind = 'openai_compatible' as const;
   readonly caps: ProviderCaps;
   readonly endpoint: string;
+  /** 首字节 / 流空闲超时，来自供应商配置（缺失时用默认值）。 */
+  readonly timeouts: RequestTimeouts;
 
   constructor(
     private readonly config: ProviderConfig,
@@ -78,6 +81,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   ) {
     this.id = config.id;
     this.model = config.model;
+    this.timeouts = resolveTimeouts(config);
     this.caps = {
       contextWindow: config.contextWindow,
       maxOutputTokens: config.maxOutputTokens,
@@ -120,27 +124,32 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
   async *stream(req: CompletionRequest): AsyncIterable<StreamEvent> {
     const signal = req.signal;
+    const timer = new RequestTimer(this.timeouts, signal);
+    timer.start();
+
     let res: Response;
     try {
-      res = await this.fetchImpl(this.endpoint, {
-        method: 'POST',
-        headers: this.buildHeaders(),
-        body: JSON.stringify(this.buildBody(req)),
-        signal,
-      });
+      res = await timer.race(
+        this.fetchImpl(this.endpoint, {
+          method: 'POST',
+          headers: this.buildHeaders(),
+          body: JSON.stringify(this.buildBody(req)),
+          signal: timer.signal,
+        }),
+      );
+      if (!res.ok) {
+        const text = await timer.race(res.text().catch(() => ''));
+        throw classifyHttpError(res.status, text, res.headers);
+      }
+      if (!res.body) throw new LLMError('server', 'Empty response body', { status: res.status });
     } catch (err) {
-      throw toLLMError(err, signal);
+      timer.dispose();
+      throw timer.toError(err, signal);
     }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw classifyHttpError(res.status, text, res.headers);
-    }
-    if (!res.body) throw new LLMError('server', 'Empty response body', { status: res.status });
 
     let finishReason: FinishReason | null = null;
     try {
-      for await (const msg of parseSSE(res.body)) {
+      for await (const msg of guardedIteration(parseSSE(res.body), timer)) {
         const data = msg.data.trim();
         if (data === '[DONE]') break;
         if (data === '') continue;
@@ -168,7 +177,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
         }
       }
     } catch (err) {
-      throw toLLMError(err, signal);
+      throw timer.toError(err, signal);
+    } finally {
+      timer.dispose();
     }
     yield { type: 'done', finishReason: finishReason ?? 'other' };
   }

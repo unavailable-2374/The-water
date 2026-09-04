@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Comment, NovelDetail } from '@the-water/shared';
 import { t } from '@/i18n/zh';
-import { Button, EmptyState, SectionTitle, Spinner } from '@/components/ui';
+import { Button, confirm, EmptyState, SectionTitle, Spinner } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { friendlyError } from '@/community/errors';
 import { getBrowseClient, getClient } from '@/sync/account';
@@ -79,7 +79,7 @@ export function CommentSection({ novel, requireLogin, onCount }: Props) {
   };
 
   const remove = async (comment: Comment) => {
-    if (!confirm('删除这条留言？')) return;
+    if (!(await confirm({ title: '删除这条留言？', confirmText: '删除', tone: 'danger' }))) return;
     try {
       const client = await getClient();
       if (!client) return;
