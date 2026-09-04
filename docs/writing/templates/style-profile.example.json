@@ -1,0 +1,58 @@
+{
+  "$comment": "StyleProfile 示例：从一部虚构的古典武侠作品提取。metrics 由本地统计得出（按字计），voice/exemplars/negatives 由 LLM 归纳并经人工修订。区间均为 [min, max]，tolerance 为允许超出区间的比例。",
+  "version": 1,
+  "id": "sp_example_wuxia",
+  "name": "《例·江湖》原著文风",
+  "source": { "kind": "extracted", "novelId": "local_xxx", "chaptersSampled": [1, 2, 3, 7, 12, 20], "sampledChars": 48000, "extractedAt": "2026-09-01T00:00:00Z" },
+  "metrics": {
+    "sentenceLength": { "mean": 16, "sd": 8, "p10": 5, "p90": 31, "target": [12, 20], "tolerance": 0.25, "hard": true },
+    "sentenceBurstiness": { "value": 0.5, "target": [0.42, 0.65], "hard": true },
+    "paragraphLength": { "mean": 82, "sd": 55, "target": [50, 130], "singleSentenceParaRatio": 0.3, "hard": false },
+    "dialogueRatio": { "value": 0.38, "target": [0.3, 0.48], "hard": false },
+    "punctuationPerK": { "。": 52, "，": 95, "！": 1.5, "？": 6, "……": 2, "——": 0.5, "、": 8, "target": { "！": [0, 3], "……": [0, 4] }, "hard": false },
+    "functionWordsPerK": { "的": 31, "了": 22, "着": 9, "便": 6, "却": 5, "只": 7, "竟": 2, "吗": 1, "呢": 0.5, "啊": 0.3 },
+    "lexicalRichness": { "mattr500": 0.74, "avgWordLen": 1.6 },
+    "posRatio": { "adj": 0.06, "verb": 0.25, "adv": 0.07 },
+    "ngramSignature": ["只当", "却也", "一时间", "说罢", "眼见", "当下", "这般"],
+    "rhetoricPerK": { "metaphor": 1.2, "question": 3, "parallel": 0.3, "repetition": 0.5 }
+  },
+  "voice": {
+    "narrator": { "text": "第三人称贴身视角，叙述者克制、少评价，冷静交代动作，情绪藏在动作里。", "evidence": ["他没有答话，把刀鞘往桌上一搁。"] },
+    "rhythm": { "text": "动作段落以 5-10 字短句连击，交代与回忆段落用 25 字以上长句；段落多在一个动作完成后即断；高潮前留一行独句。", "evidence": ["刀出。人退。灯灭了。", "他想起十年前那个雪夜，师父也是这样背对着他站在门口，什么都没说。"] },
+    "imagery": { "text": "意象偏好：刀光、雪、灯火、酒；感官侧重听觉（脚步、风声、刀鸣）。", "evidence": ["风从檐角过，带着铁锈味。"] },
+    "dialogue": { "text": "对白极短，多用'道'，少用'说'；不写语气词；称呼按江湖辈分（前辈/兄台/小子）；潜台词密度高，人物常答非所问。", "evidence": ["'你来了。' '来了。' '喝酒？' '不喝。'"] },
+    "humor": { "text": "冷幽默，来自人物一本正经地说反话，绝不由叙述者开玩笑。", "evidence": ["'我不杀人。' 他说这话时正在擦刀。"] },
+    "emotion": { "text": "情感基线冷；爆发靠动作而非形容词；从不直接写'他很悲伤'。", "evidence": ["他把那封信折了三次，塞进怀里，又掏出来看了一眼。"] },
+    "genreConventions": { "text": "打斗只写关键三招，不写全程；每章至少一次江湖规矩的体现（拜帖/递刀/敬酒）。", "evidence": [] },
+    "signatureMoves": [
+      { "move": "章末一句短评，≤12 字，独立成段", "frequencyPerChapter": [0.8, 1], "example": "这一夜，没有人睡。" },
+      { "move": "章首用天气/时辰定调", "frequencyPerChapter": [0.6, 1], "example": "三更，雪停了。" }
+    ]
+  },
+  "exemplars": [
+    { "id": "ex1", "sceneType": "fight", "text": "（150-400 字原文摘录）", "illustrates": ["rhythm", "genreConventions"] },
+    { "id": "ex2", "sceneType": "dialogue", "text": "（原文摘录）", "illustrates": ["dialogue", "humor"] },
+    { "id": "ex3", "sceneType": "quiet", "text": "（原文摘录）", "illustrates": ["imagery", "emotion"] },
+    { "id": "ex4", "sceneType": "opening", "text": "（原文摘录）", "illustrates": ["signatureMoves"] }
+  ],
+  "negatives": {
+    "avoidWords": ["OK", "搞定", "颜值", "尴尬", "情绪价值", "内心戏", "瞬间", "秒杀"],
+    "avoidWordsSoft": { "limitPerK": 1, "list": ["仿佛", "似乎", "一丝", "一抹", "深邃"] },
+    "avoidPatterns": ["眼底闪过一丝", "嘴角勾起", "不是…而是…", "他感到（情绪形容词）"],
+    "antiExemplars": [
+      { "text": "他的心中涌起一股难以言喻的悲伤，仿佛整个世界都在这一刻崩塌了。", "why": "直接写情绪 + 夸张比喻 + 长句，三处都不像原著" }
+    ],
+    "oocRedlines": ["主角不解释自己的动机", "师父从不称呼主角的名字"]
+  },
+  "injection": {
+    "summaryBudget": 300,
+    "exemplarCount": 3,
+    "humanReadableConstraints": [
+      "动作段用 5-10 字短句，交代段可用长句，段落在动作完成处断开",
+      "对白极短，用'道'不用'说'，不加语气词，人物常答非所问",
+      "情绪只通过动作表现，禁止直接写'他感到 X'",
+      "每章末尾一句 ≤12 字的短评独立成段",
+      "感叹号每千字不超过 3 个，省略号不超过 4 个"
+    ]
+  }
+}

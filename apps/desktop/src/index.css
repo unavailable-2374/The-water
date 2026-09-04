@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  --font-serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+
+  /* 纸 */
+  --color-paper-0: #fffdf8;
+  --color-paper-50: #f8f4ea;
+  --color-paper-100: #f3ede0;
+  --color-paper-200: #e9e1d0;
+  --color-paper-300: #dcd2bd;
+  --color-paper-400: #c7bba3;
+  --color-paper-800: #2f2b26;
+  --color-paper-900: #26231f;
+  --color-paper-950: #1c1a17;
+
+  /* 墨 */
+  --color-ink-900: #2a2622;
+  --color-ink-800: #3a352f;
+  --color-ink-700: #4d4740;
+  --color-ink-600: #655e55;
+  --color-ink-500: #7d756b;
+  --color-ink-400: #9a9187;
+  --color-ink-300: #b8b0a5;
+  --color-ink-200: #d6cfc4;
+  --color-ink-100: #ece6db;
+
+  /* 朱砂（主操作） */
+  --color-cinnabar-50: #fbeeea;
+  --color-cinnabar-100: #f5d9d1;
+  --color-cinnabar-500: #b8503a;
+  --color-cinnabar-600: #a4432e;
+  --color-cinnabar-700: #8a3725;
+
+  /* 青黛（AI） */
+  --color-tea-50: #eef3f1;
+  --color-tea-100: #d9e5e1;
+  --color-tea-200: #b9d0ca;
+  --color-tea-500: #4f7f76;
+  --color-tea-600: #3f6b63;
+  --color-tea-700: #345a53;
+  --color-tea-800: #2a4843;
+
+  /* 高亮 */
+  --color-highlight-yellow: rgba(232, 189, 74, 0.45);
+  --color-highlight-green: rgba(126, 168, 121, 0.45);
+  --color-highlight-blue: rgba(120, 163, 196, 0.45);
+  --color-highlight-pink: rgba(214, 133, 150, 0.45);
+
+  --shadow-soft: 0 1px 2px rgba(60, 45, 20, 0.05), 0 8px 24px -12px rgba(60, 45, 20, 0.18);
+  --shadow-lift: 0 2px 4px rgba(60, 45, 20, 0.06), 0 16px 32px -12px rgba(60, 45, 20, 0.25);
+  --shadow-book: 2px 3px 10px -2px rgba(40, 30, 10, 0.35), inset 3px 0 6px -4px rgba(255, 255, 255, 0.6);
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  @apply bg-paper-50 text-ink-900 antialiased;
+  font-family: var(--font-sans);
+  font-feature-settings: "palt";
+}
+@media (prefers-color-scheme: dark) {
+  body { @apply bg-paper-950 text-paper-100; }
+}
+
+h1, h2, h3, .font-serif { font-family: var(--font-serif); }
+
+/* 正文排版 */
+.prose-novel { font-family: var(--font-serif); line-height: 1.95; font-size: 1.08rem; letter-spacing: 0.01em; }
+.prose-novel p { margin: 0 0 1.1em; text-indent: 2em; }
+
+/* 纸张纹理（极淡） */
+.paper-texture {
+  background-image: radial-gradient(rgba(120, 95, 50, 0.035) 0.6px, transparent 0.6px);
+  background-size: 6px 6px;
+}
+
+/* pdf.js text layer */
+.textLayer { position: absolute; inset: 0; overflow: hidden; opacity: 1; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 2; }
+.textLayer span, .textLayer br { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer ::selection { background: rgba(79, 127, 118, 0.35); }
+.textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }
+.textLayer.selecting .endOfContent { top: 0; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-paper-300 rounded-full; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(120, 100, 70, 0.25); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 竖排书名 */
+.vertical-title { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.15em; }
+
+input[type="range"] { accent-color: var(--color-cinnabar-600); }
+input[type="checkbox"] { accent-color: var(--color-tea-600); }

@@ -1,0 +1,65 @@
+export const t = {
+  app: { name: 'The Water', tagline: '读一本书，写一个故事' },
+  nav: { library: '书架', studio: '我的故事', public: '公共书房', settings: '设置', chat: '随手问 AI' },
+  common: {
+    save: '保存', cancel: '取消', delete: '删除', confirm: '确认', close: '关闭', edit: '编辑', add: '添加', back: '返回',
+    loading: '加载中…', empty: '暂无内容', retry: '重试', copy: '复制', copied: '已复制', search: '搜索', yes: '是', no: '否',
+    chars: '字', pages: '页', unknownError: '发生未知错误', confirmDelete: '确定要删除吗？此操作不可撤销。',
+  },
+  library: {
+    documents: '文档', novels: '小说', importPdf: '导入 PDF', newNovel: '新建小说', importText: '导入文本', lastRead: '上次阅读到第 {page} 页',
+    noDocs: '还没有文档，点击「导入 PDF」开始阅读。', noNovels: '还没有小说，点击「新建小说」让 AI 为你写一本。',
+    importing: '正在导入…', duplicate: '该文件已经导入过了',
+  },
+  reader: {
+    askAi: '问 AI', highlight: '高亮', addNote: '添加笔记', notes: '笔记', ai: 'AI 讨论', searchInDoc: '在文档中搜索', page: '第 {n} 页',
+    withContext: '带上下文', selectedPassage: '所选段落', newConversation: '新对话', noNotes: '还没有笔记或高亮。选中文字后即可添加。',
+    cannotLocate: '无法定位', jumpTo: '跳转', indexing: '正在提取文本…',
+  },
+  chat: { placeholder: '输入问题，Enter 发送，Shift+Enter 换行', send: '发送', stop: '停止', thinking: '正在思考…', noProvider: '尚未配置 AI 供应商' },
+  settings: {
+    providers: '模型供应商', general: '通用', account: '云端账号', addProvider: '添加供应商', editProvider: '编辑供应商', testConnection: '测试连接',
+    testing: '测试中…', testOk: '连接成功', testFail: '连接失败', setDefault: '设为默认', isDefault: '默认', apiKey: 'API Key', apiKeyHint: '保存在系统钥匙串，不会明文写入磁盘',
+    apiKeyFromEnv: '从环境变量读取', name: '名称', kind: '协议', baseUrl: 'Base URL', model: '模型', contextWindow: '上下文窗口 (tokens)', maxOutput: '最大输出 (tokens)',
+    jsonMode: 'JSON 模式', temperature: '温度', preset: '预设', purposeChat: '对话默认', purposeWriting: '写作默认', purposePlanning: '规划默认',
+    autoResume: '启动时自动恢复中断的任务', countMode: '字数统计方式', countAll: '含标点', countHan: '仅汉字',
+    community: '关注与屏蔽',
+  },
+  studio: {
+    storyline: '故事线', chapters: '章节', jobs: '任务', characters: '人物', settings: '设定', arcs: '故事弧', beats: '情节点', chapterPlans: '章节计划',
+    generate: '开始生成', pause: '暂停', resume: '继续', cancel: '取消任务', regenerate: '重新生成本章', expand: '扩写', trim: '精简', finalize: '定稿',
+    versions: '版本历史', restore: '恢复此版本', stale: '过期', planned: '计划', generating: '生成中', draft: '草稿', final: '定稿',
+    saveStorylineVersion: '保存故事线版本', computeRewrite: '计算需改写章节', rewrite: '开始改写', interrupted: '有中断的任务', target: '目标',
+    wizard: { step1: '基本要求', step2: '故事框架', step3: '模型与确认', genre: '题材', style: '风格', pov: '视角', tone: '基调', audience: '受众', taboos: '禁忌（每行一条）', mustHave: '必须包含（每行一条）', targetChars: '目标字数', premise: '故事前提 / 框架', premiseHint: '写下你的故事设想：世界观、主要人物、核心冲突、结局走向……越具体越好。', extra: '其他具体要求', estimate: '预计 {n} 章，每章约 {per} 字', next: '下一步', prev: '上一步', createOutline: '生成大纲' },
+  },
+  publicArea: { browse: '浏览', publish: '发布到公共区', fork: '派生二创', read: '在线阅读', login: '登录', register: '注册', logout: '退出登录', notLoggedIn: '未登录', serverUrl: '服务器地址' },
+  community: {
+    tabs: { browse: '书房', feed: '动态', ranking: '榜单' },
+    follow: '关注', following: '已关注', unfollow: '取消关注', followers: '关注者', followingCount: '关注中',
+    block: '屏蔽这位作者', unblock: '解除屏蔽', blocked: '已屏蔽',
+    blockConfirm: '屏蔽之后，你们彼此都看不到对方的故事和留言，已有的关注也会解除。要继续吗？',
+    share: '分享', shareNovel: '分享这本书', shareAuthor: '分享这位作者', copyLink: '复制链接', copyCard: '复制文字卡片',
+    savePng: '保存分享图', openInBrowser: '在浏览器打开', linkCopied: '链接已复制', cardCopied: '文字卡片已复制', pngSaved: '分享图已保存到 {path}',
+    comments: '留言', commentPlaceholder: '读完有什么想说的？', commentSubmit: '留下这句', reply: '回复',
+    commentDeleted: '这条留言已经删除', commentHidden: '这条留言已被隐藏', loginToComment: '登录后可以给作者留言',
+    expandReplies: '展开 {n} 条回复', collapseReplies: '收起回复', noComments: '还没有人留言，来说第一句吧。',
+    feedScopeFollowing: '关注的作者', feedScopeAll: '全部',
+    feedEmptyFollowing: '还没有关注谁。去书房逛逛，遇见喜欢的作者就点一下关注。',
+    feedEmptyAll: '书房里还很安静，等第一位作者发布故事。', goBrowse: '去书房逛逛',
+    boardAuthors: '作者榜', boardNovels: '作品榜', periodWeek: '本周', periodMonth: '本月', periodAll: '总榜',
+    rankingEmpty: '榜单还空着，先发布一个故事吧。',
+    points: '我的积分与徽章', pointsUnit: '分', pointsTo: '距离 Lv.{n}「{title}」还差 {remaining} 分', topLevel: '已经是最高等级',
+    badges: '徽章', noBadges: '还没有徽章，发布故事、被人喜欢都会解锁。', ledger: '最近的积分', ledgerEmpty: '还没有积分记录。',
+    editProfile: '编辑资料', myPage: '看看我的主页', displayName: '昵称', handle: '用户名',
+    handleHint: '3–20 个小写字母、数字或下划线，别人通过它找到你', handleFree: '可以用', handleTaken: '已经有人用了', bio: '一句话介绍',
+    original: '原创', derivative: '二创', activity: '动态',
+    noOriginals: '这位作者还没有发布原创故事。', noDerivatives: '这位作者还没有发布二创。', noActivity: '这位作者还没有动态。',
+    relations: '关注与屏蔽', blocksEmpty: '没有屏蔽任何人。', followingEmpty: '还没有关注谁。', followersEmpty: '还没有人关注你，多写几个故事吧。',
+    blockedNotice: '你屏蔽了这位作者，你们彼此看不到对方的故事。',
+  },
+  jobs: { status: { queued: '排队中', running: '运行中', pausing: '暂停中', paused: '已暂停', cancelling: '取消中', cancelled: '已取消', failed: '失败', completed: '已完成' } },
+} as const;
+
+export function fmt(s: string, vars: Record<string, string | number>): string {
+  return s.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));
+}

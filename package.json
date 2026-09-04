@@ -1,0 +1,14 @@
+{
+  "name": "the-water",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "bun run --filter desktop tauri dev",
+    "dev:server": "bun run --filter server dev",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

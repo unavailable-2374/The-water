@@ -1,0 +1,138 @@
+/**
+ * style_check（docs/writing/README.md §5.4–§5.5）：写章后、提交前的三条独立通道
+ *   1. 机器：本地 metrics 与目标区间比对 + lint（AI 味 / 题材负面清单 / 作品负面清单）
+ *   2. LLM 风格审校：六维风格评分 + 逐句 OOC（需要 StyleProfile）
+ *   3. LLM 设定校对：数值 / 时间线 / 称呼 / 设定规则（不需要 StyleProfile，有可对照材料才调用）
+ * 通道按职能而不是按题材划分：题材差异只是喂进来的数据（题材包 L1）不同。
+ * 不通过时定点修订一次（revise 模式，只喂问题清单），再测一次；结果存 chapter_reviews。
+ */
+import { countZh } from '@the-water/shared';
+import { createVersion, setChapterStatus } from '@/db/repos/chaptersRepo';
+import { findReviewByStep, saveReview, type ChapterReviewJson } from '@/db/repos/reviewsRepo';
+import { requestJson } from '@/llm/json';
+import { completeWithRetry } from '@/llm/complete';
+import { styleReviewPrompt, reviewToInstructions, type StyleReviewResult } from '@/llm/prompts/styleReview';
+import { consistencyIssueCount, consistencyReviewPrompt, consistencyToInstructions, hasConsistencyMaterial, type ConsistencyResult } from '@/llm/prompts/consistencyReview';
+import { mergeLoreSettings } from '@/llm/prompts/context';
+import { rewriteChapterPrompt } from '@/llm/prompts/rewriteChapter';
+import { compareMetrics, computeStyleMetrics } from '@/novel/styleMetrics';
+import { lintIssuesToInstructions, lintText } from '@/novel/lint';
+import { docTypeGuide } from '@/novel/docTypes';
+import { applyGenreToProfile, genreLoreSettings, genreTargets, isEmptyGenre, mergedGenreOf } from '@/novel/genrePacks';
+import { maxTokensForChapter } from '@/novel/wordBudget';
+import { emitJobEvent } from '../events';
+import type { StepHandler } from '../context';
+import { buildChapterContextText, currentVersionOf, loadChapterEnv, styleExtrasOf, type ChapterEnv } from './common';
+
+const MAX_REVISIONS = 1;
+
+interface Assessment { report: ChapterReviewJson; styleScore: number; oocCount: number; verdict: 'pass' | 'revise'; instructions: string[] }
+
+async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler>[0]): Promise<Assessment> {
+  const { doc, novel, chapter, bible } = env;
+  const guide = docTypeGuide(novel.requirements.docType);
+  // L1 题材层只补作品没写的部分；作品层（doc.styleProfile）永远优先。
+  const genre = mergedGenreOf(novel.requirements);
+  const profile = applyGenreToProfile(doc.styleProfile, genre);
+  const metrics = computeStyleMetrics([text]);
+  const targets = profile ? profile.targets : genreTargets(genre);
+  const cmp = profile || !isEmptyGenre(genre) ? compareMetrics(metrics, targets) : { score: 100, findings: [], hardViolations: [] };
+  const lint = lintText(text, { profile, genre });
+  const metricHints = cmp.findings.map((f) => f.hint);
+  const lintHints = lintIssuesToInstructions(lint, 5);
+  // 三层合并后的设定：作品层同名条目覆盖题材层。
+  const settings = mergeLoreSettings(doc.settings, genreLoreSettings(genre));
+  const ownIds = new Set(doc.settings.map((s) => s.id));
+  const canonRules = settings.filter((s) => s.kind === 'rule' || s.constant);
+  const qcReminders = [...guide.qc, ...genre.qc];
+
+  let llm: StyleReviewResult | null = null;
+  if (profile) {
+    ctx.setMessage(`正在审校第 ${chapter.chapterNo} 章的文风与人物`);
+    const canonFacts = [...bible.facts.slice(-20), ...canonRules.map((s) => `${s.name}：${s.description}`)];
+    const spec = styleReviewPrompt({
+      chapterNo: chapter.chapterNo, chapterText: text, profile, characters: doc.characters, derivative: doc.derivative,
+      sourceTitle: novel.origin?.sourceTitle ?? null, canonFacts, metricHints: [...metricHints, ...lintHints], qcReminders,
+    });
+    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    llm = r.value;
+  }
+
+  // 设定校对：与风格审校相互独立的一条职能通道，不需要 StyleProfile；没有可对照的材料就不调用。
+  let consistency: ConsistencyResult | null = null;
+  if (guide.fiction) {
+    const cInput = {
+      chapterNo: chapter.chapterNo,
+      chapterText: text,
+      facts: bible.facts.slice(-30),
+      rules: canonRules.map((s) => ({ name: s.name, description: s.description, scope: (ownIds.has(s.id) ? '本书' : '题材') as '本书' | '题材' })),
+      timeline: bible.timeline.filter((e) => e.chapterNo < chapter.chapterNo).slice(-15).map((e) => `第${e.chapterNo}章：${e.event}`),
+      characters: doc.characters,
+      qcReminders,
+    };
+    if (hasConsistencyMaterial(cInput)) {
+      ctx.setMessage(`正在校对第 ${chapter.chapterNo} 章的设定与时间线`);
+      const spec = consistencyReviewPrompt(cInput);
+      const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, onDelta: (_d, acc) => ctx.onDelta(acc) });
+      consistency = r.value;
+    }
+  }
+  const consistencyHints = consistency ? consistencyToInstructions(consistency) : [];
+
+  const fidelity = doc.derivative?.styleFidelity ?? 0.75;
+  const oocCount = llm ? llm.ooc.filter((o) => o.verdict === 'OOC').length : 0;
+  const redlineHit = llm ? llm.ooc.some((o) => o.verdict === 'OOC' && o.redline.trim().length > 0) : false;
+  const llmScore = llm ? llm.styleScore : 100;
+  const styleScore = Math.round(llm ? llmScore * 0.6 + cmp.score * 0.4 : cmp.score);
+  const blockLint = lint.issues.some((i) => i.severity === 'block');
+  const inconsistent = consistency !== null && consistencyIssueCount(consistency) > 0;
+  const verdict: 'pass' | 'revise' =
+    cmp.hardViolations.length > 0 || redlineHit || inconsistent || (llm ? llm.canonConflicts.length > 0 || llm.verdict === 'revise' || llmScore < fidelity * 100 : false) || blockLint ? 'revise' : 'pass';
+  // 事实错误排在最前：定点修订的名额优先给它。
+  const instructions = [...consistencyHints, ...(llm ? reviewToInstructions(llm, metricHints) : metricHints), ...lintHints].slice(0, 12);
+  const report: ChapterReviewJson = {
+    metricScore: cmp.score,
+    metricFindings: cmp.findings.map((f) => ({ key: f.key, label: f.label, value: f.value, target: f.target, hard: f.hard, hint: f.hint })),
+    lintIssues: lint.issues.slice(0, 40).map((i) => ({ rule: i.rule, severity: i.severity, message: i.message, quote: i.quote })),
+    aiTellScore: lint.aiTellScore,
+    llm,
+    consistency,
+    revisedVersionId: null,
+    revisionInstructions: [],
+  };
+  return { report, styleScore, oocCount, verdict, instructions };
+}
+
+export const styleCheckStep: StepHandler = async (ctx) => {
+  const existing = await findReviewByStep(ctx.step.id);
+  if (existing) return { outputRef: existing.id };
+  const env = await loadChapterEnv(ctx);
+  const { chapter, novel } = env;
+  let version = await currentVersionOf(chapter);
+  if (!version) throw new Error('章节尚无正文');
+  // Nothing to check against and no AI review possible → still record lint so the UI can show it.
+  let a = await assess(env, version.content, ctx);
+  let revisions = 0;
+  while (a.verdict === 'revise' && revisions < MAX_REVISIONS && a.instructions.length > 0) {
+    revisions++;
+    ctx.setMessage(`第 ${chapter.chapterNo} 章文风/人物未达标，正在定点修订（${a.instructions.length} 处）`);
+    await setChapterStatus(chapter.id, 'generating');
+    const target = chapter.targetChars || countZh(version.content) || 3000;
+    const maxTokens = maxTokensForChapter(target, ctx.provider.caps);
+    const contextUserText = await buildChapterContextText(env, ctx.provider, maxTokens);
+    const spec = rewriteChapterPrompt({ chapterNo: chapter.chapterNo, requirements: novel.requirements, contextUserText, oldText: version.content, instructions: a.instructions, mode: 'revise', targetChars: target, caps: ctx.provider.caps, style: styleExtrasOf(env) });
+    const r = await completeWithRetry(ctx.provider, { messages: spec.messages, maxTokens: spec.maxTokens, temperature: spec.temperature, signal: ctx.signal }, { onDelta: (_d, acc) => ctx.onDelta(acc) });
+    const text = r.text.trim();
+    if (countZh(text) < 50) break;
+    const instructions = a.instructions;
+    version = await createVersion({ chapterId: chapter.id, content: text, source: 'rewritten', summary: version.summary, storylineSnapshotId: env.snapshotId, jobStepId: ctx.step.id, model: ctx.provider.model, usage: r.usage });
+    emitJobEvent({ type: 'chapter:versionCreated', novelId: novel.id, chapterId: chapter.id, versionId: version.id });
+    a = await assess(env, text, ctx);
+    a.report.revisedVersionId = version.id;
+    a.report.revisionInstructions = instructions;
+  }
+  const review = await saveReview({ novelId: novel.id, chapterId: chapter.id, chapterVersionId: version.id, styleScore: a.styleScore, oocCount: a.oocCount, verdict: a.verdict, report: a.report, jobStepId: ctx.step.id });
+  emitJobEvent({ type: 'chapter:reviewed', novelId: novel.id, chapterId: chapter.id, reviewId: review.id });
+  if ((ctx.step.input as { standalone?: boolean }).standalone) await setChapterStatus(chapter.id, chapter.status === 'final' ? 'final' : 'draft');
+  return { outputRef: review.id };
+};

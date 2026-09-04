@@ -1,0 +1,25 @@
+[package]
+name = "desktop"
+version = "0.1.0"
+description = "The Water - AI 阅读器与小说工坊"
+authors = ["The Water"]
+edition = "2021"
+
+[lib]
+name = "desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["protocol-asset"] }
+tauri-plugin-opener = "2.5"
+tauri-plugin-sql = { version = "2.4", features = ["sqlite"] }
+tauri-plugin-fs = "2.5"
+tauri-plugin-dialog = "2.7"
+tauri-plugin-http = "2.6"
+tauri-plugin-clipboard-manager = "2"
+keyring = { version = "3", features = ["apple-native"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

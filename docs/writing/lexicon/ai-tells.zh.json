@@ -1,0 +1,35 @@
+{
+  "$comment": "中文 AI 写作痕迹词表。words 为硬命中词（每千字 >1 次即报），wordsSoft 为软命中词（每千字上限 soft.limitPerK），patterns 为正则句式，structural 为需要统计/LLM 判断的结构特征。来源：de-ai-flavor-skill、De-AI-Prompt-Enhancer、awesome-novel-skill anti-ai，合并去重。",
+  "version": 1,
+  "words": [
+    "赋能", "破局", "底层逻辑", "跃迁", "降维打击", "弯道超车", "认知升级", "高维视角",
+    "抓手", "链路", "赛道", "护城河", "生态位", "颗粒度", "闭环", "对齐",
+    "价值感", "仪式感", "松弛感", "钝感力", "成长型思维", "刻意练习",
+    "值得注意的是", "不难发现", "基于以上分析", "综上所述", "归根结底", "总而言之",
+    "毋庸置疑", "不可否认", "可以说", "某种程度上", "在很大程度上"
+  ],
+  "wordsSoft": {
+    "limitPerK": 1.5,
+    "list": ["内卷", "共鸣", "升华", "蜕变", "颠覆", "沉淀", "复盘", "不妨", "深度", "本质上", "显然", "无疑", "深深地", "静静地", "缓缓", "仿佛", "似乎", "不禁", "一丝", "一抹", "眼底", "嘴角勾起", "眸子", "深邃"]
+  },
+  "patterns": [
+    { "id": "not-but", "regex": "不是[^。！？]{1,20}而是", "note": "不是…而是…" },
+    { "id": "then-now", "regex": "以前[^，。]{1,20}[，,]现在", "note": "以前…现在…" },
+    { "id": "remember", "regex": "记住[，,]?真正重要的是", "note": "鸡汤转折" },
+    { "id": "in-this-era", "regex": "在这个[^，。]{1,15}的时代", "note": "时代套话" },
+    { "id": "let-us", "regex": "^让我们", "note": "集体号召开头" },
+    { "id": "colon-block", "regex": "^[^：:\\n]{1,12}[：:]\\s*$", "note": "短标题+冒号分块" },
+    { "id": "triple-parallel", "regex": "([^，。；]{2,12}[，；])\\1?[^，。；]{2,12}[，；][^，。；]{2,12}[。！]", "note": "机械三段排比（需人工复核）" },
+    { "id": "de-chain", "regex": "的[^的，。]{1,6}的[^的，。]{1,6}的", "note": "的字连用" },
+    { "id": "eyes-cliche", "regex": "(眼底|眸中|眼中)(闪过|划过|掠过)一(丝|抹)", "note": "网文眼神套话" },
+    { "id": "mouth-cliche", "regex": "嘴角(微微)?(勾起|扬起|上扬)", "note": "嘴角套话" }
+  ],
+  "structural": [
+    { "id": "uniform-paragraphs", "method": "stat", "rule": "段落字数标准差/均值 < 0.25 且段数 ≥ 6", "note": "每段等长" },
+    { "id": "low-burstiness", "method": "stat", "rule": "句长标准差/均值 < 0.3", "note": "句长过于均一" },
+    { "id": "heading-every-para", "method": "regex+stat", "rule": "≥50% 段落以加粗或短标题开头", "note": "段段小标题" },
+    { "id": "emoji-bullets", "method": "regex", "rule": "[✅❌💡🚀✨🔥📌] 出现 ≥2", "note": "emoji 列表" },
+    { "id": "hollow-ending", "method": "llm", "rule": "结尾段落只有抒情/总结/号召，没有新信息或新动作", "note": "升华式结尾" },
+    { "id": "smooth-transitions", "method": "llm", "rule": "每段都以「然而／与此同时／正因如此」等连接词起头", "note": "过渡过于顺滑" }
+  ]
+}

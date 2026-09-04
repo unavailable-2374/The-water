@@ -1,0 +1,35 @@
+{
+  "$comment": "English AI-writing tells. Sources: humanize-ai-writing, humanizer-skill, write-good, proselint, textlint-rule-preset-ai-writing. Merged and deduplicated.",
+  "version": 1,
+  "words": [
+    "delve", "tapestry", "testament", "underscore", "moreover", "additionally", "furthermore",
+    "leverage", "boast", "pivotal", "indelible", "realm", "landscape", "navigate", "embark",
+    "vibrant", "bustling", "meticulous", "multifaceted", "paramount", "robust", "seamless",
+    "game-changer", "cutting-edge", "revolutionary", "unlock", "harness", "foster", "elevate"
+  ],
+  "wordsSoft": {
+    "limitPerK": 1.5,
+    "list": ["very", "really", "quite", "rather", "just", "actually", "basically", "essentially", "arguably", "certainly", "undoubtedly", "crucial", "vital", "key", "significant", "notably", "importantly"]
+  },
+  "patterns": [
+    { "id": "not-just-but", "regex": "\\bnot (just|only|merely) [^.,;]{1,40}\\b but (also )?", "note": "not just X but Y" },
+    { "id": "no-no-just", "regex": "\\bno [^,.]{1,20}, no [^,.]{1,20}, just\\b", "note": "no X, no Y, just Z" },
+    { "id": "testament-to", "regex": "\\b(stands|serves) as a testament to\\b", "note": "testament cliche" },
+    { "id": "serves-as", "regex": "\\bserves as (a|an)\\b", "note": "serves as" },
+    { "id": "participle-filler", "regex": ",\\s+(highlighting|underscoring|showcasing|emphasizing|reflecting) (its|the|their)\\b", "note": "trailing participle filler" },
+    { "id": "in-conclusion", "regex": "^\\s*In conclusion,", "note": "hollow closer" },
+    { "id": "future-bright", "regex": "\\bthe future (is|looks) bright\\b", "note": "hollow closer" },
+    { "id": "so-start", "regex": "^\\s*So,?\\s", "note": "sentence starting with So (write-good)" },
+    { "id": "there-is", "regex": "^\\s*There (is|are)\\b", "note": "There is/are opener (write-good)" },
+    { "id": "passive", "regex": "\\b(is|are|was|were|be|been|being)\\s+\\w+ed\\b", "note": "passive voice heuristic (write-good), count ratio" },
+    { "id": "em-dash-overuse", "regex": "—", "note": "count per 1k words > 3" },
+    { "id": "promo-triplet", "regex": "\\b\\w+, \\w+, and (future-proof|scalable|secure|reliable)\\b", "note": "marketing triplet" },
+    { "id": "paste-residue", "regex": "oaicite|【\\d+†|\\[\\d+\\]\\(#|```\\s*$", "note": "copy-paste residue" }
+  ],
+  "structural": [
+    { "id": "low-burstiness", "method": "stat", "rule": "sentence length sd/mean < 0.3 (human prose typically 0.45+)", "note": "humanizer-skill burstiness" },
+    { "id": "forced-triplets", "method": "stat", "rule": ">= 3 consecutive parallel items of similar length", "note": "forced three-part lists" },
+    { "id": "bold-emoji-headers", "method": "regex", "rule": "\\*\\*[^*]+\\*\\*\\s*[:：]|[✅❌💡🚀]", "note": "textlint no-ai-list-formatting" },
+    { "id": "hype", "method": "wordlist", "rule": "revolutionary|groundbreaking|first-ever|unprecedented", "note": "textlint no-ai-hype-expressions" }
+  ]
+}

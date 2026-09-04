@@ -1,0 +1,196 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { appendSchemaInstruction, normalizeJsonText, parseJsonLoose, requestJson, zodToJsonSchema } from '@/llm/json';
+import { complete, completeWithRetry } from '@/llm/complete';
+import { RateGate } from '@/llm/retry';
+import { LLMError, type CompletionRequest, type LLMProvider, type ProviderCaps, type StreamEvent } from '@/llm/types';
+
+describe('parseJsonLoose', () => {
+  it('parses plain JSON', () => {
+    expect(parseJsonLoose('{"a":1}')).toEqual({ a: 1 });
+    expect(parseJsonLoose('  [1,2] ')).toEqual([1, 2]);
+  });
+
+  it('strips markdown fences and surrounding prose', () => {
+    expect(parseJsonLoose('好的，结果如下：\n```json\n{"a": 1}\n```\n希望有帮助。')).toEqual({ a: 1 });
+    expect(parseJsonLoose('```\n{"a": 1}\n```')).toEqual({ a: 1 });
+    expect(parseJsonLoose('前言 {"a": {"b": [1]}} 后记')).toEqual({ a: { b: [1] } });
+  });
+
+  it('removes trailing commas', () => {
+    expect(parseJsonLoose('{"a": [1, 2, ], "b": {"c": 1,},}')).toEqual({ a: [1, 2], b: { c: 1 } });
+    expect(parseJsonLoose('[1,\n2,\n]')).toEqual([1, 2]);
+  });
+
+  it('normalises full-width punctuation outside strings but preserves it inside', () => {
+    const text = '{“title”：“你好，世界：再见”， “n”： 1，}';
+    expect(parseJsonLoose(text)).toEqual({ title: '你好，世界：再见', n: 1 });
+    expect(parseJsonLoose('{"quote": "全角，逗号：冒号“引号”保留", "k": 2}')).toEqual({ quote: '全角，逗号：冒号“引号”保留', k: 2 });
+    expect(parseJsonLoose('{‘a’：‘bc’}')).toEqual({ a: 'bc' });
+    // ASCII quote inside a full-width-quoted string gets escaped rather than terminating it.
+    expect(parseJsonLoose('{“a”：“say "hi" now”}')).toEqual({ a: 'say "hi" now' });
+  });
+
+  it('keeps escaped quotes and commas inside strings intact', () => {
+    expect(normalizeJsonText('{"a": "x\\"y, }", "b": [1, ]}')).toBe('{"a": "x\\"y, }", "b": [1]}');
+  });
+
+  it('throws SyntaxError including the cleaned text', () => {
+    let err: unknown;
+    try {
+      parseJsonLoose('```json\n{"a": tru}\n```');
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(SyntaxError);
+    expect((err as Error).message).toContain('{"a": tru}');
+  });
+});
+
+describe('zodToJsonSchema / appendSchemaInstruction', () => {
+  it('strips $schema', () => {
+    const s = zodToJsonSchema(z.object({ a: z.string() }));
+    expect(s.$schema).toBeUndefined();
+    expect(s).toMatchObject({ type: 'object', required: ['a'], additionalProperties: false });
+  });
+
+  it('appends to the last user message', () => {
+    const out = appendSchemaInstruction(
+      [
+        { role: 'user', content: 'a' },
+        { role: 'assistant', content: 'b' },
+        { role: 'user', content: 'c' },
+      ],
+      { type: 'object' },
+    );
+    expect(out[2]!.content).toBe('c\n\n只输出一个 JSON 对象，不要任何解释或 Markdown 代码块。JSON 必须符合以下 JSON Schema：\n{"type":"object"}');
+    expect(out[0]!.content).toBe('a');
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+interface Scripted {
+  text?: string;
+  error?: LLMError;
+  usage?: { inputTokens: number; outputTokens: number };
+}
+
+function scriptedProvider(script: Scripted[], caps: Partial<ProviderCaps> = {}) {
+  const requests: CompletionRequest[] = [];
+  let i = 0;
+  const provider: LLMProvider = {
+    id: 'scripted',
+    model: 'm',
+    kind: 'openai_compatible',
+    caps: { contextWindow: 100000, maxOutputTokens: 4096, jsonMode: 'json_object', cjkTokenRatio: 0.7, ...caps },
+    async *stream(req): AsyncIterable<StreamEvent> {
+      requests.push(req);
+      const step = script[Math.min(i, script.length - 1)]!;
+      i++;
+      if (step.error) throw step.error;
+      const text = step.text ?? '';
+      for (const part of text.match(/.{1,5}/gs) ?? []) yield { type: 'delta', text: part };
+      const u = step.usage ?? { inputTokens: 10, outputTokens: 5 };
+      yield { type: 'usage', inputTokens: u.inputTokens, outputTokens: u.outputTokens };
+      yield { type: 'done', finishReason: 'stop' };
+    },
+  };
+  return { provider, requests };
+}
+
+const fastGate = () => new RateGate('t', { minIntervalMs: 0, sleep: async () => {} });
+
+describe('complete', () => {
+  it('collects text, reports deltas and merges usage', async () => {
+    const { provider } = scriptedProvider([{ text: 'hello world', usage: { inputTokens: 3, outputTokens: 7 } }]);
+    const seen: Array<[string, string]> = [];
+    const r = await complete(provider, { messages: [], maxTokens: 10 }, (d, acc) => seen.push([d, acc]));
+    expect(r).toEqual({ text: 'hello world', usage: { inputTokens: 3, outputTokens: 7 }, finishReason: 'stop' });
+    expect(seen[0]).toEqual(['hello', 'hello']);
+    expect(seen.at(-1)![1]).toBe('hello world');
+  });
+
+  it('completeWithRetry reports 429 to the gate and retries', async () => {
+    const { provider, requests } = scriptedProvider([
+      { error: new LLMError('rate_limit', '429', { status: 429, retryAfterMs: 1234 }) },
+      { text: 'ok' },
+    ]);
+    const gate = fastGate();
+    const r = await completeWithRetry(provider, { messages: [], maxTokens: 1 }, { gate, sleep: async () => {} });
+    expect(r.text).toBe('ok');
+    expect(requests).toHaveLength(2);
+    expect(gate.cooldownUntil).toBeGreaterThan(0);
+  });
+});
+
+describe('requestJson', () => {
+  const schema = z.object({ title: z.string(), chapters: z.number().int() });
+  const spec = { messages: [{ role: 'user' as const, content: '生成' }], maxTokens: 200, temperature: 0.7, schema, label: '测试' };
+
+  it('returns the parsed value on first success and appends schema hint for json_object providers', async () => {
+    const { provider, requests } = scriptedProvider([{ text: '```json\n{"title": "书", "chapters": 3,}\n```' }]);
+    const r = await requestJson(provider, spec, { gate: fastGate() });
+    expect(r.value).toEqual({ title: '书', chapters: 3 });
+    expect(r.raw).toContain('"title"');
+    expect(r.usage).toEqual({ inputTokens: 10, outputTokens: 5 });
+    expect(requests).toHaveLength(1);
+    const req = requests[0]!;
+    expect(req.messages[0]!.content).toContain('只输出一个 JSON 对象');
+    expect(req.messages[0]!.content).toContain('"chapters"');
+    expect(req.json?.name).toBe('result');
+    expect(req.json?.schema.$schema).toBeUndefined();
+    expect(req.temperature).toBe(0.7);
+  });
+
+  it('does not append the schema hint for json_schema / tool providers', async () => {
+    for (const jsonMode of ['json_schema', 'tool'] as const) {
+      const { provider, requests } = scriptedProvider([{ text: '{"title":"a","chapters":1}' }], { jsonMode });
+      await requestJson(provider, spec, { gate: fastGate() });
+      expect(requests[0]!.messages[0]!.content).toBe('生成');
+      expect(requests[0]!.json).toBeDefined();
+    }
+  });
+
+  it('runs exactly one repair round at temperature 0 and sums usage', async () => {
+    const { provider, requests } = scriptedProvider([
+      { text: '{"title": "书", "chapters": "三"}', usage: { inputTokens: 10, outputTokens: 5 } },
+      { text: '{"title": "书", "chapters": 3}', usage: { inputTokens: 20, outputTokens: 6 } },
+    ]);
+    const onDelta = [] as string[];
+    const r = await requestJson(provider, spec, { gate: fastGate(), onDelta: (d) => void onDelta.push(d) });
+    expect(r.value).toEqual({ title: '书', chapters: 3 });
+    expect(r.usage).toEqual({ inputTokens: 30, outputTokens: 11 });
+    expect(requests).toHaveLength(2);
+    const repair = requests[1]!;
+    expect(repair.temperature).toBe(0);
+    expect(repair.messages).toHaveLength(3);
+    expect(repair.messages[1]).toEqual({ role: 'assistant', content: '{"title": "书", "chapters": "三"}' });
+    expect(repair.messages[2]!.role).toBe('user');
+    expect(repair.messages[2]!.content).toContain('上面的 JSON 无法通过校验，错误：chapters:');
+    expect(repair.messages[2]!.content).toContain('请只输出修正后的完整 JSON，不要解释。');
+    expect(onDelta.length).toBeGreaterThan(0);
+  });
+
+  it('throws LLMError bad_request with raw after the repair round fails too', async () => {
+    const { provider, requests } = scriptedProvider([{ text: 'not json at all' }, { text: '{"title": 1}' }]);
+    const err = await requestJson(provider, spec, { gate: fastGate() }).catch((e) => e as LLMError);
+    expect(err).toBeInstanceOf(LLMError);
+    expect(err).toMatchObject({ kind: 'bad_request', raw: '{"title": 1}' });
+    expect((err as LLMError).message).toContain('测试');
+    expect(requests).toHaveLength(2);
+    expect(requests[1]!.messages[2]!.content).toContain('JSON 语法错误');
+  });
+
+  it('propagates transport errors without a repair round', async () => {
+    const { provider, requests } = scriptedProvider([{ error: new LLMError('auth', 'nope') }]);
+    await expect(requestJson(provider, spec, { gate: fastGate() })).rejects.toMatchObject({ kind: 'auth' });
+    expect(requests).toHaveLength(1);
+  });
+
+  it('retry: false bypasses gate and retry', async () => {
+    const { provider, requests } = scriptedProvider([{ error: new LLMError('server', '500') }]);
+    await expect(requestJson(provider, spec, { retry: false })).rejects.toMatchObject({ kind: 'server' });
+    expect(requests).toHaveLength(1);
+  });
+});
