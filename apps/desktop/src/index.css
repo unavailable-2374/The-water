@@ -103,3 +103,36 @@ h1, h2, h3, .font-serif { font-family: var(--font-serif); }
 
 input[type="range"] { accent-color: var(--color-cinnabar-600); }
 input[type="checkbox"] { accent-color: var(--color-tea-600); }
+
+/* ------------------------------------------------------------------ *
+ * 无障碍
+ * ------------------------------------------------------------------ */
+
+/* 键盘可见的焦点圈：全局兜底一层，组件里可以再覆盖成自己的配色。
+   只作用于 :focus-visible，鼠标点击不会留下焦点框。 */
+:focus-visible {
+  outline: 2px solid var(--color-tea-500);
+  outline-offset: 2px;
+}
+
+/* 「跳到主内容」这类只给读屏听的文字：视觉上藏起来，聚焦时再显出来。 */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 系统开了「减弱动态效果」就别再动画了：前庭功能敏感的用户会晕。 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

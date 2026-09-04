@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { validateHandle } from '@the-water/shared';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 import { Button, Dialog, Field, Input, Spinner, Textarea, cn } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { friendlyError } from '@/community/errors';
@@ -63,7 +63,7 @@ export function ProfileEditDialog({ open, onClose, initial }: Props) {
   const save = async () => {
     const nextHandle = handle.trim().toLowerCase();
     if (!displayName.trim()) {
-      toast.error('昵称不能为空');
+      toast.error(t.settings.displayNameEmpty);
       return;
     }
     if (!state.ok) return;
@@ -79,7 +79,7 @@ export function ProfileEditDialog({ open, onClose, initial }: Props) {
       await updateLocalProfile({ displayName: user.displayName, handle: user.handle });
       await refreshAccount();
       await loadMe();
-      toast.success('资料已更新');
+      toast.success(t.settings.profileUpdated);
       onClose();
     } catch (e) {
       toast.error(friendlyError(e));
@@ -96,17 +96,17 @@ export function ProfileEditDialog({ open, onClose, initial }: Props) {
         </Field>
         <Field label={t.community.handle} hint={t.community.handleHint}>
           <div className="relative">
-            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-400">@</span>
+            <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-400" aria-hidden="true">@</span>
             <Input className="pl-7" value={handle} maxLength={20} onChange={(e) => setHandle(e.target.value)} autoCapitalize="none" spellCheck={false} />
           </div>
         </Field>
         {(state.checking || state.message) && (
-          <p className={cn('-mt-2 text-xs', state.ok ? 'text-tea-700 dark:text-tea-200' : 'text-cinnabar-600 dark:text-cinnabar-100')}>
-            {state.checking ? '正在查看这个名字有没有人用…' : state.message}
+          <p role="status" className={cn('-mt-2 text-xs', state.ok ? 'text-tea-700 dark:text-tea-200' : 'text-cinnabar-600 dark:text-cinnabar-100')}>
+            {state.checking ? t.settings.handleChecking : state.message}
           </p>
         )}
         <Field label={t.community.bio}>
-          <Textarea rows={3} value={bio} maxLength={500} onChange={(e) => setBio(e.target.value)} placeholder="写一句话，让读者认识你" />
+          <Textarea rows={3} value={bio} maxLength={500} onChange={(e) => setBio(e.target.value)} placeholder={t.settings.bioPlaceholder} />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>

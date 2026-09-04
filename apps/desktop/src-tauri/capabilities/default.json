@@ -24,6 +24,11 @@
     "sql:allow-select",
     "sql:allow-load",
     "sql:allow-close",
+    "updater:default",
+    "process:default",
+    "log:default",
+    "os:default",
+    "window-state:default",
     {
       "identifier": "fs:scope",
       "allow": [
@@ -32,6 +37,12 @@
         },
         {
           "path": "$APPDATA/**"
+        },
+        {
+          "path": "$APPLOG"
+        },
+        {
+          "path": "$APPLOG/**"
         }
       ]
     },

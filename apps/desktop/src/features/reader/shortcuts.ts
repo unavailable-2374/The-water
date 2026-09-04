@@ -1,4 +1,5 @@
-/** 阅读器快捷键表：匹配逻辑与帮助浮层共用同一份数据。 */
+/** 阅读器快捷键表：匹配逻辑与帮助浮层共用同一份键表。 */
+import { t } from '@/i18n';
 
 export type ReaderAction =
   | 'prevPage'
@@ -16,6 +17,9 @@ export type ReaderAction =
   | 'help'
   | 'escape';
 
+/** 帮助浮层里的分组；界面上显示的标题从词典里取。 */
+export type ShortcutGroup = 'paging' | 'zoom' | 'find' | 'ui';
+
 export interface KeyEventLike {
   key: string;
   ctrlKey: boolean;
@@ -29,7 +33,7 @@ export interface ShortcutSpec {
   /** 帮助浮层里显示的按键 */
   keys: string[];
   label: string;
-  group: '翻页' | '缩放' | '查找' | '界面';
+  group: ShortcutGroup;
   match: (e: KeyEventLike) => boolean;
 }
 
@@ -37,30 +41,56 @@ export interface ShortcutSpec {
 const mod = (e: KeyEventLike) => e.metaKey || e.ctrlKey;
 const plain = (e: KeyEventLike) => !e.metaKey && !e.ctrlKey && !e.altKey;
 
+/**
+ * 表里的 `label` / `keys` 都写成 getter：这张表是模块顶层常量，
+ * 若直接把 `t.reader.shortcuts.*` 拷进来，切换语言后浮层还会停在旧文案。
+ * getter 每次读取都回当前词典里取，行为与 `t` 的惰性代理一致。
+ */
 export const SHORTCUTS: ShortcutSpec[] = [
-  { action: 'prevPage', keys: ['←', 'PageUp', 'Shift+空格'], label: '上一页', group: '翻页',
+  { action: 'prevPage', group: 'paging',
+    get keys() { return ['←', 'PageUp', t.reader.shortcuts.shiftSpace]; },
+    get label() { return t.reader.shortcuts.prevPage; },
     match: (e) => plain(e) && (e.key === 'ArrowLeft' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) },
-  { action: 'nextPage', keys: ['→', 'PageDown', '空格'], label: '下一页', group: '翻页',
+  { action: 'nextPage', group: 'paging',
+    get keys() { return ['→', 'PageDown', t.reader.shortcuts.space]; },
+    get label() { return t.reader.shortcuts.nextPage; },
     match: (e) => plain(e) && (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) },
-  { action: 'firstPage', keys: ['Home'], label: '第一页', group: '翻页', match: (e) => plain(e) && e.key === 'Home' },
-  { action: 'lastPage', keys: ['End'], label: '最后一页', group: '翻页', match: (e) => plain(e) && e.key === 'End' },
-  { action: 'zoomIn', keys: ['⌘/Ctrl +'], label: '放大', group: '缩放',
+  { action: 'firstPage', group: 'paging', keys: ['Home'],
+    get label() { return t.reader.shortcuts.firstPage; },
+    match: (e) => plain(e) && e.key === 'Home' },
+  { action: 'lastPage', group: 'paging', keys: ['End'],
+    get label() { return t.reader.shortcuts.lastPage; },
+    match: (e) => plain(e) && e.key === 'End' },
+  { action: 'zoomIn', group: 'zoom', keys: ['⌘/Ctrl +'],
+    get label() { return t.reader.shortcuts.zoomIn; },
     match: (e) => mod(e) && (e.key === '+' || e.key === '=') },
-  { action: 'zoomOut', keys: ['⌘/Ctrl -'], label: '缩小', group: '缩放',
+  { action: 'zoomOut', group: 'zoom', keys: ['⌘/Ctrl -'],
+    get label() { return t.reader.shortcuts.zoomOut; },
     match: (e) => mod(e) && (e.key === '-' || e.key === '_') },
-  { action: 'zoomReset', keys: ['⌘/Ctrl 0'], label: '恢复 100%', group: '缩放', match: (e) => mod(e) && e.key === '0' },
-  { action: 'find', keys: ['⌘/Ctrl F'], label: '在这本书里找', group: '查找',
+  { action: 'zoomReset', group: 'zoom', keys: ['⌘/Ctrl 0'],
+    get label() { return t.reader.shortcuts.zoomReset; },
+    match: (e) => mod(e) && e.key === '0' },
+  { action: 'find', group: 'find', keys: ['⌘/Ctrl F'],
+    get label() { return t.reader.shortcuts.find; },
     match: (e) => mod(e) && !e.shiftKey && (e.key === 'f' || e.key === 'F') },
-  { action: 'findNext', keys: ['⌘/Ctrl G', 'Enter'], label: '下一条命中', group: '查找',
+  { action: 'findNext', group: 'find', keys: ['⌘/Ctrl G', 'Enter'],
+    get label() { return t.reader.shortcuts.findNext; },
     match: (e) => mod(e) && !e.shiftKey && (e.key === 'g' || e.key === 'G') },
-  { action: 'findPrev', keys: ['⌘/Ctrl ⇧ G'], label: '上一条命中', group: '查找',
+  { action: 'findPrev', group: 'find', keys: ['⌘/Ctrl ⇧ G'],
+    get label() { return t.reader.shortcuts.findPrev; },
     match: (e) => mod(e) && e.shiftKey && (e.key === 'g' || e.key === 'G') },
-  { action: 'toggleOutline', keys: ['⌘/Ctrl B'], label: '目录 / 缩略图', group: '界面',
+  { action: 'toggleOutline', group: 'ui', keys: ['⌘/Ctrl B'],
+    get label() { return t.reader.shortcuts.toggleOutline; },
     match: (e) => mod(e) && (e.key === 'b' || e.key === 'B') },
-  { action: 'toggleSidebar', keys: ['⌘/Ctrl \\'], label: '收起 / 展开侧栏', group: '界面',
+  { action: 'toggleSidebar', group: 'ui', keys: ['⌘/Ctrl \\'],
+    get label() { return t.reader.shortcuts.toggleSidebar; },
     match: (e) => mod(e) && e.key === '\\' },
-  { action: 'help', keys: ['?'], label: '快捷键帮助', group: '界面', match: (e) => plain(e) && e.key === '?' },
-  { action: 'escape', keys: ['Esc'], label: '关闭浮层 / 取消选择', group: '界面', match: (e) => e.key === 'Escape' },
+  { action: 'help', group: 'ui', keys: ['?'],
+    get label() { return t.reader.shortcuts.help; },
+    match: (e) => plain(e) && e.key === '?' },
+  { action: 'escape', group: 'ui', keys: ['Esc'],
+    get label() { return t.reader.shortcuts.escape; },
+    match: (e) => e.key === 'Escape' },
 ];
 
 /** 命中哪一个动作；没有命中返回 null。 */
@@ -77,8 +107,12 @@ export function shouldIgnoreTarget(tagName: string | undefined, isContentEditabl
   return !(e.metaKey || e.ctrlKey);
 }
 
-/** 帮助浮层按分组展示。 */
-export function shortcutGroups(): Array<{ group: ShortcutSpec['group']; items: ShortcutSpec[] }> {
-  const order: ShortcutSpec['group'][] = ['翻页', '缩放', '查找', '界面'];
-  return order.map((group) => ({ group, items: SHORTCUTS.filter((s) => s.group === group) }));
+/** 帮助浮层按分组展示；`title` 是分组在界面上的名字。 */
+export function shortcutGroups(): Array<{ group: ShortcutGroup; title: string; items: ShortcutSpec[] }> {
+  const order: ShortcutGroup[] = ['paging', 'zoom', 'find', 'ui'];
+  return order.map((group) => ({
+    group,
+    title: t.reader.shortcuts.groups[group],
+    items: SHORTCUTS.filter((s) => s.group === group),
+  }));
 }

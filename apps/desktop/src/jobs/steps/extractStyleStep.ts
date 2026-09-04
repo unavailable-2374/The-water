@@ -11,16 +11,15 @@ import { requestJson } from '@/llm/json';
 import { applyExtractToProfile, mergeStyleExtracts, styleExtractPrompt, type StyleExtractResult } from '@/llm/prompts/styleExtract';
 import { constraintsFromTargets } from '@/llm/prompts/style';
 import { computeStyleMetrics } from '@/novel/styleMetrics';
+import { EXTRACT_STYLE } from '@/novel/config';
 import { emitJobEvent } from '../events';
 import type { StepHandler } from '../context';
 
-/** Chars of excerpt per batch and how many batches at most (cost cap). */
-const BATCH_CHARS = 9000;
-const MAX_BATCHES = 4;
-const EXCERPT_PER_CHAPTER = 3000;
+/** 批大小 / 批数 / 每章节选长度都在 `novel/config.ts`（§2.3 第 4 条）。 */
+const { batchChars: BATCH_CHARS, maxBatches: MAX_BATCHES, excerptPerChapter: EXCERPT_PER_CHAPTER } = EXTRACT_STYLE;
 
 /** Pick chapters spread across the book: first three, then evenly spaced. */
-export function sampleChapterNos(total: number, max = 8): number[] {
+export function sampleChapterNos(total: number, max: number = EXTRACT_STYLE.sampleChapters): number[] {
   if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
   const picked = new Set<number>([1, 2, 3]);
   const rest = max - picked.size;

@@ -11,7 +11,10 @@ import {
   FeedResponseSchema,
   FollowResponseSchema,
   LeaderboardResponseSchema,
+  MarkNotificationsReadResponseSchema,
   MyPointsResponseSchema,
+  NotificationListResponseSchema,
+  UnreadCountResponseSchema,
   UserListResponseSchema,
   UserProfileResponseSchema,
   ChapterContentSchema,
@@ -24,6 +27,15 @@ import {
   LikeResponseSchema,
   LineageResponseSchema,
   AccountExportResponseSchema,
+  AttributionResponseSchema,
+  BookmarkListResponseSchema,
+  BookmarkResponseSchema,
+  FoldedFeedResponseSchema,
+  PopularTagsResponseSchema,
+  ReadingProgressListResponseSchema,
+  ReadingProgressResponseSchema,
+  SetCurrentVersionResponseSchema,
+  TagListResponseSchema,
   MeResponseSchema,
   SessionListResponseSchema,
   NovelBundleV1Schema,
@@ -143,6 +155,27 @@ describe('contract: every endpoint response validates against shared schemas', (
     await check('GET .../chapters', 'GET', `/api/v1/novels/${nid}/versions/current/chapters?from=1`, ChapterListResponseSchema);
     await check('GET .../chapters/:index', 'GET', `/api/v1/novels/${nid}/versions/current/chapters/0`, ChapterContentSchema);
 
+    // 标签目录与用户搜索（§3.4）
+    await check('GET /tags', 'GET', '/api/v1/tags', TagListResponseSchema);
+    await check('GET /tags?sort=name', 'GET', '/api/v1/tags?sort=name&q=言', TagListResponseSchema);
+    await check('GET /tags/popular', 'GET', '/api/v1/tags/popular?limit=5', PopularTagsResponseSchema);
+    await check('GET /users?q=', 'GET', '/api/v1/users?q=u_', UserListResponseSchema);
+
+    // 想读书架与阅读进度（§3.4）
+    await check('GET /novels/:id/bookmark', 'GET', `/api/v1/novels/${nid}/bookmark`, BookmarkResponseSchema, { token: b });
+    await check('PUT /novels/:id/bookmark', 'PUT', `/api/v1/novels/${nid}/bookmark`, BookmarkResponseSchema, { token: b });
+    await check('GET /me/bookmarks', 'GET', '/api/v1/me/bookmarks', BookmarkListResponseSchema, { token: b });
+    await check('DELETE /novels/:id/bookmark', 'DELETE', `/api/v1/novels/${nid}/bookmark`, BookmarkResponseSchema, { token: b });
+    await check('PUT /novels/:id/progress', 'PUT', `/api/v1/novels/${nid}/progress`, ReadingProgressResponseSchema, { token: b, body: { chapterIndex: 0, percent: 25 } });
+    await check('GET /novels/:id/progress', 'GET', `/api/v1/novels/${nid}/progress`, ReadingProgressResponseSchema, { token: b });
+    await check('GET /me/progress', 'GET', '/api/v1/me/progress', ReadingProgressListResponseSchema, { token: b });
+
+    // 许可与署名（§3.7）
+    await check('GET /novels/:id/attribution', 'GET', `/api/v1/novels/${nid}/attribution`, AttributionResponseSchema);
+
+    // 版本回滚（§3.2）
+    await check('PUT /novels/:id/current-version', 'PUT', `/api/v1/novels/${nid}/current-version`, SetCurrentVersionResponseSchema, { token: author, body: { versionId: committed.version.id } });
+
     // forks / lineage / bundle
     const fork = await check('POST /novels/:id/forks', 'POST', `/api/v1/novels/${nid}/forks`, ForkResponseSchema, { token: b, body: {} }, 201);
     await check('GET .../bundle', 'GET', `/api/v1/novels/${nid}/versions/current/bundle?forkId=${fork.fork.id}`, NovelBundleV1Schema, { token: b });
@@ -180,7 +213,8 @@ describe('contract: every endpoint response validates against shared schemas', (
     await checkError('409 handle taken', 'PATCH', '/api/v1/auth/me', { token: b, body: { handle: authorHandle } });
 
     // 社区：动态
-    await check('GET /feed (anon)', 'GET', '/api/v1/feed?scope=all', FeedResponseSchema);
+    await check('GET /feed (folded)', 'GET', '/api/v1/feed?scope=all', FoldedFeedResponseSchema);
+    await check('GET /feed (raw)', 'GET', '/api/v1/feed?scope=all&collapse=false', FeedResponseSchema);
     await check('GET /feed (following)', 'GET', '/api/v1/feed', FeedResponseSchema, { token: b });
 
     // 社区：留言
@@ -188,6 +222,23 @@ describe('contract: every endpoint response validates against shared schemas', (
     await check('POST /novels/:id/comments (reply)', 'POST', `/api/v1/novels/${nid}/comments`, CommentResponseSchema, { token: author, body: { body: '谢谢', replyToId: comment.comment.id } }, 201);
     await check('GET /novels/:id/comments', 'GET', `/api/v1/novels/${nid}/comments`, CommentListResponseSchema);
     await check('GET .../comments/:cid/replies', 'GET', `/api/v1/novels/${nid}/comments/${comment.comment.id}/replies`, CommentListResponseSchema);
+    // §3.6：章节级留言、编辑、点赞
+    const chapterComment = await check('POST /novels/:id/comments (chapter)', 'POST', `/api/v1/novels/${nid}/comments`, CommentResponseSchema, { token: b, body: { body: '第一章好看', chapterIndex: 0 } }, 201);
+    expect(chapterComment.comment.chapterIndex).toBe(0);
+    await check('GET /novels/:id/comments?chapter=0', 'GET', `/api/v1/novels/${nid}/comments?chapter=0`, CommentListResponseSchema);
+    await check('GET /novels/:id/comments?chapter=novel', 'GET', `/api/v1/novels/${nid}/comments?chapter=novel`, CommentListResponseSchema);
+    await check('PATCH /novels/:id/comments/:cid', 'PATCH', `/api/v1/novels/${nid}/comments/${chapterComment.comment.id}`, CommentResponseSchema, { token: b, body: { body: '第一章非常好看' } });
+    await check('PUT .../comments/:cid/like', 'PUT', `/api/v1/novels/${nid}/comments/${chapterComment.comment.id}/like`, LikeResponseSchema, { token: author });
+    await check('DELETE .../comments/:cid/like', 'DELETE', `/api/v1/novels/${nid}/comments/${chapterComment.comment.id}/like`, LikeResponseSchema, { token: author });
+
+    // §3.1：站内通知
+    const inbox = await check('GET /me/notifications', 'GET', '/api/v1/me/notifications', NotificationListResponseSchema, { token: author });
+    await check('GET /me/notifications (unread)', 'GET', '/api/v1/me/notifications?filter=unread&limit=5', NotificationListResponseSchema, { token: author });
+    await check('GET /me/notifications/unread-count', 'GET', '/api/v1/me/notifications/unread-count', UnreadCountResponseSchema, { token: author });
+    await check('POST /me/notifications/read (ids)', 'POST', '/api/v1/me/notifications/read', MarkNotificationsReadResponseSchema, { token: author, body: { ids: inbox.items.slice(0, 1).map((n) => n.id) } });
+    await check('POST /me/notifications/read (all)', 'POST', '/api/v1/me/notifications/read', MarkNotificationsReadResponseSchema, { token: author, body: { all: true } });
+    await checkError('400 notifications read', 'POST', '/api/v1/me/notifications/read', { token: author, body: {} });
+
     const commentReport = await check('POST .../comments/:cid/reports', 'POST', `/api/v1/novels/${nid}/comments/${comment.comment.id}/reports`, ReportResponseSchema, { token: author, body: { reason: 'spam' } }, 201);
     expect(commentReport.report.commentId).toBe(comment.comment.id);
     await check('PATCH /admin/novels/:id/comments/:cid', 'PATCH', `/api/v1/admin/novels/${nid}/comments/${comment.comment.id}`, CommentResponseSchema, { token: admin, body: { status: 'hidden' } });
@@ -219,6 +270,6 @@ describe('contract: every endpoint response validates against shared schemas', (
     await checkError('403 derivatives', 'POST', `/api/v1/novels/${nid}/forks`, { token: b, body: {} });
     await checkError('404 route', 'GET', '/api/v1/does/not/exist');
 
-    expect(covered.length).toBeGreaterThanOrEqual(70);
+    expect(covered.length).toBeGreaterThanOrEqual(85);
   });
 });

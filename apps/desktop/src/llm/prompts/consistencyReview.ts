@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { Character } from '@the-water/shared';
 import type { PromptSpec } from '@/llm/types';
 import { JSON_ONLY_RULE, bullets, joinSections, section, sys, user } from './base';
+import { UNTRUSTED_GUARD_RULE, wrapUntrusted } from './untrusted';
 
 const conflict = () => z.object({
   quote: z.string().max(300),
@@ -66,6 +67,7 @@ export function consistencyReviewPrompt(input: ConsistencyReviewInput): PromptSp
   const system = [
     '你是这本书的设定校对。你只查事实是否自洽：数值与等级、事件先后、称呼与辈分、设定规则。',
     '不评价文笔，不评价人物性格，不评价故事好坏，不改写正文。没有确凿冲突就不要报。',
+    UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
 
@@ -89,7 +91,7 @@ export function consistencyReviewPrompt(input: ConsistencyReviewInput): PromptSp
     section('时间线（最近）', bullets(input.timeline.slice(-15))),
     section('称呼表', addressLines.join('\n')),
     section('本类型重点', bullets(input.qcReminders.slice(0, 10))),
-    section(`第${input.chapterNo}章正文`, input.chapterText),
+    wrapUntrusted(`第${input.chapterNo}章正文`, input.chapterText),
     section('任务', `请只做设定校对，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', CONSISTENCY_JSON_SHAPE),
   ]);

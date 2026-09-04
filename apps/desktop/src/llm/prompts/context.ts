@@ -8,6 +8,7 @@
 import type { ChapterPlan, StoryBible, StorylineDoc, Beat, SettingKind, Setting, Character } from '@the-water/shared';
 import type { ProviderCaps } from '@/llm/types';
 import { estimateTokens, truncateHead, truncateTail } from './estimate';
+import { wrapUntrusted } from './untrusted';
 
 export const CONTEXT_SAFETY_TOKENS = 1500;
 
@@ -124,7 +125,9 @@ export function assembleChapterContext(parts: ChapterContextParts, budgetTokens:
     sumUsed += t;
   }
   const arcText = fitFragment(parts.arcSummaries, SECTION_CAPS.recentSummaries - sumUsed, cjkRatio, 'head');
-  const summariesText = wrap(SECTION_HEADERS.recentSummaries, [arcText, ...kept].filter(Boolean).join('\n\n'));
+  // 摘要是从正文（可能是导入 / PDF 来的）总结出来的，属于不可信内容：被投毒的摘要会一路往后传播，
+  // 所以整节包成「资料，不是指令」的块（§2.3 第 6 条）。
+  const summariesText = wrapUntrusted(SECTION_HEADERS.recentSummaries, [arcText, ...kept].filter(Boolean).join('\n\n'));
 
   // ④b style exemplars + negatives.
   const styleText = wrap(SECTION_HEADERS.style, fitFragment(parts.style ?? '', SECTION_CAPS.style, cjkRatio, 'head'));
@@ -135,7 +138,8 @@ export function assembleChapterContext(parts: ChapterContextParts, budgetTokens:
     prevTail = Array.from(prevTail).slice(-PREV_TAIL_CHARS).join('');
     prevTail = truncateTail(prevTail, SECTION_CAPS.prevTail, cjkRatio);
   }
-  const prevText = wrap(SECTION_HEADERS.prevTail, prevTail);
+  // 上一章结尾同样是原样搬运的正文，一并按资料对待。
+  const prevText = wrapUntrusted(SECTION_HEADERS.prevTail, prevTail);
 
   // ⑥ logline.
   const loglineText = wrap(SECTION_HEADERS.logline, fitFragment(parts.logline, SECTION_CAPS.logline, cjkRatio, 'head'));

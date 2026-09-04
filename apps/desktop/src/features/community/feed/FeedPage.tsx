@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from 'react-router';
 import type { FeedQuery } from '@the-water/shared';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 import { Button, cn } from '@/components/ui';
 import { PublicTabs } from '@/features/publicArea/PublicTabs';
 import { useAccount } from '@/stores/accountStore';
@@ -21,16 +21,18 @@ export function FeedPage() {
         <header className="mb-6 flex items-end justify-between gap-6">
           <div>
             <h1 className="font-serif text-3xl font-semibold tracking-wide">{t.community.tabs.feed}</h1>
-            <p className="mt-1 text-sm text-ink-500">你关注的人最近写了什么</p>
+            <p className="mt-1 text-sm text-ink-500">{t.community.feedSubtitle}</p>
           </div>
           <PublicTabs />
         </header>
 
         {account && (
-          <div className="mb-6 inline-flex gap-1 rounded-full bg-paper-200/70 p-1 text-sm dark:bg-paper-900/70">
+          <div role="tablist" aria-label={t.community.feedScopeLabel} className="mb-6 inline-flex gap-1 rounded-full bg-paper-200/70 p-1 text-sm dark:bg-paper-900/70">
             {(['following', 'all'] as const).map((s) => (
               <button
                 key={s}
+                role="tab"
+                aria-selected={scope === s}
                 onClick={() => setParams(s === 'following' ? {} : { scope: s }, { replace: true })}
                 className={cn(
                   'rounded-full px-4 py-1.5 transition',

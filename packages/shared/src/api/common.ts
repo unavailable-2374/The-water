@@ -50,3 +50,25 @@ export const HealthResponseSchema = z.object({
   time: z.string(),
 });
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+
+/** 单项健康检查结果（DB 探活等）。 */
+export const HealthCheckSchema = z.object({
+  name: z.string(),
+  ok: z.boolean(),
+  latencyMs: z.number(),
+  error: z.string().optional(),
+});
+export type HealthCheck = z.infer<typeof HealthCheckSchema>;
+
+/**
+ * 就绪检查（`GET /health/ready`，以及 `/health` 探测失败时的 503 响应体）。
+ * `/health` 在健康时仍然返回 `HealthResponse`，形状不变。
+ */
+export const ReadinessResponseSchema = z.object({
+  ok: z.boolean(),
+  service: z.string(),
+  version: z.string(),
+  time: z.string(),
+  checks: z.array(HealthCheckSchema),
+});
+export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;

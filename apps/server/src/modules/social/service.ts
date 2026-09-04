@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { NovelSummary, Page, ReportSchema, CreateReportRequestSchema } from '@the-water/shared';
 import type { z } from 'zod';
 import type { AppDeps, AuthUser } from '../../context';
@@ -57,7 +57,15 @@ export function unlike(deps: AppDeps, user: AuthUser, novelId: string): { liked:
 
 export function listMyLikes(deps: AppDeps, user: AuthUser, cursorRaw: string | undefined, limit: number): Page<NovelSummary> {
   const cursor = decodeCursor(cursorRaw);
-  const base = eq(likes.userId, user.id);
+  // §4.6：可见性必须下推进 SQL。先按 limit 切页、再在应用层过滤，会让页面变短却仍返回非空
+  // nextCursor（客户端看到「一页 3 条却还有下一页」）。这里的谓词与 isPubliclyViewable 等价
+  // —— 刻意不用 browse 的 publicListWhere()，那个更严，会把 unlisted 的已赞作品也踢掉。
+  const base = and(
+    eq(likes.userId, user.id),
+    isNull(novels.deletedAt),
+    ne(novels.visibility, 'unpublished'),
+    eq(novels.moderationStatus, 'ok'),
+  )!;
   const where = cursor
     ? and(base, or(lt(likes.createdAt, new Date(cursor.v)), and(eq(likes.createdAt, new Date(cursor.v)), lt(likes.novelId, cursor.id))))
     : base;
@@ -73,8 +81,8 @@ export function listMyLikes(deps: AppDeps, user: AuthUser, cursorRaw: string | u
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
   return {
-    // 已下架/隐藏的小说仍保留在“我的点赞”中，但仅展示可公开的。
-    items: page.filter((r) => isPubliclyViewable(r.n)).map((r) => toNovelSummary(r.n, r.author)),
+    // 已下架 / 隐藏的小说仍保留在「我的点赞」里，只是不展示（上面的 where 已排除）。
+    items: page.map((r) => toNovelSummary(r.n, r.author)),
     nextCursor: rows.length > limit && last ? encodeCursor({ v: last.l.createdAt.getTime(), id: last.l.novelId }) : null,
   };
 }

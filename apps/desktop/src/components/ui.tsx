@@ -1,8 +1,8 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useEffect } from 'react';
+import { type ButtonHTMLAttributes, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { create } from 'zustand';
 import { hashHue } from '@/community/avatar';
-import { t } from '@/i18n/zh';
+import { fmt, t } from '@/i18n';
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
@@ -42,8 +42,9 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export function Card({ className, children, hover }: { className?: string; children: ReactNode; hover?: boolean }) {
-  return <div className={cn('rounded-2xl bg-paper-0 p-5 shadow-soft dark:bg-paper-900', hover && 'transition hover:shadow-lift', className)}>{children}</div>;
+/** 卡片。剩余属性原样透传，方便调用处补 `role` / `aria-*` 这类无障碍属性。 */
+export function Card({ className, children, hover, ...rest }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; hover?: boolean }) {
+  return <div className={cn('rounded-2xl bg-paper-0 p-5 shadow-soft dark:bg-paper-900', hover && 'transition hover:shadow-lift', className)} {...rest}>{children}</div>;
 }
 
 export function SectionTitle({ children, className, action }: { children: ReactNode; className?: string; action?: ReactNode }) {
@@ -74,28 +75,126 @@ export function Badge({ children, tone = 'neutral', dot, className }: { children
   );
 }
 
+/** 能接受焦点的元素；焦点陷阱靠它挑首尾两个。 */
+const FOCUSABLE = 'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function focusableIn(root: HTMLElement): HTMLElement[] {
+  // 过滤掉不可见的：offsetParent 在 position:fixed 上会是 null，所以再用 getClientRects 兜一次。
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => el === document.activeElement || el.offsetParent !== null || el.getClientRects().length > 0,
+  );
+}
+
+/**
+ * 模态对话框。
+ *
+ * 无障碍要点：`role="dialog" + aria-modal`，标题用 `aria-labelledby` 关联（读屏一打开就念标题）；
+ * 打开时把焦点收进来、Tab 在框内循环、Esc 关闭，关闭后焦点还给原来那个元素——
+ * 否则键盘用户一关框，焦点就掉回 body，得从头 Tab 一遍。
+ */
 export function Dialog({ open, onClose, title, children, width = 'max-w-lg', subtitle }: { open: boolean; onClose: () => void; title: string; children: ReactNode; width?: string; subtitle?: string }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const subtitleId = useId();
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // 让读屏与键盘焦点都落进对话框：优先第一个可聚焦控件，没有就聚焦面板本身。
+    const panel = panelRef.current;
+    // 内容里显式写了 autoFocus 的控件优先（确认框的「确认」按钮就靠这个）。
+    const preferred = panel?.querySelector<HTMLElement>('[autofocus]') ?? (panel ? focusableIn(panel)[0] : undefined);
+    (preferred ?? panel)?.focus();
+    return () => { restoreRef.current?.focus?.(); };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = focusableIn(panel);
+      if (items.length === 0) { e.preventDefault(); panel.focus(); return; }
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const activeInside = panel.contains(document.activeElement);
+      if (!activeInside) { e.preventDefault(); first.focus(); return; }
+      if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/30 p-4 backdrop-blur-[2px]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={cn('flex max-h-[90vh] w-full flex-col rounded-3xl bg-paper-50 shadow-lift dark:bg-paper-900', width)}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={subtitle ? subtitleId : undefined}
+        tabIndex={-1}
+        className={cn('flex max-h-[90vh] w-full flex-col rounded-3xl bg-paper-50 shadow-lift outline-none dark:bg-paper-900', width)}
+      >
         <div className="flex items-start justify-between px-7 pt-6 pb-3">
           <div>
-            <h2 className="font-serif text-lg font-semibold tracking-wide">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
+            <h2 id={titleId} className="font-serif text-lg font-semibold tracking-wide">{title}</h2>
+            {subtitle && <p id={subtitleId} className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-ink-400 hover:bg-paper-200 hover:text-ink-800 dark:hover:bg-paper-800" aria-label="关闭"><X size={16} /></button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-ink-400 hover:bg-paper-200 hover:text-ink-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800" aria-label={t.a11y.closeDialog}><X size={16} /></button>
         </div>
         <div className="overflow-y-auto px-7 pb-7">{children}</div>
       </div>
     </div>
   );
+}
+
+/**
+ * 只有图标的按钮。`label` 是必填的：图标按钮不给无障碍名字，读屏念出来就是「按钮」。
+ * 同时写进 `title`，鼠标用户也有气泡提示。
+ */
+export function IconButton({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={cn('rounded-full p-1.5 text-ink-400 transition hover:bg-paper-200 hover:text-ink-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800 dark:hover:text-paper-100', className)}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * 列表项上「悬停才出现」的操作按钮（删除之类）。
+ *
+ * 原来的写法是 `hidden group-hover:block`——`display:none` 会把按钮从 Tab 序列里摘掉，
+ * 键盘用户根本够不着。这里改成透明度控制：元素一直在布局和 Tab 序列里，
+ * 悬停显示，聚焦时也显示（`group-focus-within` + `focus-visible`），键盘走到它就能看见。
+ * 父元素需要带 `group` 类。
+ */
+export function HoverAction({ label, className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
+  return (
+    <IconButton
+      label={label}
+      className={cn('opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100', className)}
+      {...props}
+    >
+      {children}
+    </IconButton>
+  );
+}
+
+/** 删除按钮的常用文案：读屏会念成「删除「某某」」而不是光秃秃一个「删除」。 */
+export function deleteLabel(name: string): string {
+  return fmt(t.a11y.deleteItem, { name });
 }
 
 export function Spinner({ className }: { className?: string }) {
@@ -125,7 +224,7 @@ export function BookCover({ title, subtitle, className, size = 'md' }: { title: 
     >
       <div className="absolute inset-y-0 left-0 w-[6px] bg-black/15" />
       <div className="absolute inset-0 paper-texture opacity-60" />
-      <div className={cn('vertical-title absolute right-3 top-3 max-h-[85%] overflow-hidden font-serif font-semibold text-paper-0/95 drop-shadow', text)}>{title || '未命名'}</div>
+      <div className={cn('vertical-title absolute right-3 top-3 max-h-[85%] overflow-hidden font-serif font-semibold text-paper-0/95 drop-shadow', text)}>{title || t.common.untitled}</div>
       {subtitle && <div className="absolute bottom-2 left-3 text-[9px] text-paper-0/70">{subtitle}</div>}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BADGE_BY_ID, LEVELS, type MyPointsResponse } from '@the-water/shared';
-import { t, fmt } from '@/i18n/zh';
+import { t, fmt } from '@/i18n';
 import { Badge, Button, Card, SectionTitle, Spinner } from '@/components/ui';
 import { levelView } from '@/community/level';
 import { friendlyError } from '@/community/errors';
@@ -28,7 +28,7 @@ export function PointsCard() {
     return (
       <section>
         <SectionTitle>{t.community.points}</SectionTitle>
-        <Card className="flex items-center justify-between gap-3 text-sm text-ink-500">
+        <Card className="flex items-center justify-between gap-3 text-sm text-ink-500" role="alert">
           <span>{error}</span>
           <Button size="sm" onClick={load}>{t.common.retry}</Button>
         </Card>
@@ -39,7 +39,7 @@ export function PointsCard() {
     return (
       <section>
         <SectionTitle>{t.community.points}</SectionTitle>
-        <Card><div className="text-sm text-ink-400"><Spinner className="mr-2" />{t.common.loading}</div></Card>
+        <Card><div className="text-sm text-ink-400" role="status"><Spinner className="mr-2" />{t.common.loading}</div></Card>
       </section>
     );
   }
@@ -84,7 +84,7 @@ export function PointsCard() {
           {data.ledger.items.length === 0 ? (
             <p className="text-sm text-ink-400">{t.community.ledgerEmpty}</p>
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-1.5" aria-label={t.community.ledger}>
               {data.ledger.items.map((e) => (
                 <li key={e.id} className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="truncate text-ink-600 dark:text-ink-300">{e.label}</span>

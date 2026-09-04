@@ -18,10 +18,11 @@ describe('文档类型识别', () => {
     expect(kindFromPath('没有扩展名')).toBeNull();
   });
 
-  it('只有 pdf/txt/md 算「现在能读」', () => {
+  it('认得出扩展名就算「现在能读」（epub 已接上，见 epub.test.ts）', () => {
     expect(isReadable('a.pdf')).toBe(true);
     expect(isReadable('a.md')).toBe(true);
-    expect(isReadable('a.epub')).toBe(false);
+    expect(isReadable('a.epub')).toBe(true);
+    expect(isReadable('a.docx')).toBe(false);
   });
 
   it('存盘目录与扩展名', () => {
@@ -34,8 +35,8 @@ describe('文档类型识别', () => {
 
   it('拖拽时挑得出能导入的文件', () => {
     const { accepted, rejected } = filterImportable(['a.pdf', 'b.epub', 'c.md', 'd.zip']);
-    expect(accepted).toEqual(['a.pdf', 'c.md']);
-    expect(rejected).toEqual(['b.epub', 'd.zip']);
+    expect(accepted).toEqual(['a.pdf', 'b.epub', 'c.md']);
+    expect(rejected).toEqual(['d.zip']);
   });
 });
 

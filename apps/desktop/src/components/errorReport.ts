@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+
 /** 错误详情文本：错误边界里「反馈」按钮复制的就是这一段。纯函数，方便测。 */
 
 export interface ErrorReportInput {
@@ -16,10 +18,16 @@ export interface ErrorReportInput {
   userAgent?: string;
 }
 
-/** 从任意抛出物里取一句人能读的错误信息。 */
+/**
+ * 从任意抛出物里取一句人能读的错误信息。
+ *
+ * 注意：下面 `formatErrorReport` 拼出来的报告体是**给开发者看的诊断载荷**，
+ * 字段名刻意固定成中文、不跟界面语言走 —— 用户把它复制发过来时，
+ * 我们希望每份报告的格式都一样，而不是随他当时的界面语言变。
+ */
 export function errorMessageOf(error: unknown): string {
-  if (error instanceof Error) return error.message || error.name || '未知错误';
-  if (typeof error === 'string') return error || '未知错误';
+  if (error instanceof Error) return error.message || error.name || t.common.unknownError;
+  if (typeof error === 'string') return error || t.common.unknownError;
   if (error && typeof error === 'object') {
     const msg = (error as { message?: unknown }).message;
     if (typeof msg === 'string' && msg) return msg;
@@ -29,7 +37,7 @@ export function errorMessageOf(error: unknown): string {
       return String(error);
     }
   }
-  return String(error ?? '未知错误');
+  return String(error ?? t.common.unknownError);
 }
 
 /** 取堆栈；没有堆栈就退回消息本身。 */

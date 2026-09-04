@@ -93,8 +93,11 @@ describe('web: author page, share images and OG tags', () => {
     expect(html).toContain('灯下长街');
     expect(html).toContain('关注者 0');
     expect(html).toContain('被二创 1');
-    expect(html).toContain('还没有发布二创作品。');
     expect(html).toContain(`/u/${handle}/avatar.svg`);
+    // 作者页改成「全部 / 原创 / 二创」筛选 + 分页，二创一栏此时是空的。
+    expect(html).toContain('kind=derivative');
+    const derivTab = await (await t.request('GET', `/u/${handle}?kind=derivative`)).text();
+    expect(derivTab).toContain('还没有发布二创作品。');
     expect((await t.request('GET', '/u/nobody')).status).toBe(404);
   });
 
@@ -136,7 +139,8 @@ describe('web: author page, share images and OG tags', () => {
     await publish(t, a, n.id, await makeChapters(1));
     const html = await (await t.request('GET', `/n/${n.id}`)).text();
     expect(html).toContain(`content="https://water.example/n/${n.id}"`);
-    expect(html).toContain(`content="https://water.example/n/${n.id}/cover.svg"`);
+    // og:image 换成 PNG：微信 / 推特的抓取器不渲染 SVG。
+    expect(html).toContain(`content="https://water.example/n/${n.id}/cover.png"`);
     expect(html).toContain('twitter:card');
 
     const author = await (await t.request('GET', `/u/${handle}`)).text();

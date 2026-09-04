@@ -2,7 +2,7 @@
  * 公开身份与关系图：作者主页、作品陈列、关注、屏蔽。
  * 屏蔽的语义见 blocking.ts；积分在 follow 成功时通过 incentive 记账（后续步骤接入）。
  */
-import { and, asc, desc, eq, isNull, isNotNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, isNotNull, like, lt, ne, or, sql } from 'drizzle-orm';
 import {
   BADGE_BY_ID,
   levelFor,
@@ -12,11 +12,12 @@ import {
   type UserCard,
   type UserNovelsQuery,
   type UserProfile,
+  type UserSearchQuery,
 } from '@the-water/shared';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { AppDeps, AuthUser } from '../../context';
 import { changes } from '../../db/client';
-import { blocks, follows, forks, novels, userBadges, users, type UserRow } from '../../db/schema';
+import { blocks, follows, forks, handleHistory, novels, userBadges, users, type UserRow } from '../../db/schema';
 import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { ApiError, notFound, validation } from '../../lib/errors';
 import type { ModerationField } from '../../lib/moderation';
@@ -26,7 +27,7 @@ import { assertTextAllowed } from '../admin/audit';
 import { publicListWhere } from '../browse/service';
 import { toNovelSummary } from '../novels/dto';
 import { type Viewer } from '../novels/service';
-import { hasBlocked, isBlockedEitherWay } from './blocking';
+import { hasBlocked, isBlockedEitherWay, notBlockedEitherWay } from './blocking';
 import { awardFollow } from '../incentive/service';
 
 export function toUserCard(u: UserRow): UserCard {
@@ -47,6 +48,56 @@ export function findUserRow(deps: AppDeps, id: string): UserRow | undefined {
 
 export function findUserByHandle(deps: AppDeps, handle: string): UserRow | undefined {
   return deps.db.select().from(users).where(eq(users.handle, handle.trim().toLowerCase())).get();
+}
+
+// ---- 改名与旧 @用户名（§3.4）----
+
+export interface HandleResolution {
+  user: UserRow;
+  /** 该用户当前的 handle。 */
+  canonicalHandle: string;
+  /** true 表示传进来的是历史 handle，调用方应当 301 到 canonicalHandle。 */
+  redirected: boolean;
+}
+
+/**
+ * 解析 @用户名：先查现役 handle，查不到再查 `handle_history`。
+ * 网页 `/u/:handle` 拿到 redirected=true 时应当回 301（那段路由在 web/ 下，不归本模块）。
+ */
+export function resolveHandle(deps: AppDeps, raw: string): HandleResolution | null {
+  const handle = raw.trim().toLowerCase();
+  const current = findUserByHandle(deps, handle);
+  if (current) return { user: current, canonicalHandle: current.handle, redirected: false };
+  const old = deps.db.select().from(handleHistory).where(eq(handleHistory.handle, handle)).get();
+  if (!old) return null;
+  const user = findUserRow(deps, old.userId);
+  if (!user || user.deletedAt !== null) return null;
+  return { user, canonicalHandle: user.handle, redirected: true };
+}
+
+/**
+ * 改名后登记旧 handle，供 `/u/:handle` 做 301。
+ *
+ * 由 `auth/service.ts` 的 `updateProfile` 在 handle 真正落库之后调用
+ * （那个文件不归本模块所有，接入片段见交付报告）：
+ *
+ *   recordHandleChange(deps, user.id, user.handle, patch.handle);
+ *
+ * 同时会清掉「新 handle 曾是别人的旧名」这条历史，避免一个 handle 指向两个人。
+ */
+export function recordHandleChange(deps: AppDeps, userId: string, oldHandle: string, newHandle: string): void {
+  const from = oldHandle.trim().toLowerCase();
+  const to = newHandle.trim().toLowerCase();
+  if (!from || from === to) return;
+  const now = deps.clock.now();
+  deps.db.transaction((tx) => {
+    // 新名字如果在历史表里（别人放弃的旧名，或本人绕了一圈又用回来），历史让位给现役。
+    tx.delete(handleHistory).where(eq(handleHistory.handle, to)).run();
+    tx.insert(handleHistory)
+      .values({ handle: from, userId, releasedAt: now })
+      .onConflictDoUpdate({ target: handleHistory.handle, set: { userId, releasedAt: now } })
+      .run();
+  });
 }
 
 /** 作者的公开统计：只统计公开可读的作品。 */
@@ -126,9 +177,57 @@ export function getUserProfile(deps: AppDeps, id: string, viewer: Viewer): UserP
 }
 
 export function getUserProfileByHandle(deps: AppDeps, handle: string, viewer: Viewer): UserProfile {
-  const u = findUserByHandle(deps, handle);
-  if (!u) throw notFound('用户');
-  return buildUserProfile(deps, u, viewer);
+  // 改过名的用户，用旧 @用户名也能找到（响应里的 handle 就是新的，客户端据此换 URL）。
+  const r = resolveHandle(deps, handle);
+  if (!r) throw notFound('用户');
+  return buildUserProfile(deps, r.user, viewer);
+}
+
+// ---- 用户搜索（§3.4）----
+
+/** 不支持通配符，直接把 LIKE 的元字符去掉，省得在这里引入方言转义。 */
+function likeNeedle(q: string): string {
+  return q.replace(/[\\%_]/g, '');
+}
+
+/**
+ * 按 @用户名与昵称搜索用户。
+ *
+ * 排序是「前缀命中优先（rank 0），其余在后（rank 1），同 rank 内按 handle 升序」。
+ * 两个键都与点赞数、粉丝数这类可变计数无关，也天然唯一，所以游标翻页既不漂移也不漏项。
+ * 游标形状复用 KeysetCursor：v 存 rank，id 存 handle。
+ */
+export function searchUsers(deps: AppDeps, viewer: Viewer, q: UserSearchQuery): Page<UserCard> {
+  const needle = likeNeedle(q.q.trim().toLowerCase());
+  if (!needle) return { items: [], nextCursor: null };
+
+  const rank = sql<number>`case when ${users.handle} like ${needle + '%'} then 0 else 1 end`;
+  const conds = [
+    isNull(users.deletedAt),
+    ne(users.status, 'banned'),
+    or(like(users.handle, `%${needle}%`), like(users.displayName, `%${likeNeedle(q.q.trim())}%`))!,
+  ];
+  // 互相屏蔽的人不出现在搜索结果里，与浏览列表口径一致。
+  if (viewer) conds.push(notBlockedEitherWay(deps, viewer.id, users.id));
+
+  const cursor = decodeCursor(q.cursor);
+  if (cursor) {
+    conds.push(or(gt(rank, cursor.v), and(eq(rank, cursor.v), gt(users.handle, cursor.id)))!);
+  }
+
+  const rows = deps.db
+    .select({ u: users, rank })
+    .from(users)
+    .where(and(...conds))
+    .orderBy(asc(rank), asc(users.handle))
+    .limit(q.limit + 1)
+    .all();
+  const page = rows.slice(0, q.limit);
+  const last = page[page.length - 1];
+  return {
+    items: page.map((r) => toUserCard(r.u)),
+    nextCursor: rows.length > q.limit && last ? encodeCursor({ v: last.rank, id: last.u.handle }) : null,
+  };
 }
 
 /** 作者主页的作品陈列。与访客互相屏蔽时返回空页（资料页仍可见，便于解除屏蔽）。 */

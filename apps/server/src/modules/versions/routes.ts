@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import type { z } from 'zod';
-import { CreateVersionRequestSchema, CursorQuerySchema, type CreateVersionRequest } from '@the-water/shared';
+import {
+  CreateVersionRequestSchema,
+  CursorQuerySchema,
+  SetCurrentVersionRequestSchema,
+  type CreateVersionRequest,
+  type SetCurrentVersionRequest,
+} from '@the-water/shared';
 import type { AppDeps, AppEnv } from '../../context';
 import { validation } from '../../lib/errors';
 import { currentUser, requireAuth } from '../../middleware/auth';
@@ -39,6 +45,12 @@ export function versionRoutes(deps: AppDeps) {
 
   r.post('/novels/:id/versions/:vid/commit', requireAuth(), write, async (c) => {
     return c.json(await svc.commitVersion(deps, currentUser(c), c.req.param('id'), c.req.param('vid')));
+  });
+
+  // §3.2：发错版本可以回滚。路径刻意不放在 /versions/:vid 下，避免和 vid='current' 混淆。
+  r.put('/novels/:id/current-version', requireAuth(), write, validate('json', SetCurrentVersionRequestSchema), (c) => {
+    const body = getValid<SetCurrentVersionRequest>(c, 'json');
+    return c.json(svc.setCurrentVersion(deps, currentUser(c), c.req.param('id'), body.versionId));
   });
 
   return r;

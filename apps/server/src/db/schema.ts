@@ -534,6 +534,56 @@ export const handleHistory = sqliteTable(
   (t) => [index('handle_history_user_idx').on(t.userId, t.releasedAt)],
 );
 
+// ---- 基础设施表（§4.5：限流 / 缓存 / 检索下沉到共享存储）----
+
+/**
+ * 限流计数器：滑动窗口的「双桶近似」，多实例共享同一份配额。
+ *
+ * 每个 (bucket, window_start) 一行、只做自增，不像滑动日志那样一次请求一行，
+ * 表的行数上限是「活跃主体数 × 2」而不是「请求数」，不会变成只增不减的表。
+ * 过期行由 `gcRateLimits()` 与限流中间件自身的节流清扫删除（见 middleware/rate-limit.ts）。
+ */
+export const rateLimitCounters = sqliteTable(
+  'rate_limit_counters',
+  {
+    /** 规则名 + 主体键，如 `read:ip:1.2.3.4`、`login:user:xxx`。 */
+    bucket: text().notNull(),
+    /** 窗口起点，毫秒时间戳且按 window_ms 对齐。清理要做算术，故用裸 integer 而非 timestamp_ms。 */
+    windowStart: integer().notNull(),
+    count: integer().notNull().default(0),
+    /** 该行所属窗口长度（毫秒）；规则改配置后旧行仍能被正确判定为过期。 */
+    windowMs: integer().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.bucket, t.windowStart] }), index('rate_limit_counters_window_idx').on(t.windowStart)],
+);
+
+/** 跨实例共享的小缓存（榜单等）。value 是 JSON 文本，因此只能放可序列化的值。 */
+export const cacheEntries = sqliteTable(
+  'cache_entries',
+  {
+    key: text().primaryKey(),
+    value: text().notNull(),
+    /** 过期时间；同样要做算术清理，用裸 integer 毫秒时间戳。 */
+    expiresAt: integer().notNull(),
+    updatedAt: ts().notNull(),
+  },
+  (t) => [index('cache_entries_expires_idx').on(t.expiresAt)],
+);
+
+/**
+ * FTS 重建队列：`novels` 上的触发器把变动的 id 写进来（见 0004 迁移），
+ * 应用层 `syncNovelsFts()` 排空它并写 `novels_fts` 虚拟表。
+ * 之所以要队列而不是触发器直接写 FTS：中文 bigram 切分只能在应用层做，触发器写不出来。
+ */
+export const novelsFtsPending = sqliteTable(
+  'novels_fts_pending',
+  {
+    novelId: text().primaryKey(),
+    queuedAt: ts().notNull(),
+  },
+  (t) => [index('novels_fts_pending_queued_idx').on(t.queuedAt)],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type NovelRow = typeof novels.$inferSelect;
@@ -557,3 +607,6 @@ export type ReadingProgressRow = typeof readingProgress.$inferSelect;
 export type TagRow = typeof tags.$inferSelect;
 export type NovelTagRow = typeof novelTags.$inferSelect;
 export type HandleHistoryRow = typeof handleHistory.$inferSelect;
+export type RateLimitCounterRow = typeof rateLimitCounters.$inferSelect;
+export type CacheEntryRow = typeof cacheEntries.$inferSelect;
+export type NovelsFtsPendingRow = typeof novelsFtsPending.$inferSelect;

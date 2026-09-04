@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-/** 目前支持阅读的文档类型。epub 只保留接口，尚未实现。 */
+/** 目前支持阅读的文档类型。 */
 export type DocKind = 'pdf' | 'txt' | 'md' | 'epub';
 
 /** 目录节点：pageNo 为空表示这一项解析不出页码（只作为分组标题）。 */
@@ -55,8 +55,12 @@ export interface PdfDocumentSource extends DocumentSourceBase {
   readonly pdf: PDFDocumentProxy;
 }
 
+/**
+ * 文本类文档源：TXT / Markdown / EPUB 共用同一套排版块与分页，
+ * 于是虚拟滚动、锚点矩形、高亮层、搜索命中层不用为格式做特判。
+ */
 export interface TextDocumentSource extends DocumentSourceBase {
-  readonly kind: 'txt' | 'md';
+  readonly kind: 'txt' | 'md' | 'epub';
   readonly renderMode: 'text';
   /** 单页的排版块 */
   pageBlocks(pageNo: number): TextBlock[];

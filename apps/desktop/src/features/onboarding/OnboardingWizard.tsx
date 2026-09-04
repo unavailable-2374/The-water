@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { nanoid } from 'nanoid';
 import { BookOpen, Check, ExternalLink, Feather, PlugZap, X } from 'lucide-react';
-import { t, fmt } from '@/i18n/zh';
+import { t, fmt } from '@/i18n';
 import { Button, Dialog, Field, Input, Spinner, cn, confirm } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { PROVIDER_PRESETS, getPreset } from '@/llm/factory';
@@ -18,27 +18,39 @@ import {
   canAdvance, canGoBack, initialOnboardingState, onboardingReducer, stepIndex, type OnboardingStep,
 } from './steps';
 
-const STEP_LABEL: Record<OnboardingStep, string> = {
-  provider: t.onboarding.stepProvider, key: t.onboarding.stepKey, test: t.onboarding.stepTest, done: '',
-};
-const STEP_LABELS = WIZARD_STEPS.map((s) => STEP_LABEL[s]);
+/** 步骤名：渲染时现取，不要拷成模块顶层常量表（切语言就不跟着变了）。 */
+function stepLabel(step: OnboardingStep): string {
+  const labels: Record<OnboardingStep, string> = {
+    provider: t.onboarding.stepProvider, key: t.onboarding.stepKey, test: t.onboarding.stepTest, done: '',
+  };
+  return labels[step];
+}
 
 /** 进度条：三个圆点 + 步骤名。 */
 function Steps({ current }: { current: number }) {
+  const total = WIZARD_STEPS.length;
   return (
-    <ol className="mb-6 flex items-center gap-2 text-xs">
-      {STEP_LABELS.map((label, i) => (
-        <li key={label} className="flex items-center gap-2">
-          <span className={cn(
-            'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium',
-            i < current ? 'bg-tea-600 text-paper-0' : i === current ? 'bg-cinnabar-600 text-paper-0' : 'bg-paper-200 text-ink-400 dark:bg-paper-800',
-          )}>
-            {i < current ? <Check size={12} strokeWidth={2.5} /> : i + 1}
-          </span>
-          <span className={i === current ? 'font-medium text-ink-800 dark:text-paper-100' : 'text-ink-400'}>{label}</span>
-          {i < STEP_LABELS.length - 1 && <span className="mx-1 h-px w-6 bg-paper-300 dark:bg-paper-800" />}
-        </li>
-      ))}
+    <ol aria-label={t.onboarding.stepsLabel} className="mb-6 flex items-center gap-2 text-xs">
+      {WIZARD_STEPS.map((step, i) => {
+        const label = stepLabel(step);
+        return (
+          <li
+            key={step}
+            className="flex items-center gap-2"
+            aria-current={i === current ? 'step' : undefined}
+            aria-label={fmt(t.onboarding.stepOf, { index: i + 1, total, label })}
+          >
+            <span aria-hidden="true" className={cn(
+              'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium',
+              i < current ? 'bg-tea-600 text-paper-0' : i === current ? 'bg-cinnabar-600 text-paper-0' : 'bg-paper-200 text-ink-400 dark:bg-paper-800',
+            )}>
+              {i < current ? <Check size={12} strokeWidth={2.5} /> : i + 1}
+            </span>
+            <span aria-hidden="true" className={i === current ? 'font-medium text-ink-800 dark:text-paper-100' : 'text-ink-400'}>{label}</span>
+            {i < total - 1 && <span aria-hidden="true" className="mx-1 h-px w-6 bg-paper-300 dark:bg-paper-800" />}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -119,11 +131,12 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
       {s.step === 'provider' && (
         <div className="space-y-3">
           <p className="text-sm text-ink-500">{t.onboarding.pickHint}</p>
-          <ul className="space-y-2">
+          <ul aria-label={t.onboarding.providerListLabel} className="space-y-2">
             {PROVIDER_PRESETS.map((p) => (
               <li key={p.id}>
                 <button
                   type="button"
+                  aria-pressed={s.presetId === p.id}
                   onClick={() => dispatch({ type: 'selectPreset', presetId: p.id })}
                   className={cn(
                     'w-full rounded-2xl px-4 py-3 text-left transition ring-1',
@@ -133,7 +146,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
                   )}
                 >
                   <div className="font-serif text-sm font-semibold tracking-wide">{p.name}</div>
-                  <div className="mt-0.5 text-xs text-ink-500">{p.model} · {p.contextWindow.toLocaleString()} 上下文</div>
+                  <div className="mt-0.5 text-xs text-ink-500">{fmt(t.onboarding.presetMeta, { model: p.model, context: p.contextWindow.toLocaleString() })}</div>
                 </button>
               </li>
             ))}
@@ -146,7 +159,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
           <p className="text-sm text-ink-500">{fmt(t.onboarding.keyFor, { name: preset.name })}</p>
           {preset.apiKeyUrl && (
             <Button variant="secondary" onClick={() => void openKeyPage(preset.apiKeyUrl!)}>
-              <ExternalLink size={16} strokeWidth={1.75} />{t.onboarding.getKey}
+              <ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />{t.onboarding.getKey}
             </Button>
           )}
           <Field label={t.onboarding.keyLabel} hint={t.onboarding.keyHint}>
@@ -162,7 +175,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
           </Field>
           <label className="flex items-center gap-2.5 text-sm text-ink-600 dark:text-ink-300">
             <input type="checkbox" className="h-4 w-4 rounded" checked={showKey} onChange={(e) => setShowKey(e.target.checked)} />
-            显示 Key
+            {t.onboarding.showKey}
           </label>
         </div>
       )}
@@ -171,18 +184,18 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
         <div className="space-y-4">
           <p className="text-sm text-ink-500">{t.onboarding.testHint}</p>
           {s.test === 'running' && (
-            <div className="flex items-center gap-2.5 rounded-2xl bg-paper-100 px-4 py-3 text-sm text-ink-600 dark:bg-paper-950 dark:text-ink-300">
+            <div role="status" className="flex items-center gap-2.5 rounded-2xl bg-paper-100 px-4 py-3 text-sm text-ink-600 dark:bg-paper-950 dark:text-ink-300">
               <Spinner />{t.onboarding.testRunning}
             </div>
           )}
           {s.test === 'ok' && (
-            <div className="flex items-center gap-2.5 rounded-2xl bg-tea-50 px-4 py-3 text-sm text-tea-700 dark:bg-tea-800/30 dark:text-tea-200">
-              <Check size={16} strokeWidth={2} />{t.onboarding.testOk}
+            <div role="status" className="flex items-center gap-2.5 rounded-2xl bg-tea-50 px-4 py-3 text-sm text-tea-700 dark:bg-tea-800/30 dark:text-tea-200">
+              <Check size={16} strokeWidth={2} aria-hidden="true" />{t.onboarding.testOk}
             </div>
           )}
           {s.test === 'fail' && (
-            <div className="rounded-2xl bg-cinnabar-50 px-4 py-3 text-sm text-cinnabar-700 dark:bg-cinnabar-700/25 dark:text-cinnabar-100">
-              <div className="flex items-center gap-2.5 font-medium"><X size={16} strokeWidth={2} />{t.onboarding.testFail}</div>
+            <div role="alert" className="rounded-2xl bg-cinnabar-50 px-4 py-3 text-sm text-cinnabar-700 dark:bg-cinnabar-700/25 dark:text-cinnabar-100">
+              <div className="flex items-center gap-2.5 font-medium"><X size={16} strokeWidth={2} aria-hidden="true" />{t.onboarding.testFail}</div>
               <p className="mt-1 whitespace-pre-wrap break-all text-xs leading-relaxed">{s.testError}</p>
             </div>
           )}
@@ -194,12 +207,12 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
           <p className="font-serif text-base text-ink-800 dark:text-paper-100">{t.onboarding.doneTitle}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <button type="button" onClick={() => void goTo('/library', t.onboarding.importHint)} className="rounded-2xl bg-paper-0 p-5 text-left shadow-soft transition hover:shadow-lift dark:bg-paper-900">
-              <BookOpen size={22} strokeWidth={1.5} className="text-tea-600" />
+              <BookOpen size={22} strokeWidth={1.5} className="text-tea-600" aria-hidden="true" />
               <div className="mt-2 font-serif text-sm font-semibold tracking-wide">{t.onboarding.doneImport}</div>
               <div className="mt-1 text-xs leading-relaxed text-ink-500">{t.onboarding.doneImportDesc}</div>
             </button>
             <button type="button" onClick={() => void goTo('/studio/new')} className="rounded-2xl bg-paper-0 p-5 text-left shadow-soft transition hover:shadow-lift dark:bg-paper-900">
-              <Feather size={22} strokeWidth={1.5} className="text-cinnabar-600" />
+              <Feather size={22} strokeWidth={1.5} className="text-cinnabar-600" aria-hidden="true" />
               <div className="mt-2 font-serif text-sm font-semibold tracking-wide">{t.onboarding.doneNovel}</div>
               <div className="mt-1 text-xs leading-relaxed text-ink-500">{t.onboarding.doneNovelDesc}</div>
             </button>
@@ -212,7 +225,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           {canGoBack(s) && <Button variant="ghost" onClick={() => dispatch({ type: 'back' })}>{t.studio.wizard.prev}</Button>}
           {s.step === 'test' && s.test === 'fail' && (
-            <Button variant="secondary" onClick={() => void runTest()}><PlugZap size={16} strokeWidth={1.75} />{t.onboarding.testRetry}</Button>
+            <Button variant="secondary" onClick={() => void runTest()}><PlugZap size={16} strokeWidth={1.75} aria-hidden="true" />{t.onboarding.testRetry}</Button>
           )}
           {s.step !== 'done' && (
             <Button variant="primary" disabled={!canAdvance(s)} onClick={() => dispatch({ type: 'next' })}>{t.studio.wizard.next}</Button>
@@ -228,6 +241,6 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
 async function openKeyPage(url: string): Promise<void> {
   const { openUrl } = await import('@tauri-apps/plugin-opener');
   await openUrl(url).catch((e: unknown) => {
-    toast.error(`打不开浏览器：${e instanceof Error ? e.message : String(e)}`);
+    toast.error(fmt(t.onboarding.openFailed, { message: e instanceof Error ? e.message : String(e) }));
   });
 }

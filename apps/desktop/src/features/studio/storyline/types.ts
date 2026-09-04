@@ -1,4 +1,5 @@
 import type { Arc, Beat, Character, Setting, SettingKind } from '@the-water/shared';
+import { t } from '@/i18n';
 import type { Chapter } from '@/db/repos/chaptersRepo';
 import type { SnapshotReason } from '@/db/repos/storylineRepo';
 
@@ -20,13 +21,14 @@ export type Selection =
   | { kind: EntityKind; id: string }
   | { kind: 'chapter'; chapterNo: number };
 
-export const SETTING_KIND_LABEL: Record<SettingKind, string> = {
-  world: '世界观', location: '地点', faction: '势力', item: '物品', rule: '规则', other: '其他',
-};
+// 文案一律现取现用：写成模块顶层的常量表会把当前语言拷贝下来，切语言就不更新了。
+export function settingKindLabel(kind: SettingKind): string {
+  return t.studio.storylineTab.settingKind[kind];
+}
 
-export const SNAPSHOT_REASON_LABEL: Record<SnapshotReason, string> = {
-  generated: '规划生成', user_commit: '手动保存', pre_rewrite: '改写前', import: '导入',
-};
+export function snapshotReasonLabel(reason: SnapshotReason): string {
+  return t.studio.storylineTab.snapshotReason[reason];
+}
 
 /** Split a comma/semicolon separated field into trimmed, de-duplicated tokens. */
 export function splitList(text: string): string[] {

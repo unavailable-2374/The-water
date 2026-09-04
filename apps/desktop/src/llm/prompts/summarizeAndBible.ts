@@ -2,6 +2,7 @@ import type { PromptSpec } from '@/llm/types';
 import type { StoryBible, StorylineDoc } from '@the-water/shared';
 import { SummarizeResultSchema, type SummarizeResult } from '@/novel/types';
 import { JSON_ONLY_RULE, joinSections, section, sys, user } from './base';
+import { UNTRUSTED_GUARD_RULE, wrapUntrusted } from './untrusted';
 import { selectRelevantBible } from './context';
 
 export interface SummarizeInput {
@@ -29,6 +30,7 @@ export function summarizePrompt(input: SummarizeInput): PromptSpec<SummarizeResu
   const { chapterNo, doc } = input;
   const system = [
     '你是小说连载的责任编辑，负责维护故事圣经（人物状态、时间线、既定事实、未了线索），保证后续章节的连续性。',
+    UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
 
@@ -51,7 +53,7 @@ export function summarizePrompt(input: SummarizeInput): PromptSpec<SummarizeResu
   const text = joinSections([
     section('已知人物', knownNames),
     section('故事圣经（相关部分）', primary),
-    section(`第${chapterNo}章正文`, input.chapterText),
+    wrapUntrusted(`第${chapterNo}章正文`, input.chapterText),
     section('任务', `请阅读第${chapterNo}章正文，输出摘要与故事圣经增量，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', SUMMARIZE_JSON_SHAPE),
   ]);

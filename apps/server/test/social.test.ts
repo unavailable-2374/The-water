@@ -131,3 +131,31 @@ describe('social & admin', () => {
     expect(JSON.parse(text)).toEqual({ items: [], nextCursor: null });
   });
 });
+
+describe('我的点赞：可见性下推（§4.6）', () => {
+  it('不可见的作品不占页容量，nextCursor 与实际条数一致', async () => {
+    const t = makeTestApp();
+    const { token: author } = await t.register('author-likes@example.com');
+    const { token: me } = await t.register('me-likes@example.com');
+
+    // 发布 5 本并全部点赞，随后把中间 3 本下架，只剩首尾 2 本可见。
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const n = await createNovel(t, author, { title: `书${i}` });
+      await publish(t, author, n.id, await makeChapters(1, i + 1));
+      ids.push(n.id);
+      expect((await t.json('PUT', `/api/v1/novels/${n.id}/like`, { token: me })).status).toBe(200);
+      t.clock.advance(1000);
+    }
+    for (const id of ids.slice(1, 4)) {
+      const r = await t.json('PATCH', `/api/v1/novels/${id}`, { token: author, body: { visibility: 'unpublished' } });
+      expect(r.status).toBe(200);
+    }
+
+    // 一页要 3 条，但可见的只有 2 本：过去会返回 items 变短却带着非空 nextCursor。
+    const r = await t.json('GET', '/api/v1/me/likes?limit=3', { token: me });
+    expect(r.status).toBe(200);
+    expect(r.body.items.length).toBe(2);
+    expect(r.body.nextCursor).toBeNull();
+  });
+});

@@ -2,6 +2,7 @@
  * 供应商高级项的解析与校验：自定义请求头、代理、超时、并发。
  * 表单里是纯文本 / 秒，落库前在这里收敛成结构化的值。
  */
+import { fmt, t } from '@/i18n';
 import { DEFAULT_FIRST_BYTE_TIMEOUT_MS, DEFAULT_IDLE_TIMEOUT_MS } from '@/llm/config';
 
 /** 一行一条 `Key: Value` 解析成对象；空行与 `#` 开头的注释行忽略。 */
@@ -13,13 +14,13 @@ export function parseHeaders(text: string): { headers: Record<string, string>; e
     if (!line || line.startsWith('#')) continue;
     const sep = line.indexOf(':');
     if (sep <= 0) {
-      errors.push(`这一行不是「名称: 值」的格式：${line}`);
+      errors.push(fmt(t.settings.headerLineInvalid, { line }));
       continue;
     }
     const name = line.slice(0, sep).trim();
     const value = line.slice(sep + 1).trim();
     if (!/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/.test(name)) {
-      errors.push(`请求头名称不合法：${name}`);
+      errors.push(fmt(t.settings.headerNameInvalid, { name }));
       continue;
     }
     headers[name] = value;
@@ -68,10 +69,10 @@ export function validateProxyUrl(value: string): string | null {
   try {
     u = new URL(v);
   } catch {
-    return '代理地址格式不对，例如 http://127.0.0.1:7890';
+    return t.settings.proxyInvalid;
   }
-  if (!['http:', 'https:', 'socks5:', 'socks5h:'].includes(u.protocol)) return '代理只支持 http / https / socks5';
-  if (!u.hostname) return '代理地址缺少主机名';
+  if (!['http:', 'https:', 'socks5:', 'socks5h:'].includes(u.protocol)) return t.settings.proxyProtocol;
+  if (!u.hostname) return t.settings.proxyHostMissing;
   return null;
 }
 
@@ -80,30 +81,30 @@ export function validateRuntimeFields(f: RuntimeFields): string[] {
   const errors: string[] = [];
   const range = (label: string, v: number) => {
     if (!Number.isFinite(v) || !Number.isInteger(v) || v < MIN_TIMEOUT_MS || v > MAX_TIMEOUT_MS) {
-      errors.push(`${label}需要在 ${MIN_TIMEOUT_MS / 1000}–${MAX_TIMEOUT_MS / 1000} 秒之间`);
+      errors.push(fmt(t.settings.timeoutRange, { label, min: MIN_TIMEOUT_MS / 1000, max: MAX_TIMEOUT_MS / 1000 }));
     }
   };
-  range('首字节超时', f.firstByteTimeoutMs);
-  range('空闲超时', f.idleTimeoutMs);
+  range(t.settings.timeoutFirstByteLabel, f.firstByteTimeoutMs);
+  range(t.settings.timeoutIdleLabel, f.idleTimeoutMs);
   if (!Number.isInteger(f.concurrency) || f.concurrency < 1 || f.concurrency > MAX_CONCURRENCY) {
-    errors.push(`并发数需要是 1–${MAX_CONCURRENCY} 之间的整数`);
+    errors.push(fmt(t.settings.concurrencyRange, { max: MAX_CONCURRENCY }));
   }
   const proxyError = validateProxyUrl(f.proxyUrl);
   if (proxyError) errors.push(proxyError);
   return errors;
 }
 
-/** Base URL 校验：必须是 http/https 绝对地址。 */
+/** 接口地址校验：必须是 http/https 绝对地址。 */
 export function validateBaseUrl(value: string): string | null {
   const v = value.trim();
-  if (!v) return 'Base URL 不能为空';
+  if (!v) return t.settings.baseUrlRequired;
   let u: URL;
   try {
     u = new URL(v);
   } catch {
-    return 'Base URL 需要是完整地址，例如 https://api.deepseek.com';
+    return t.settings.baseUrlInvalid;
   }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'Base URL 只支持 http / https';
-  if (!u.hostname) return 'Base URL 缺少主机名';
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return t.settings.baseUrlProtocol;
+  if (!u.hostname) return t.settings.baseUrlHostMissing;
   return null;
 }

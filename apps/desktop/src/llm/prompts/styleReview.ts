@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { VOICE_DIMENSIONS, VOICE_DIMENSION_LABEL, type Character, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
 import type { PromptSpec } from '@/llm/types';
 import { JSON_ONLY_RULE, bullets, joinSections, section, sys, user } from './base';
+import { UNTRUSTED_GUARD_RULE, wrapUntrusted } from './untrusted';
 import { renderStyleSummary } from './style';
 
 const score = () => z.number().min(0).max(100).catch(70);
@@ -47,6 +48,7 @@ export const STYLE_REVIEW_JSON_SHAPE = `{
 export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleReviewResult> {
   const system = [
     '你是原著读者中最挑剔的那一位，也是责任编辑。你只评"像不像原著、人物是否出戏、有没有与既定事实矛盾"，不评故事好坏，不改写。',
+    UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
   const dims = VOICE_DIMENSIONS.filter((d) => d !== 'genreConventions').map((d) => `${d}=${VOICE_DIMENSION_LABEL[d]}`).join('，');
@@ -74,7 +76,7 @@ export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleRevi
     section('既定事实', bullets(input.canonFacts.slice(0, 30))),
     section('本地统计已发现', bullets(input.metricHints)),
     section('本类型重点', bullets(input.qcReminders)),
-    section(`第${input.chapterNo}章正文`, input.chapterText),
+    wrapUntrusted(`第${input.chapterNo}章正文`, input.chapterText),
     section('任务', `请审校这一章，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', STYLE_REVIEW_JSON_SHAPE),
   ]);

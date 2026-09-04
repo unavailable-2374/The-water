@@ -4,8 +4,9 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { ApiErrorBody } from '@the-water/shared';
 import type { AppEnv } from '../context';
 import { ApiError } from '../lib/errors';
+import type { ErrorReporter } from '../lib/reporting';
 
-export function errorToResponse(err: unknown, c: Context<AppEnv>): Response {
+export function errorToResponse(err: unknown, c: Context<AppEnv>, reporter?: ErrorReporter): Response {
   const requestId = c.get('requestId');
   let apiErr: ApiError;
   if (err instanceof ApiError) {
@@ -21,6 +22,17 @@ export function errorToResponse(err: unknown, c: Context<AppEnv>): Response {
   } else {
     console.error(`[${requestId}] 未处理错误:`, err);
     apiErr = new ApiError('INTERNAL', '服务器内部错误');
+  }
+  // 只上报 5xx：4xx 是客户端自己的问题，报上去只会把告警淹掉。
+  if (reporter && apiErr.status >= 500) {
+    reporter.capture({
+      error: err,
+      requestId,
+      method: c.req.method,
+      path: c.req.path,
+      status: apiErr.status,
+      userId: c.get('user')?.id ?? null,
+    });
   }
   const body: ApiErrorBody = apiErr.toBody();
   if (requestId) c.header('X-Request-Id', requestId);

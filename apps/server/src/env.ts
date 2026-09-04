@@ -22,6 +22,19 @@ const EnvSchema = z.object({
   STORAGE_QUOTA_BYTES: z.coerce.number().int().min(0).default(200 * 1024 * 1024),
   /** 备份输出目录。 */
   BACKUP_DIR: z.string().default('./data/backups'),
+  /** 桌面端安装包下载地址，网页 CTA 用；留空时 /download 页面明说未配置。 */
+  DOWNLOAD_URL: z.string().default(''),
+  /** 请求日志格式：off 不打、text 人读（本地）、json 一行 JSON（采集器）。 */
+  LOG_FORMAT: z.enum(['off', 'text', 'json']).default('text'),
+  /** 指标端点开关（Prometheus 文本格式，GET /metrics）。 */
+  METRICS_ENABLED: z.enum(['0', '1']).default('1'),
+  /** 非空时 /metrics 需要 `Authorization: Bearer <token>` 或 `?token=`。 */
+  METRICS_TOKEN: z.string().default(''),
+  /** 错误上报：off 不报、log 结构化打印、sentry 走注册的上报出口（未注册则降级为 log）。 */
+  ERROR_REPORTING: z.enum(['off', 'log', 'sentry']).default('log'),
+  /** Sentry DSN。**服务端不内置 SDK**，只把它透给 setErrorTransport() 注册的实现。 */
+  SENTRY_DSN: z.string().default(''),
+  SENTRY_ENVIRONMENT: z.string().default('production'),
   /** argon2id 参数（测试可调低以加速）。 */
   PASSWORD_MEMORY_COST: z.coerce.number().int().min(1024).default(65536),
   PASSWORD_TIME_COST: z.coerce.number().int().min(1).default(2),
@@ -45,6 +58,13 @@ export type Env = {
   backupDir: string;
   passwordMemoryCost: number;
   passwordTimeCost: number;
+  downloadUrl: string;
+  logFormat: 'off' | 'text' | 'json';
+  metricsEnabled: boolean;
+  metricsToken: string;
+  errorReporting: 'off' | 'log' | 'sentry';
+  sentryDsn: string;
+  sentryEnvironment: string;
 };
 
 function splitList(s: string): string[] {
@@ -74,6 +94,13 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     backupDir: raw.BACKUP_DIR,
     passwordMemoryCost: raw.PASSWORD_MEMORY_COST,
     passwordTimeCost: raw.PASSWORD_TIME_COST,
+    downloadUrl: raw.DOWNLOAD_URL,
+    logFormat: raw.LOG_FORMAT,
+    metricsEnabled: raw.METRICS_ENABLED === '1',
+    metricsToken: raw.METRICS_TOKEN,
+    errorReporting: raw.ERROR_REPORTING,
+    sentryDsn: raw.SENTRY_DSN,
+    sentryEnvironment: raw.SENTRY_ENVIRONMENT,
   };
 }
 
@@ -85,6 +112,9 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     passwordTimeCost: 1,
     adminEmails: ['admin@example.com'],
     moderationMode: 'off',
+    // 测试默认不打访问日志、不报错误，否则 134 个用例会把终端刷满。
+    logFormat: 'off',
+    errorReporting: 'off',
     ...overrides,
   };
 }

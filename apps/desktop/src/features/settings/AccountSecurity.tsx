@@ -7,13 +7,15 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { Download, KeyRound, Laptop, MailCheck, Trash2 } from 'lucide-react';
 import type { SessionSummary } from '@the-water/shared';
+import { fmt, t } from '@/i18n';
 import { Badge, Button, confirm, Dialog, Field, Input, SectionTitle, Select, Spinner } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { useAccount } from '@/stores/accountStore';
 import { deleteAccount, forgotPassword, getClient, getServerUrl, resetPassword } from '@/sync/account';
 import { describeError } from '@/sync/api';
 
-const MIN_PASSWORD = 8;
+/** 密码最少位数，与服务端保持一致。 */
+export const MIN_PASSWORD = 8;
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -35,14 +37,14 @@ function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose: () =>
   }, [open]);
 
   const submit = async () => {
-    if (newPassword.length < MIN_PASSWORD) { toast.error(`新密码至少 ${MIN_PASSWORD} 位`); return; }
-    if (newPassword !== repeat) { toast.error('两次输入的新密码不一致'); return; }
+    if (newPassword.length < MIN_PASSWORD) { toast.error(fmt(t.settings.newPasswordTooShort, { n: MIN_PASSWORD })); return; }
+    if (newPassword !== repeat) { toast.error(t.settings.passwordMismatch); return; }
     setBusy(true);
     try {
       const client = await getClient();
-      if (!client) { toast.error('尚未登录'); return; }
+      if (!client) { toast.error(t.settings.notLoggedIn); return; }
       await client.changePassword({ currentPassword, newPassword });
-      toast.success('密码已修改，其它设备需要重新登录');
+      toast.success(t.settings.passwordChanged);
       onClose();
     } catch (e) {
       toast.error(describeError(e));
@@ -52,21 +54,21 @@ function ChangePasswordDialog({ open, onClose }: { open: boolean; onClose: () =>
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="修改密码" subtitle="改完之后，除了这台设备，其它登录都会失效。" width="max-w-md">
+    <Dialog open={open} onClose={onClose} title={t.settings.changePassword} subtitle={t.settings.changePasswordDesc} width="max-w-md">
       <div className="space-y-4">
-        <Field label="当前密码">
+        <Field label={t.settings.currentPassword}>
           <Input type="password" value={currentPassword} autoComplete="current-password" onChange={(e) => setCurrent(e.target.value)} />
         </Field>
-        <Field label="新密码" hint={`至少 ${MIN_PASSWORD} 位`}>
+        <Field label={t.settings.newPassword} hint={fmt(t.settings.passwordHint, { n: MIN_PASSWORD })}>
           <Input type="password" value={newPassword} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
         </Field>
-        <Field label="再输一次新密码">
+        <Field label={t.settings.repeatPassword}>
           <Input type="password" value={repeat} autoComplete="new-password" onChange={(e) => setRepeat(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={onClose}>取消</Button>
+          <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
           <Button variant="primary" onClick={submit} disabled={busy || !currentPassword || !newPassword}>
-            {busy && <Spinner className="h-3 w-3" />}保存
+            {busy && <Spinner className="h-3 w-3" />}{t.common.save}
           </Button>
         </div>
       </div>
@@ -97,12 +99,12 @@ export function ForgotPasswordDialog({ open, onClose, defaultEmail = '' }: { ope
   }, [open, defaultEmail]);
 
   const sendMail = async () => {
-    if (!email.trim()) { toast.error('请填写邮箱'); return; }
+    if (!email.trim()) { toast.error(t.settings.emailRequired); return; }
     setBusy(true);
     try {
       await forgotPassword(serverUrl, email);
       setSent(true);
-      toast.info('如果这个邮箱注册过，重置邮件已经发出了');
+      toast.info(t.settings.resetMailSent);
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -111,12 +113,12 @@ export function ForgotPasswordDialog({ open, onClose, defaultEmail = '' }: { ope
   };
 
   const submit = async () => {
-    if (password.length < MIN_PASSWORD) { toast.error(`新密码至少 ${MIN_PASSWORD} 位`); return; }
+    if (password.length < MIN_PASSWORD) { toast.error(fmt(t.settings.newPasswordTooShort, { n: MIN_PASSWORD })); return; }
     setBusy(true);
     try {
       await resetPassword(serverUrl, token, password);
       await refresh();
-      toast.success('密码已重置，请用新密码重新登录');
+      toast.success(t.settings.passwordReset);
       onClose();
     } catch (e) {
       toast.error(describeError(e));
@@ -126,26 +128,26 @@ export function ForgotPasswordDialog({ open, onClose, defaultEmail = '' }: { ope
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="忘记密码" subtitle="我们会往这个邮箱发一封信，里面有一次性验证码。" width="max-w-md">
+    <Dialog open={open} onClose={onClose} title={t.settings.forgotPassword} subtitle={t.settings.forgotPasswordDesc} width="max-w-md">
       <div className="space-y-4">
-        <Field label="邮箱">
+        <Field label={t.settings.email}>
           <Input type="email" value={email} autoComplete="username" onChange={(e) => setEmail(e.target.value)} />
         </Field>
         <div className="flex justify-end">
-          <Button size="sm" onClick={sendMail} disabled={busy}>{busy && <Spinner className="h-3 w-3" />}{sent ? '重新发送' : '发送重置邮件'}</Button>
+          <Button size="sm" onClick={sendMail} disabled={busy}>{busy && <Spinner className="h-3 w-3" />}{sent ? t.settings.resendMail : t.settings.sendResetMail}</Button>
         </div>
         {sent && (
           <>
-            <Field label="邮件里的验证码" hint="1 小时内有效，只能用一次">
+            <Field label={t.settings.mailCode} hint={t.settings.mailCodeHint1h}>
               <Input value={token} spellCheck={false} autoCapitalize="none" onChange={(e) => setToken(e.target.value)} placeholder="tw_…" />
             </Field>
-            <Field label="新密码" hint={`至少 ${MIN_PASSWORD} 位`}>
+            <Field label={t.settings.newPassword} hint={fmt(t.settings.passwordHint, { n: MIN_PASSWORD })}>
               <Input type="password" value={password} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
             </Field>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" onClick={onClose}>取消</Button>
+              <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
               <Button variant="primary" onClick={submit} disabled={busy || !token.trim() || !password}>
-                {busy && <Spinner className="h-3 w-3" />}重置密码
+                {busy && <Spinner className="h-3 w-3" />}{t.settings.resetPassword}
               </Button>
             </div>
           </>
@@ -171,10 +173,10 @@ function VerifyEmailDialog({ open, onClose }: { open: boolean; onClose: () => vo
     setBusy(true);
     try {
       const client = await getClient();
-      if (!client) { toast.error('尚未登录'); return; }
+      if (!client) { toast.error(t.settings.notLoggedIn); return; }
       await client.requestEmailVerification();
       setSent(true);
-      toast.info('验证邮件已发出（邮箱已验证过的话不会重复发送）');
+      toast.info(t.settings.verifyMailSent);
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -186,9 +188,9 @@ function VerifyEmailDialog({ open, onClose }: { open: boolean; onClose: () => vo
     setBusy(true);
     try {
       const client = await getClient();
-      if (!client) { toast.error('尚未登录'); return; }
+      if (!client) { toast.error(t.settings.notLoggedIn); return; }
       await client.verifyEmail(token.trim());
-      toast.success('邮箱已验证');
+      toast.success(t.settings.emailVerified);
       onClose();
     } catch (e) {
       toast.error(describeError(e));
@@ -198,18 +200,18 @@ function VerifyEmailDialog({ open, onClose }: { open: boolean; onClose: () => vo
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="验证邮箱" subtitle="验证过的邮箱才能找回密码。" width="max-w-md">
+    <Dialog open={open} onClose={onClose} title={t.settings.verifyEmail} subtitle={t.settings.verifyEmailDesc} width="max-w-md">
       <div className="space-y-4">
         <div className="flex justify-end">
-          <Button size="sm" onClick={sendMail} disabled={busy}>{busy && <Spinner className="h-3 w-3" />}{sent ? '重新发送' : '发送验证邮件'}</Button>
+          <Button size="sm" onClick={sendMail} disabled={busy}>{busy && <Spinner className="h-3 w-3" />}{sent ? t.settings.resendMail : t.settings.sendVerifyMail}</Button>
         </div>
-        <Field label="邮件里的验证码" hint="24 小时内有效，只能用一次">
+        <Field label={t.settings.mailCode} hint={t.settings.mailCodeHint24h}>
           <Input value={token} spellCheck={false} autoCapitalize="none" onChange={(e) => setToken(e.target.value)} placeholder="tw_…" onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={onClose}>关闭</Button>
+          <Button variant="ghost" onClick={onClose}>{t.common.close}</Button>
           <Button variant="primary" onClick={submit} disabled={busy || !token.trim()}>
-            {busy && <Spinner className="h-3 w-3" />}完成验证
+            {busy && <Spinner className="h-3 w-3" />}{t.settings.finishVerify}
           </Button>
         </div>
       </div>
@@ -239,7 +241,7 @@ function SessionsDialog({ open, onClose }: { open: boolean; onClose: () => void 
   useEffect(() => { if (open) void load(); }, [open]);
 
   const revoke = async (s: SessionSummary) => {
-    if (s.current && !(await confirm({ title: '退出当前设备？', description: '这是你正在使用的设备，退出后需要重新登录。', confirmText: '退出', tone: 'danger' }))) return;
+    if (s.current && !(await confirm({ title: t.settings.revokeCurrentTitle, description: t.settings.revokeCurrentDesc, confirmText: t.settings.signOut, tone: 'danger' }))) return;
     try {
       const client = await getClient();
       if (!client) return;
@@ -247,42 +249,42 @@ function SessionsDialog({ open, onClose }: { open: boolean; onClose: () => void 
       if (s.current) {
         await refresh();
         onClose();
-        toast.info('已退出登录');
+        toast.info(t.settings.loggedOut);
         return;
       }
       setItems((prev) => (prev ? prev.filter((x) => x.id !== s.id) : prev));
-      toast.success('已注销这台设备');
+      toast.success(t.settings.sessionRevoked);
     } catch (e) {
       toast.error(describeError(e));
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="登录设备" subtitle="不认识的设备，直接注销掉。" width="max-w-lg">
+    <Dialog open={open} onClose={onClose} title={t.settings.sessions} subtitle={t.settings.sessionsDesc} width="max-w-lg">
       {items === null ? (
-        <div className="text-sm text-ink-400">正在加载…</div>
+        <div className="text-sm text-ink-400" role="status">{t.common.loading}</div>
       ) : items.length === 0 ? (
-        <div className="text-sm text-ink-400">没有找到登录记录。</div>
+        <div className="text-sm text-ink-400">{t.settings.sessionsEmpty}</div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2" aria-label={t.settings.sessionsList}>
           {items.map((s) => (
             <li key={s.id} className="flex items-center gap-3 rounded-xl bg-paper-100/70 px-3 py-2.5 dark:bg-paper-950/50">
-              <Laptop size={16} strokeWidth={1.75} className="shrink-0 text-ink-400" />
+              <Laptop size={16} strokeWidth={1.75} className="shrink-0 text-ink-400" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm text-ink-800 dark:text-paper-100">{s.clientLabel || '未命名设备'}</span>
-                  {s.current && <Badge tone="green">当前设备</Badge>}
+                  <span className="truncate text-sm text-ink-800 dark:text-paper-100">{s.clientLabel || t.settings.unnamedDevice}</span>
+                  {s.current && <Badge tone="green">{t.settings.currentDevice}</Badge>}
                 </div>
-                <div className="mt-0.5 text-xs text-ink-400">最近活动 {formatTime(s.lastUsedAt)} · 登录于 {formatTime(s.createdAt)}</div>
+                <div className="mt-0.5 text-xs text-ink-400">{fmt(t.settings.sessionMeta, { last: formatTime(s.lastUsedAt), created: formatTime(s.createdAt) })}</div>
               </div>
-              <Button size="sm" variant="ghost" className="hover:text-cinnabar-600" onClick={() => revoke(s)}>注销</Button>
+              <Button size="sm" variant="ghost" className="hover:text-cinnabar-600" onClick={() => revoke(s)}>{t.settings.revoke}</Button>
             </li>
           ))}
         </ul>
       )}
       <div className="mt-4 flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={() => void load()} disabled={busy}>刷新</Button>
-        <Button size="sm" variant="ghost" onClick={onClose}>关闭</Button>
+        <Button size="sm" variant="ghost" onClick={() => void load()} disabled={busy}>{t.settings.refresh}</Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>{t.common.close}</Button>
       </div>
     </Dialog>
   );
@@ -304,12 +306,12 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
   }, [open]);
 
   const submit = async () => {
-    if (confirmText.trim() !== '注销账号') { toast.error('请输入「注销账号」四个字确认'); return; }
+    if (confirmText.trim() !== t.settings.deleteAccount) { toast.error(fmt(t.settings.deleteAccountConfirmTip, { word: t.settings.deleteAccount })); return; }
     setBusy(true);
     try {
       await deleteAccount(password, mode);
       await refresh();
-      toast.success('账号已注销');
+      toast.success(t.settings.accountDeleted);
       onClose();
     } catch (e) {
       toast.error(describeError(e));
@@ -319,29 +321,27 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="注销账号" subtitle="这一步不可撤销，建议先导出数据。" width="max-w-md">
+    <Dialog open={open} onClose={onClose} title={t.settings.deleteAccount} subtitle={t.settings.deleteAccountDesc} width="max-w-md">
       <div className="space-y-4">
-        <Field label="已发布的作品怎么处理">
+        <Field label={t.settings.worksHandling}>
           <Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-            <option value="keep_works">保留作品，作者显示为「已注销用户」</option>
-            <option value="delete_works">连同作品一起下架</option>
+            <option value="keep_works">{t.settings.keepWorks}</option>
+            <option value="delete_works">{t.settings.deleteWorks}</option>
           </Select>
         </Field>
         <p className="text-xs leading-relaxed text-ink-500">
-          {mode === 'keep_works'
-            ? '读者仍能看到这些故事，但看不到你的昵称、@用户名和简介，也无法再找到你的主页。'
-            : '你的全部作品会被下架，读者不再能打开。已经派生出去的二创不受影响。'}
+          {mode === 'keep_works' ? t.settings.keepWorksDesc : t.settings.deleteWorksDesc}
         </p>
-        <Field label="当前密码">
+        <Field label={t.settings.currentPassword}>
           <Input type="password" value={password} autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} />
         </Field>
-        <Field label="输入「注销账号」确认">
-          <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="注销账号" onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
+        <Field label={fmt(t.settings.deleteAccountConfirmLabel, { word: t.settings.deleteAccount })}>
+          <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder={t.settings.deleteAccount} onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }} />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={onClose}>取消</Button>
+          <Button variant="ghost" onClick={onClose}>{t.common.cancel}</Button>
           <Button variant="danger" onClick={submit} disabled={busy || !password}>
-            {busy && <Spinner className="h-3 w-3" />}确认注销
+            {busy && <Spinner className="h-3 w-3" />}{t.settings.confirmDeleteAccount}
           </Button>
         </div>
       </div>
@@ -358,16 +358,16 @@ export function AccountSecuritySection() {
     setExporting(true);
     try {
       const client = await getClient();
-      if (!client) { toast.error('尚未登录'); return; }
+      if (!client) { toast.error(t.settings.notLoggedIn); return; }
       const dump = await client.exportAccount();
       const path = await save({
-        defaultPath: `the-water-账号数据-${dump.exportedAt.slice(0, 10)}.json`,
+        defaultPath: fmt(t.settings.exportFileName, { date: dump.exportedAt.slice(0, 10) }),
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
       if (!path) return;
       await writeTextFile(path, JSON.stringify(dump, null, 2));
-      const skipped = dump.skipped.length ? `，${dump.skipped.length} 本未包含` : '';
-      toast.success(`已导出 ${dump.novels.length} 本作品${skipped}`);
+      const skipped = dump.skipped.length ? fmt(t.settings.exportSkipped, { n: dump.skipped.length }) : '';
+      toast.success(fmt(t.settings.exportDone, { n: dump.novels.length, skipped }));
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -377,16 +377,16 @@ export function AccountSecuritySection() {
 
   return (
     <section>
-      <SectionTitle>账号安全</SectionTitle>
+      <SectionTitle>{t.settings.security}</SectionTitle>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => setDialog('verify')}><MailCheck size={16} strokeWidth={1.75} />验证邮箱</Button>
-        <Button size="sm" onClick={() => setDialog('password')}><KeyRound size={16} strokeWidth={1.75} />修改密码</Button>
-        <Button size="sm" variant="ghost" onClick={() => setDialog('forgot')}>忘记密码</Button>
-        <Button size="sm" variant="ghost" onClick={() => setDialog('sessions')}><Laptop size={16} strokeWidth={1.75} />登录设备</Button>
+        <Button size="sm" onClick={() => setDialog('verify')}><MailCheck size={16} strokeWidth={1.75} aria-hidden="true" />{t.settings.verifyEmail}</Button>
+        <Button size="sm" onClick={() => setDialog('password')}><KeyRound size={16} strokeWidth={1.75} aria-hidden="true" />{t.settings.changePassword}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setDialog('forgot')}>{t.settings.forgotPassword}</Button>
+        <Button size="sm" variant="ghost" onClick={() => setDialog('sessions')}><Laptop size={16} strokeWidth={1.75} aria-hidden="true" />{t.settings.sessions}</Button>
         <Button size="sm" variant="ghost" onClick={doExport} disabled={exporting}>
-          {exporting ? <Spinner className="h-3 w-3" /> : <Download size={16} strokeWidth={1.75} />}导出我的数据
+          {exporting ? <Spinner className="h-3 w-3" /> : <Download size={16} strokeWidth={1.75} aria-hidden="true" />}{t.settings.exportData}
         </Button>
-        <Button size="sm" variant="danger" onClick={() => setDialog('delete')}><Trash2 size={16} strokeWidth={1.75} />注销账号</Button>
+        <Button size="sm" variant="danger" onClick={() => setDialog('delete')}><Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />{t.settings.deleteAccount}</Button>
       </div>
       <ChangePasswordDialog open={dialog === 'password'} onClose={() => setDialog(null)} />
       <ForgotPasswordDialog open={dialog === 'forgot'} onClose={() => setDialog(null)} />

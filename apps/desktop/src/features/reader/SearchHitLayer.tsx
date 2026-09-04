@@ -9,7 +9,8 @@ export interface HitRects {
 export function SearchHitLayer({ hits }: { hits: HitRects[] }) {
   if (hits.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 z-[2]">
+    // 纯视觉覆盖层：命中条目由搜索面板的列表负责念，这里对读屏隐藏
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[2]">
       {hits.flatMap((h, hi) =>
         h.rects.map((r, i) => (
           <div

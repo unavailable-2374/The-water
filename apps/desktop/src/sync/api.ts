@@ -12,10 +12,13 @@ import {
   BlockResponseSchema,
   CommentListResponseSchema,
   CommentResponseSchema,
-  FeedResponseSchema,
+  FoldedFeedResponseSchema,
   FollowResponseSchema,
   LeaderboardResponseSchema,
+  MarkNotificationsReadResponseSchema,
   MyPointsResponseSchema,
+  NotificationListResponseSchema,
+  UnreadCountResponseSchema,
   UserListResponseSchema,
   UserProfileResponseSchema,
   ChapterContentSchema,
@@ -50,10 +53,22 @@ import {
   type CreateReportRequestSchema,
   type CreateVersionRequest,
   type ErrorCode,
+  type MarkNotificationsReadRequest,
+  type NotificationQuery,
+  type UpdateCommentRequest,
   type UpdateNovelRequest,
   type UploadBlobsRequest,
   HealthResponseSchema,
   type HealthResponse,
+  AttributionResponseSchema,
+  BookmarkListResponseSchema,
+  BookmarkResponseSchema,
+  PopularTagsResponseSchema,
+  ReadingProgressListResponseSchema,
+  ReadingProgressResponseSchema,
+  SetCurrentVersionResponseSchema,
+  TagListResponseSchema,
+  type TagDirectoryQuery,
 } from '@the-water/shared';
 
 export const API_PREFIX = '/api/v1';
@@ -350,10 +365,52 @@ export class PublicApi {
   }
 
   // ---- 社区：动态、留言 ----
-  feed(query: Partial<FeedQuery> = {}) {
-    return this.request('GET', '/feed', { query: query as Query, schema: FeedResponseSchema });
+  /** 折叠版动态：zod 会剥掉 schema 里没有的字段，用旧的 FeedResponseSchema 会丢掉 collapsedCount 与 read。 */
+  // ---- §3.2 版本回滚 ----
+  setCurrentVersion(id: string, versionId: string) {
+    return this.request('PUT', `/novels/${enc(id)}/current-version`, { body: { versionId }, schema: SetCurrentVersionResponseSchema });
   }
-  listComments(novelId: string, query: { cursor?: string; limit?: number } = {}) {
+
+  // ---- §3.4 标签目录、用户搜索、想读、阅读进度 ----
+  listTags(query: Partial<TagDirectoryQuery> = {}) {
+    return this.request('GET', '/tags', { query: query as Query, schema: TagListResponseSchema });
+  }
+  popularTags(limit = 20) {
+    return this.request('GET', '/tags/popular', { query: { limit }, schema: PopularTagsResponseSchema });
+  }
+  searchUsers(query: { q: string; cursor?: string; limit?: number }) {
+    return this.request('GET', '/users', { query, schema: UserListResponseSchema });
+  }
+  isBookmarked(id: string) {
+    return this.request('GET', `/novels/${enc(id)}/bookmark`, { schema: BookmarkResponseSchema });
+  }
+  bookmark(id: string) {
+    return this.request('PUT', `/novels/${enc(id)}/bookmark`, { schema: BookmarkResponseSchema });
+  }
+  unbookmark(id: string) {
+    return this.request('DELETE', `/novels/${enc(id)}/bookmark`, { schema: BookmarkResponseSchema });
+  }
+  myBookmarks(query: { cursor?: string; limit?: number } = {}) {
+    return this.request('GET', '/me/bookmarks', { query, schema: BookmarkListResponseSchema });
+  }
+  getProgress(id: string) {
+    return this.request('GET', `/novels/${enc(id)}/progress`, { schema: ReadingProgressResponseSchema });
+  }
+  saveProgress(id: string, body: { chapterIndex: number; percent?: number }) {
+    return this.request('PUT', `/novels/${enc(id)}/progress`, { body, schema: ReadingProgressResponseSchema });
+  }
+  myProgress(query: { cursor?: string; limit?: number } = {}) {
+    return this.request('GET', '/me/progress', { query, schema: ReadingProgressListResponseSchema });
+  }
+  attribution(id: string) {
+    return this.request('GET', `/novels/${enc(id)}/attribution`, { schema: AttributionResponseSchema });
+  }
+
+  feed(query: Partial<FeedQuery> = {}) {
+    return this.request('GET', '/feed', { query: query as Query, schema: FoldedFeedResponseSchema });
+  }
+  /** chapter：数字=只看该章，'novel'=只看作品级，缺省=全部。 */
+  listComments(novelId: string, query: { cursor?: string; limit?: number; chapter?: number | 'novel' } = {}) {
     return this.request('GET', `/novels/${enc(novelId)}/comments`, { query, schema: CommentListResponseSchema });
   }
   listReplies(novelId: string, commentId: string, query: { cursor?: string; limit?: number } = {}) {
@@ -362,11 +419,32 @@ export class PublicApi {
   createComment(novelId: string, body: CreateCommentRequest) {
     return this.request('POST', `/novels/${enc(novelId)}/comments`, { body, schema: CommentResponseSchema });
   }
+  /** 编辑留言：只在服务端的 15 分钟窗口内可用，超时返回 403。 */
+  updateComment(novelId: string, commentId: string, body: UpdateCommentRequest) {
+    return this.request('PATCH', `/novels/${enc(novelId)}/comments/${enc(commentId)}`, { body, schema: CommentResponseSchema });
+  }
+  likeComment(novelId: string, commentId: string, liked: boolean) {
+    return this.request(liked ? 'PUT' : 'DELETE', `/novels/${enc(novelId)}/comments/${enc(commentId)}/like`, {
+      schema: LikeResponseSchema,
+    });
+  }
   deleteComment(novelId: string, commentId: string) {
     return this.request('DELETE', `/novels/${enc(novelId)}/comments/${enc(commentId)}`, { schema: OkResponseSchema });
   }
   reportComment(novelId: string, commentId: string, body: z.input<typeof CreateReportRequestSchema>) {
     return this.request('POST', `/novels/${enc(novelId)}/comments/${enc(commentId)}/reports`, { body, schema: ReportResponseSchema });
+  }
+
+  // ---- 社区：站内通知（§3.1）----
+  listNotifications(query: Partial<NotificationQuery> = {}) {
+    return this.request('GET', '/me/notifications', { query: query as Query, schema: NotificationListResponseSchema });
+  }
+  /** 小红点专用：只回一个数字，可以高频轮询。 */
+  unreadNotificationCount() {
+    return this.request('GET', '/me/notifications/unread-count', { schema: UnreadCountResponseSchema });
+  }
+  markNotificationsRead(body: MarkNotificationsReadRequest) {
+    return this.request('POST', '/me/notifications/read', { body, schema: MarkNotificationsReadResponseSchema });
   }
 
   // ---- 社区：积分与榜单 ----

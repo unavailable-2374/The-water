@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { SceneType, VOICE_DIMENSIONS, VOICE_DIMENSION_LABEL, type StyleProfile } from '@the-water/shared';
 import type { PromptSpec } from '@/llm/types';
 import { JSON_ONLY_RULE, joinSections, section, sys, user } from './base';
+import { UNTRUSTED_GUARD_RULE, wrapUntrustedParts } from './untrusted';
 
 const short = (max: number) => z.string().max(max).default('');
 const list = (max: number, item: number) => z.array(z.string().max(item)).max(max).default([]);
@@ -60,6 +61,7 @@ export const STYLE_EXTRACT_JSON_SHAPE = `{
 export function styleExtractPrompt(input: StyleExtractInput): PromptSpec<StyleExtractResult> {
   const system = [
     '你是一位文体分析编辑，任务是从小说原文中提炼可复用的文风档案，供续写与二创时保持原著味道。只根据给出的原文归纳，不要脑补；所有引文必须逐字来自原文。',
+    UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
   const rules = [
@@ -70,12 +72,13 @@ export function styleExtractPrompt(input: StyleExtractInput): PromptSpec<StyleEx
     '5. lore 只收江湖规矩、术语、称谓制度、货币时间制度这类容易被写错的条目。',
     '6. 找不到的字段留空字符串或空数组，不要编造。',
   ].join('\n');
-  const excerpts = input.excerpts.map((e) => `〔第${e.chapterNo}章〕\n${e.text}`).join('\n\n');
+  // 节选来自导入的 PDF / txt，是典型的不可信输入：包成资料块（§2.3 第 6 条）。
+  const excerpts = wrapUntrustedParts('原文节选', input.excerpts.map((e) => ({ title: `第${e.chapterNo}章`, text: e.text })));
   const text = joinSections([
     section('作品', input.title),
     section('已知人物', input.knownCharacterNames.join('、')),
     input.metricsHint ? section('本地统计参考', input.metricsHint) : '',
-    section('原文节选', excerpts),
+    excerpts,
     section('任务', `请提炼这部作品的文风档案，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', STYLE_EXTRACT_JSON_SHAPE),
   ]);

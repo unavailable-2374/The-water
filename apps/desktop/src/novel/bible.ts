@@ -5,13 +5,10 @@
  */
 import type { StoryBible, StorylineDoc } from '@the-water/shared';
 import type { BibleDelta } from './types';
+import { BIBLE_CAPS as CAPS } from './config';
 
-export const BIBLE_CAPS = {
-  timeline: 5000,
-  facts: 1000,
-  openThreads: 500,
-  relationships: 50,
-} as const;
+/** 上限值在 `novel/config.ts`；这里只做 re-export。 */
+export const BIBLE_CAPS = CAPS;
 
 const norm = (s: string): string => s.trim().toLowerCase();
 const clip = (s: string, max: number): string => {

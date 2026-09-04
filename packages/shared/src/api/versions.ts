@@ -35,3 +35,16 @@ export const CommitVersionResponseSchema = z.object({
   novel: NovelDetailSchema,
 });
 export type CommitVersionResponse = z.infer<typeof CommitVersionResponseSchema>;
+
+// ---- 版本回滚（§3.2）----
+
+/** `PUT /novels/:id/current-version`：把某个已提交版本设为当前版本。 */
+export const SetCurrentVersionRequestSchema = z.object({ versionId: z.string().min(1).max(64) });
+export type SetCurrentVersionRequest = z.infer<typeof SetCurrentVersionRequestSchema>;
+
+/** 回滚成功后返回新的当前版本与刷新过反规范化字段的小说详情。 */
+export const SetCurrentVersionResponseSchema = z.object({
+  version: VersionSummarySchema,
+  novel: NovelDetailSchema,
+});
+export type SetCurrentVersionResponse = z.infer<typeof SetCurrentVersionResponseSchema>;

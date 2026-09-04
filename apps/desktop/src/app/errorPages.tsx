@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation, useRouteError, isRouteErrorResponse } from 'react-router';
 import { Compass } from 'lucide-react';
-import { t, fmt } from '@/i18n/zh';
+import { t, fmt } from '@/i18n';
 import { Button, EmptyState } from '@/components/ui';
 import { ErrorBoundary, ErrorPanel } from '@/components/ErrorBoundary';
 
@@ -14,10 +14,10 @@ function BackHome() {
  * feature 级错误边界：一块出错只塌一块，其余导航照常可用。
  * 路由变化时自动清错，用户换个页面就能继续用。
  */
-export function FeatureBoundary({ label, children }: { label: string; children: ReactNode }) {
+export function FeatureBoundary({ label, children }: { label: () => string; children: ReactNode }) {
   const loc = useLocation();
   return (
-    <ErrorBoundary scope={label} compact resetKey={loc.pathname} extra={<BackHome />}>
+    <ErrorBoundary scope={label()} compact resetKey={loc.pathname} extra={<BackHome />}>
       {children}
     </ErrorBoundary>
   );

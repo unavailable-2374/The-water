@@ -3,9 +3,10 @@ import { copyFile, exists, mkdir, readFile, BaseDirectory } from '@tauri-apps/pl
 import { sha256Hex } from '@the-water/shared';
 import { createDocument, findDocumentBySha, type DocumentRow } from '@/db/repos/documentsRepo';
 import { closePdf, openPdfFromBytes } from '@/pdf/pdfjs';
+import { decodeText } from './decode';
+import { parseEpub } from './epubSource';
 import { KNOWN_UNSUPPORTED_EXTENSIONS, READABLE_EXTENSIONS, extensionOf, kindFromPath, storageDirFor, storageExtension, titleFromPath } from './kind';
 import { startIndexing } from './indexQueue';
-import { decodeText } from './open';
 import { CHARS_PER_PAGE, paginateBlocks, parseBlocks } from './textPaginate';
 
 export type ImportResult =
@@ -14,7 +15,7 @@ export type ImportResult =
   | { status: 'unsupported'; path: string; message: string }
   | { status: 'error'; error: string; path: string };
 
-/** 文件选择器：PDF / TXT / Markdown。 */
+/** 文件选择器：PDF / EPUB / TXT / Markdown。 */
 export async function pickDocumentFiles(): Promise<string[]> {
   const picked = await open({
     multiple: true,
@@ -39,9 +40,9 @@ export function filterImportable(paths: string[]): { accepted: string[]; rejecte
 /** 把文档复制进 appdata，读元数据，落 documents 行。同一份文件（按 sha256）只入库一次。 */
 export async function importDocument(srcPath: string): Promise<ImportResult> {
   const kind = kindFromPath(srcPath);
-  if (!kind) return { status: 'unsupported', path: srcPath, message: '认不出这个文件的格式，目前支持 PDF、TXT 和 Markdown。' };
+  if (!kind) return { status: 'unsupported', path: srcPath, message: '认不出这个文件的格式，目前支持 PDF、EPUB、TXT 和 Markdown。' };
   if ((KNOWN_UNSUPPORTED_EXTENSIONS as readonly string[]).includes(extensionOf(srcPath))) {
-    return { status: 'unsupported', path: srcPath, message: 'EPUB 阅读还没做好，暂时请先转成 TXT 或 PDF。' };
+    return { status: 'unsupported', path: srcPath, message: '这个格式还读不了。' };
   }
   try {
     const bytes = await readFile(srcPath);
@@ -66,6 +67,12 @@ export async function importDocument(srcPath: string): Promise<ImportResult> {
       } catch {
         /* 元数据尽力而为 */
       }
+    } else if (kind === 'epub') {
+      // EPUB 的书名 / 作者在 OPF 的 metadata 里，比文件名靠谱
+      const book = parseEpub(bytes);
+      pageCount = book.pages.length;
+      if (book.meta.title) title = book.meta.title;
+      author = book.meta.author;
     } else {
       const text = decodeText(bytes);
       pageCount = paginateBlocks(parseBlocks(text, kind), CHARS_PER_PAGE).length;

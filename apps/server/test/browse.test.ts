@@ -102,6 +102,55 @@ describe('browse', () => {
     expect((await t.json('GET', '/api/v1/novels?sort=nope')).status).toBe(400);
   });
 
+  it('计数排序的游标带上稳定次键：计数相同的作品按发布时间倒序，翻页不重不漏（§4.6）', async () => {
+    const t = makeTestApp();
+    const { token } = await t.register('a@example.com');
+    const { token: b } = await t.register('b@example.com');
+    // 5 本作品，likeCount 全是 0 —— 主键完全打平，全靠次键定序。
+    const ids = await seedPublished(t, token, 5);
+    const newestFirst = [...ids].reverse();
+
+    const one = await t.json('GET', '/api/v1/novels?sort=likes&limit=2');
+    expect(one.body.items.map((n: any) => n.id)).toEqual(newestFirst.slice(0, 2));
+
+    // 翻页途中给第一页里的作品点赞：它的计数变了，但已经翻过去了，不该再出现。
+    await t.json('PUT', `/api/v1/novels/${ids[4]}/like`, { token: b });
+
+    const two = await t.json('GET', `/api/v1/novels?sort=likes&limit=2&cursor=${encodeURIComponent(one.body.nextCursor)}`);
+    const three = await t.json('GET', `/api/v1/novels?sort=likes&limit=2&cursor=${encodeURIComponent(two.body.nextCursor)}`);
+    const seen = [...one.body.items, ...two.body.items, ...three.body.items].map((n: any) => n.id);
+    expect(seen).toEqual(newestFirst);
+    expect(new Set(seen).size).toBe(5);
+    expect(three.body.nextCursor).toBeNull();
+
+    // latest 的游标格式没变，旧客户端存下来的游标继续可用。
+    const latest = await t.json('GET', '/api/v1/novels?limit=2');
+    const latest2 = await t.json('GET', `/api/v1/novels?limit=2&cursor=${encodeURIComponent(latest.body.nextCursor)}`);
+    expect([...latest.body.items, ...latest2.body.items].map((n: any) => n.id)).toEqual(newestFirst.slice(0, 4));
+  });
+
+  it('偏移分页给网页用：同一套可见性与筛选条件，外加总数与页码', async () => {
+    const t = makeTestApp();
+    const { token } = await t.register('a@example.com');
+    const ids = await seedPublished(t, token, 5);
+    const { browseNovelsOffset } = await import('../src/modules/browse/service');
+
+    const p1 = browseNovelsOffset(t.deps, { sort: 'latest' }, 1, 2);
+    expect(p1.total).toBe(5);
+    expect(p1.pageCount).toBe(3);
+    expect(p1.items.map((n) => n.id)).toEqual([...ids].reverse().slice(0, 2));
+    const p3 = browseNovelsOffset(t.deps, { sort: 'latest' }, 3, 2);
+    expect(p3.items.map((n) => n.id)).toEqual([ids[0]!]);
+    // 越界收敛到最后一页，不 404。
+    expect(browseNovelsOffset(t.deps, { sort: 'latest' }, 99, 2).page).toBe(3);
+    // 标签筛选与游标版本共用同一个归一化条件。
+    expect(browseNovelsOffset(t.deps, { sort: 'latest', tag: '玄幻' }, 1, 10).total).toBe(2);
+    expect(browseNovelsOffset(t.deps, { sort: 'latest', tag: ' 玄幻 ' }, 1, 10).total).toBe(2);
+    // 下架的作品两边都看不到。
+    await t.json('PATCH', `/api/v1/novels/${ids[0]}`, { token, body: { visibility: 'unpublished' } });
+    expect(browseNovelsOffset(t.deps, { sort: 'latest' }, 1, 10).total).toBe(4);
+  });
+
   it('view dedup per viewer per day', async () => {
     const t = makeTestApp();
     const { token } = await t.register('a@example.com');

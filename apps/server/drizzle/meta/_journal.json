@@ -29,6 +29,13 @@
       "when": 1788558448929,
       "tag": "0003_lumpy_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788561216476,
+      "tag": "0004_curly_terror",
+      "breakpoints": true
     }
   ]
 }

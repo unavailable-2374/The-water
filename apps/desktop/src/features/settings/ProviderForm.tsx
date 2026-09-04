@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { createProvider, updateProvider, type ProviderInput } from '@/db/repos/providersRepo';
@@ -73,11 +73,11 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
   };
 
   const save = async () => {
-    if (!f.name.trim() || !f.model.trim()) { toast.error('名称、模型不能为空'); return; }
+    if (!f.name.trim() || !f.model.trim()) { toast.error(t.settings.nameModelRequired); return; }
     const baseUrlError = validateBaseUrl(f.baseUrl);
     if (baseUrlError) { toast.error(baseUrlError); return; }
-    if (!f.useEnv && !initial && !f.apiKey.trim()) { toast.error('请填写 API Key'); return; }
-    if (f.useEnv && !f.envVar.trim()) { toast.error('请填写环境变量名'); return; }
+    if (!f.useEnv && !initial && !f.apiKey.trim()) { toast.error(t.settings.apiKeyRequired); return; }
+    if (f.useEnv && !f.envVar.trim()) { toast.error(t.settings.envVarRequired); return; }
     const { headers, errors: headerErrors } = parseHeaders(f.headersText);
     const runtimeErrors = validateRuntimeFields(f);
     const problems = [...headerErrors, ...runtimeErrors];
@@ -96,7 +96,7 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
       if (initial) await updateProvider(id, base);
       else await createProvider(base, id);
       invalidateProvider(id);
-      toast.success('已保存');
+      toast.success(t.settings.saved);
       onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -112,11 +112,11 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
   const locked = !!preset?.lockContextWindow && !!modelParams(f.model, preset.id);
 
   return (
-    <Dialog open={open} onClose={onClose} title={initial ? t.settings.editProvider : t.settings.addProvider} subtitle={initial ? '改完之后，记得再测一次连接。' : '填入接口地址、模型名和密钥，AI 就能上线了。'}>
+    <Dialog open={open} onClose={onClose} title={initial ? t.settings.editProvider : t.settings.addProvider} subtitle={initial ? t.settings.editProviderHint : t.settings.addProviderHint}>
       <div className="space-y-4">
         <Field label={t.settings.preset}>
           <Select value={f.presetId} onChange={(e) => applyPreset(e.target.value)}>
-            <option value="">自定义…</option>
+            <option value="">{t.settings.presetCustom}</option>
             {PROVIDER_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </Field>
@@ -124,20 +124,20 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <Field label={t.settings.kind}>
             <Select value={f.kind} onChange={(e) => set('kind', e.target.value as ProviderKind)}>
-              <option value="openai_compatible">OpenAI 兼容</option>
-              <option value="anthropic">Anthropic</option>
+              <option value="openai_compatible">{t.settings.kindOpenAi}</option>
+              <option value="anthropic">{t.settings.kindAnthropic}</option>
             </Select>
           </Field>
-          <Field label={t.settings.jsonMode}>
+          <Field label={t.settings.jsonMode} hint={t.settings.jsonModeHint}>
             <Select value={f.jsonMode} onChange={(e) => set('jsonMode', e.target.value as JsonMode)}>
-              <option value="none">none（仅提示词）</option>
-              <option value="json_object">json_object</option>
-              <option value="json_schema">json_schema</option>
-              <option value="tool">tool（Anthropic）</option>
+              <option value="none">{t.settings.jsonModeNone}</option>
+              <option value="json_object">{t.settings.jsonModeObject}</option>
+              <option value="json_schema">{t.settings.jsonModeSchema}</option>
+              <option value="tool">{t.settings.jsonModeTool}</option>
             </Select>
           </Field>
         </div>
-        <Field label={t.settings.baseUrl}><Input value={f.baseUrl} onChange={(e) => set('baseUrl', e.target.value)} placeholder="https://api.deepseek.com" /></Field>
+        <Field label={t.settings.baseUrl} hint={t.settings.baseUrlHint}><Input value={f.baseUrl} onChange={(e) => set('baseUrl', e.target.value)} placeholder="https://api.deepseek.com" /></Field>
         <Field label={t.settings.model} hint={locked ? t.settings.modelLocked : undefined}>
           {preset ? (
             <Select value={f.model} onChange={(e) => applyModel(e.target.value)}>
@@ -161,9 +161,9 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
           {t.settings.apiKeyFromEnv}
         </label>
         {f.useEnv ? (
-          <Field label="环境变量名" hint="仅允许 *_API_KEY 形式；应用需在能读到该变量的终端中启动"><Input value={f.envVar} onChange={(e) => set('envVar', e.target.value.toUpperCase())} placeholder="DEEPSEEK_API_KEY" /></Field>
+          <Field label={t.settings.envVar} hint={t.settings.envVarHint}><Input value={f.envVar} onChange={(e) => set('envVar', e.target.value.toUpperCase())} placeholder="DEEPSEEK_API_KEY" /></Field>
         ) : (
-          <Field label={t.settings.apiKey} hint={initial ? '留空则保持不变。' + t.settings.apiKeyHint : t.settings.apiKeyHint}><Input type="password" value={f.apiKey} onChange={(e) => set('apiKey', e.target.value)} autoComplete="off" /></Field>
+          <Field label={t.settings.apiKey} hint={initial ? t.settings.apiKeyKeepHint + t.settings.apiKeyHint : t.settings.apiKeyHint}><Input type="password" value={f.apiKey} onChange={(e) => set('apiKey', e.target.value)} autoComplete="off" /></Field>
         )}
 
         <details className="rounded-2xl bg-paper-100/60 px-4 py-3 dark:bg-paper-950/60">

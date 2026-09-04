@@ -1,51 +1,65 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronRight, List, Images } from 'lucide-react';
+import { fmt, t } from '@/i18n';
 import { cn } from '@/components/ui';
+import { useAsyncData } from '@/components/data/useAsyncData';
 import type { DocumentSource, OutlineNode } from '@/documents/types';
 import { useReader } from '@/stores/readerStore';
 import { READER_THEMES } from './theme';
+
+const PANEL_ID = 'reader-left-panel';
+const tabId = (key: string) => `reader-left-tab-${key}`;
 
 /** 左侧栏：目录 + 缩略图。 */
 export function OutlinePanel({ source }: { source: DocumentSource }) {
   const leftPanel = useReader((s) => s.leftPanel);
   const setLeftPanel = useReader((s) => s.setLeftPanel);
-  const [outline, setOutline] = useState<OutlineNode[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setOutline(null);
-    void source.getOutline().then((o) => { if (!cancelled) setOutline(o); });
-    return () => { cancelled = true; };
-  }, [source]);
+  const documentId = useReader((s) => s.documentId);
+  // 目录就是一次性取数：交给数据层管取消与乱序，组件只负责画
+  const outline = useAsyncData(() => source.getOutline(), { key: `readerOutline:${documentId ?? ''}:${source.numPages}` });
 
   const tab = (key: 'outline' | 'thumbs', Icon: typeof List, label: string) => (
     <button
+      role="tab"
+      id={tabId(key)}
+      aria-selected={leftPanel === key}
+      aria-controls={PANEL_ID}
       onClick={() => setLeftPanel(key)}
       className={cn(
-        'flex flex-1 items-center justify-center gap-1.5 rounded-full py-1 text-xs transition',
+        'flex flex-1 items-center justify-center gap-1.5 rounded-full py-1 text-xs transition focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50',
         leftPanel === key ? 'bg-paper-0 font-medium text-tea-700 shadow-soft dark:bg-paper-800 dark:text-tea-200' : 'text-ink-500 hover:text-ink-800 dark:text-ink-300',
       )}
     >
-      <Icon size={13} strokeWidth={1.75} />
+      <Icon size={13} strokeWidth={1.75} aria-hidden="true" />
       {label}
     </button>
   );
 
   return (
     <div className="flex h-full flex-col">
-      <div className="m-3 flex gap-0.5 rounded-full bg-paper-200/70 p-0.5 dark:bg-paper-800/70">
-        {tab('outline', List, '目录')}
-        {tab('thumbs', Images, '缩略图')}
+      <div role="tablist" aria-label={t.reader.outline} className="m-3 flex gap-0.5 rounded-full bg-paper-200/70 p-0.5 dark:bg-paper-800/70">
+        {tab('outline', List, t.reader.outline)}
+        {tab('thumbs', Images, t.reader.thumbnails)}
       </div>
-      {leftPanel === 'outline' ? <OutlineTree outline={outline} /> : <ThumbnailStrip source={source} />}
+      <div
+        id={PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={tabId(leftPanel === 'thumbs' ? 'thumbs' : 'outline')}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        {leftPanel === 'outline'
+          ? <OutlineTree outline={outline.data ?? null} loading={outline.loading} error={outline.error} />
+          : <ThumbnailStrip source={source} />}
+      </div>
     </div>
   );
 }
 
-function OutlineTree({ outline }: { outline: OutlineNode[] | null }) {
+function OutlineTree({ outline, loading, error }: { outline: OutlineNode[] | null; loading: boolean; error: unknown }) {
   const jumpTo = useReader((s) => s.jumpTo);
-  if (outline === null) return <p className="px-4 py-6 text-center font-serif text-xs text-ink-400">正在读目录…</p>;
-  if (outline.length === 0) return <p className="px-4 py-6 text-center font-serif text-xs leading-relaxed text-ink-400">这本书没有目录。可以用缩略图或页码跳转。</p>;
+  if (error) return <p role="alert" className="px-4 py-6 text-center font-serif text-xs text-cinnabar-600">{t.reader.outlineFailed}</p>;
+  if (loading || outline === null) return <p role="status" aria-live="polite" className="px-4 py-6 text-center font-serif text-xs text-ink-400">{t.reader.outlineLoading}</p>;
+  if (outline.length === 0) return <p className="px-4 py-6 text-center font-serif text-xs leading-relaxed text-ink-400">{t.reader.outlineEmpty}</p>;
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-thin">
       {outline.map((n, i) => <OutlineItem key={i} node={n} depth={0} onJump={jumpTo} />)}
@@ -60,8 +74,13 @@ function OutlineItem({ node, depth, onJump }: { node: OutlineNode; depth: number
     <div>
       <div className="flex items-center gap-0.5" style={{ paddingLeft: depth * 12 }}>
         {has ? (
-          <button onClick={() => setOpen((v) => !v)} className="shrink-0 rounded p-0.5 text-ink-400 hover:text-ink-700">
-            <ChevronRight size={13} strokeWidth={1.75} className={cn('transition-transform', open && 'rotate-90')} />
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={fmt(open ? t.reader.collapseNode : t.reader.expandNode, { title: node.title })}
+            className="shrink-0 rounded p-0.5 text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50"
+          >
+            <ChevronRight size={13} strokeWidth={1.75} aria-hidden="true" className={cn('transition-transform', open && 'rotate-90')} />
           </button>
         ) : <span className="w-[18px]" />}
         <button
@@ -69,13 +88,13 @@ function OutlineItem({ node, depth, onJump }: { node: OutlineNode; depth: number
           disabled={!node.pageNo}
           title={node.title}
           className={cn(
-            'min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-left font-serif text-[13px] leading-relaxed transition',
+            'min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-left font-serif text-[13px] leading-relaxed transition focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50',
             node.pageNo ? 'text-ink-700 hover:bg-paper-200/60 dark:text-ink-300 dark:hover:bg-paper-800' : 'cursor-default text-ink-400',
           )}
         >
           {node.title}
         </button>
-        {node.pageNo && <span className="shrink-0 pr-1 font-serif text-[11px] tabular-nums text-ink-400">{node.pageNo}</span>}
+        {node.pageNo && <span aria-hidden="true" className="shrink-0 pr-1 font-serif text-[11px] tabular-nums text-ink-400">{node.pageNo}</span>}
       </div>
       {open && node.children.map((c, i) => <OutlineItem key={i} node={c} depth={depth + 1} onJump={onJump} />)}
     </div>
@@ -99,10 +118,12 @@ function ThumbnailStrip({ source }: { source: DocumentSource }) {
           key={n}
           ref={n === currentPage ? activeRef : undefined}
           onClick={() => jumpTo(n)}
-          className="block w-full"
+          aria-label={fmt(t.reader.thumbnailOf, { n })}
+          aria-current={n === currentPage ? 'page' : undefined}
+          className="block w-full rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50"
         >
           <Thumbnail source={source} pageNo={n} active={n === currentPage} />
-          <div className={cn('mt-0.5 text-center font-serif text-[11px] tabular-nums', n === currentPage ? 'text-tea-700 dark:text-tea-200' : 'text-ink-400')}>{n}</div>
+          <div aria-hidden="true" className={cn('mt-0.5 text-center font-serif text-[11px] tabular-nums', n === currentPage ? 'text-tea-700 dark:text-tea-200' : 'text-ink-400')}>{n}</div>
         </button>
       ))}
     </div>
@@ -128,6 +149,8 @@ function Thumbnail({ source, pageNo, active }: { source: DocumentSource; pageNo:
     return () => io.disconnect();
   }, [seen]);
 
+  // 缩略图渲染跟画布时序强耦合（要按可见性懒渲染、拿到 canvas 之后才能画），
+  // 不属于「一次性取数」，因此没有搬到 useAsyncData 上。
   useEffect(() => {
     if (!seen) return;
     let cancelled = false;
@@ -157,6 +180,7 @@ function Thumbnail({ source, pageNo, active }: { source: DocumentSource; pageNo:
   return (
     <div
       ref={boxRef}
+      aria-hidden="true"
       className={cn('mx-auto overflow-hidden rounded shadow-soft transition', active ? 'ring-2 ring-tea-500' : 'ring-1 ring-black/5')}
       style={{ width: THUMB_W, height: THUMB_W * ratio, background: theme.pageBg }}
     >

@@ -1,0 +1,75 @@
+/** 书架（文档 / 小说两个 tab）与回收站。 */
+export const library = {
+  novels: '小说', newNovel: '新建小说', importText: '导入文本',
+  lastRead: '上次阅读到第 {page} 页',
+  importing: '正在导入…', duplicate: '该文件已经导入过了',
+
+  /* ---------------- 书架（文档） ---------------- */
+  docsTitle: '书架',
+  docsSubtitle: '{count} 本书，随时接着读',
+  docsSubtitleEmpty: '把想读的 PDF、EPUB、TXT、Markdown 放上来，或直接拖进窗口',
+  importDoc: '导入文档',
+  importFirst: '导入第一本书',
+  docsEmptyTitle: '书架还空着',
+  docsEmptyDesc: '导入一本 PDF / EPUB / TXT / Markdown 开始阅读，也可以直接把文件拖进窗口。选中任何一段文字，就可以请 AI 一起讨论。',
+  docsListLabel: '书架上的书',
+  readPct: '读到 {pct}%',
+  notStarted: '{pages} 页 · 未开始',
+  docCardReading: '《{name}》，读到 {pct}%',
+  docCardNotStarted: '《{name}》，还没开始读',
+  importOk: '已放上书架：{name}',
+  importFail: '导入失败：{message}',
+  duplicateOf: '该文件已经导入过了：{name}',
+  restoredFromTrash: '已从回收站放回书架：{name}',
+
+  /* ---------------- 我的故事（小说） ---------------- */
+  novelsTitle: '我的故事',
+  novelsSubtitle: '{count} 个故事在书桌上',
+  novelsSubtitleEmpty: '写下一个设想，让 AI 帮你把它变成一本书',
+  newStory: '开始新故事',
+  novelsEmptyTitle: '还没有故事',
+  novelsEmptyDesc: '告诉 AI 你想看什么样的故事：题材、人物、结局的走向。它会先给你一份大纲，你满意了再让它动笔。',
+  novelsListLabel: '我写的故事',
+  noPremise: '还没有写下故事前提',
+  derived: '二创', published: '已发布',
+  charsProgress: '{chars} / {target} 字',
+  novelCard: '《{name}》，{status}，已写 {pct}%',
+  writeProgress: '写作进度',
+
+  /* ---------------- 回收站入口与软删除 ---------------- */
+  trashHint: '删掉的书和故事会在回收站留 {days} 天',
+  trashDocTitle: '把《{name}》移到回收站？',
+  trashDocDesc: '{days} 天内都可以在回收站里恢复，笔记和阅读进度都还在。',
+  trashNovelTitle: '把《{name}》移到回收站？',
+  trashNovelDesc: '章节、版本和故事线都会一起留在回收站，{days} 天内可以完整恢复。',
+  toTrash: '移到回收站',
+  trashedOk: '已移到回收站：{name}',
+
+  /** 加载 / 出错。 */
+  loadingDocs: '正在读取书架…',
+  loadingNovels: '正在读取故事…',
+  loadFailed: '没能读出来：{message}',
+
+  /* ---------------- 回收站对话框 ---------------- */
+  trash: {
+    subtitle: '删掉的东西会在这里留 {days} 天，之后自动清空',
+    emptyTitle: '回收站是空的',
+    emptyDesc: '删掉的书和故事会先放到这里，后悔了随时捞回来。',
+    listLabel: '回收站里的条目',
+    loading: '正在读取回收站…',
+    noPremise: '没有写下故事前提',
+    docKind: 'PDF 文档',
+    deletedAt: '{time} 删除',
+    daysLeft: '还剩 {days} 天',
+    expiring: '即将清空',
+    restore: '恢复',
+    restoreItem: '恢复《{name}》',
+    restored: '已放回书架：{name}',
+    purge: '永久删除',
+    purgeItem: '永久删除《{name}》',
+    purgeTitle: '永久删除《{name}》？',
+    purgeNovelDesc: '所有章节、版本与故事线会一并抹掉，这一步不可撤销。',
+    purgeDocDesc: '书和它的阅读进度、笔记都会一并抹掉，这一步不可撤销。',
+    purged: '已永久删除：{name}',
+  },
+} as const;

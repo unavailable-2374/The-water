@@ -7,6 +7,7 @@ import {
   type CreateVersionRequest,
   type CreateVersionResponse,
   type Page,
+  type SetCurrentVersionResponse,
   type VersionSummary,
 } from '@the-water/shared';
 import type { AppDeps, AuthUser } from '../../context';
@@ -27,6 +28,7 @@ import { findMissingHashes, loadBlobs } from '../blobs/service';
 import { recordActivity } from '../feed/service';
 import { awardPublish } from '../incentive/service';
 import { toVersionSummary } from '../novels/dto';
+import { syncNovelTags } from '../novels/tags';
 import { buildNovelDetail, canView, findNovelRow, isOwnerOrAdmin, loadOwnedNovel, type Viewer } from '../novels/service';
 import { recordModerationEvent } from '../admin/audit';
 
@@ -297,6 +299,9 @@ export async function commitVersion(deps: AppDeps, user: AuthUser, novelId: stri
       novelSet.moderationNote = null;
     }
     tx.update(novels).set(novelSet).where(eq(novels.id, novelId)).run();
+    // 首次提交会把 visibility 从 unpublished 切成 public，自动审核不通过又会切成 hidden，
+    // 两种情况都改变了「这本书算不算进标签计数」，所以提交后必须重算一次（§3.4）。
+    syncNovelTags(deps, tx, novelId);
 
     // 记动态与积分放在小说行更新之后：徽章统计要按"已经公开"的状态算。
     // 审核未通过时动态照记，读取端因 publicListWhere() 看不到，恢复审核后自动出现。
@@ -311,6 +316,42 @@ export async function commitVersion(deps: AppDeps, user: AuthUser, novelId: stri
 
   const committed = findVersion(deps, novelId, v.id)!;
   return { version: toVersionSummary(committed), novel: buildNovelDetail(deps, findNovelRow(deps, novelId)!, user) };
+}
+
+/**
+ * §3.2 版本回滚：把某个已提交版本设为当前版本。
+ *
+ * 同步刷新 `novels` 上由版本派生的反规范化字段：
+ *   currentVersionId / chapterCount / charCount / updatedAt。
+ * 刻意 **不** 动的字段（都不是版本派生的）：
+ *   publishedAt、lastPublishedAt（回滚不是一次发布，不该把作品顶到「最新」列表前面）、
+ *   visibility / publishVisibility（下架与回滚是两件事）、moderationStatus（审核结论只由审核改）、
+ *   viewCount / likeCount / forkCount / commentCount（与版本无关）。
+ * 也不写 activities、不计分：回滚是修正，不是新动态。
+ */
+export function setCurrentVersion(
+  deps: AppDeps,
+  user: AuthUser,
+  novelId: string,
+  versionId: string,
+): SetCurrentVersionResponse {
+  const novel = loadOwnedNovel(deps, novelId, user);
+  const v = findVersion(deps, novelId, versionId);
+  if (!v) throw notFound('版本');
+  if (v.status !== 'committed') throw new ApiError('VERSION_NOT_DRAFT', '只能把已提交的版本设为当前版本');
+
+  if (novel.currentVersionId !== v.id) {
+    const now = deps.clock.now();
+    deps.db
+      .update(novels)
+      .set({ currentVersionId: v.id, chapterCount: v.chapterCount, charCount: v.charCount, updatedAt: now })
+      .where(eq(novels.id, novelId))
+      .run();
+  }
+  return {
+    version: toVersionSummary(v),
+    novel: buildNovelDetail(deps, findNovelRow(deps, novelId)!, user),
+  };
 }
 
 /** 清理超过 24 小时未提交的草稿。 */

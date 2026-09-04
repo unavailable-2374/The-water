@@ -7,12 +7,16 @@ import type { ChatMessage } from '@/llm/types';
 import { docTypeGuide } from '@/novel/docTypes';
 import { isEmptyGenre, mergedGenreOf, type MergedGenre } from '@/novel/genrePacks';
 import { renderDerivativeNotice, renderStyleSummary } from './style';
+import { renderAuthorNote } from './authorNote';
+import { UNTRUSTED_GUARD_RULE } from './untrusted';
 
 /** Style-layer inputs shared by every prose prompt (docs/writing/README.md §4.5 / §5.2). */
 export interface StyleExtras {
   profile?: StyleProfile | null;
   derivative?: DerivativeDecl | null;
   sourceTitle?: string | null;
+  /** 这本书的「作者附加指令」（§2.3 第 6 条）；由 `llm/prompts/authorNote.ts` 提供。 */
+  authorNote?: string | null;
 }
 
 export const FORMAT_RULES = '只输出正文，不要章节标题、序号、说明或元评论；段落之间用一个空行分隔；使用中文标点。';
@@ -66,7 +70,9 @@ export function systemBase(req: NovelRequirements, extras: StyleExtras = {}): st
   const derivative = extras.derivative ? renderDerivativeNotice(extras.derivative, extras.sourceTitle ?? null) : '';
   const style = extras.profile ? renderStyleSummary(extras.profile) : '';
   const genre = g.fiction ? genreBlock(mergedGenreOf(req)) : '';
-  return [role, '【创作要求】', block, docTypeBlock(req), genre, derivative, style, '【输出格式】', FORMAT_RULES]
+  // 作者附加指令排在文风之后、输出格式之前：它可以覆盖通用要求，但改不了输出格式。
+  const authorNote = renderAuthorNote(extras.authorNote);
+  return [role, '【创作要求】', block, docTypeBlock(req), genre, derivative, style, authorNote, '【输出格式】', FORMAT_RULES, UNTRUSTED_GUARD_RULE]
     .filter((s) => s.length > 0)
     .join('\n');
 }

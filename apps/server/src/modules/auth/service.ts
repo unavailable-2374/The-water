@@ -9,7 +9,7 @@ import { newId } from '../../lib/ids';
 import { generateToken, hashPassword, hashToken, verifyPassword } from '../../lib/tokens';
 import { iso } from '../../lib/time';
 import { SESSION_TTL_MS } from '../../middleware/auth';
-import { moderateProfileFields } from '../users/service';
+import { moderateProfileFields, recordHandleChange } from '../users/service';
 
 export function toUserDto(u: AuthUser, opts: { includeEmail: boolean }): User {
   return {
@@ -175,6 +175,8 @@ export async function updateProfile(
     if (String(e).includes('users_handle_uq')) throw new ApiError('HANDLE_TAKEN', '这个用户名已经有人用了');
     throw e;
   }
+  // §3.4：旧 @用户名进历史表，/u/:handle 据此做 301，旧链接不至于直接失效。
+  if (set.handle !== undefined) recordHandleChange(deps, user.id, user.handle, set.handle);
   const row = deps.db.select().from(users).where(eq(users.id, user.id)).get();
   if (!row) throw notFound('用户');
   return toAuthUser(row);

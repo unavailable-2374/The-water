@@ -141,8 +141,39 @@ export const CreateCommentRequestSchema = z.object({
   body: z.string().trim().min(1).max(LIMITS.COMMENT_BODY_MAX),
   /** 回复某条评论（可以是顶层，也可以是回复；服务端会把 parentId 归一到顶层）。 */
   replyToId: z.string().max(64).optional(),
+  /** 章节级留言：与版本章节列表同一套下标（从 0 开始）；缺省即作品级留言。 */
+  chapterIndex: z.number().int().min(0).max(LIMITS.MAX_CHAPTERS_PER_VERSION).optional(),
 });
 export type CreateCommentRequest = z.infer<typeof CreateCommentRequestSchema>;
+
+/** 留言编辑窗口：发出后 15 分钟内可改，超时只能删。 */
+export const COMMENT_EDIT_WINDOW_MS = 15 * 60_000;
+
+export const UpdateCommentRequestSchema = z.object({
+  body: z.string().trim().min(1).max(LIMITS.COMMENT_BODY_MAX),
+});
+export type UpdateCommentRequest = z.infer<typeof UpdateCommentRequestSchema>;
+
+/** 留言列表筛选：数字=只看该章，'novel'=只看作品级，缺省=全部。 */
+export const CommentListQuerySchema = CursorQuerySchema.extend({
+  chapter: z.union([z.literal('novel'), z.coerce.number().int().min(0).max(LIMITS.MAX_CHAPTERS_PER_VERSION)]).optional(),
+});
+export type CommentListQuery = z.infer<typeof CommentListQuerySchema>;
+
+/** 从留言正文里解析 @用户名（小写去重，最多 10 个，避免一条留言 @ 全站）。 */
+export function parseMentions(body: string, max = 10): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  // 前面必须是行首或非用户名字符，避免把邮箱 a@b 当成提及。
+  for (const m of body.matchAll(/(^|[^a-z0-9_@])@([a-z0-9_]{3,20})(?![a-z0-9_])/gi)) {
+    const handle = m[2]!.toLowerCase();
+    if (seen.has(handle)) continue;
+    seen.add(handle);
+    out.push(handle);
+    if (out.length >= max) break;
+  }
+  return out;
+}
 
 export const CommentSchema = z.object({
   id: z.string(),
@@ -156,8 +187,13 @@ export const CommentSchema = z.object({
   body: z.string(),
   status: CommentStatusSchema,
   replyCount: z.number().int(),
+  /** 非空表示这条留言锚在某一章上；空表示作品级留言。 */
+  chapterIndex: z.number().int().nullable(),
+  likeCount: z.number().int(),
+  /** 编辑过的留言带时间戳，界面上标「已编辑」。 */
+  editedAt: z.string().nullable(),
   createdAt: z.string(),
-  viewer: z.object({ canDelete: z.boolean() }).nullable(),
+  viewer: z.object({ canDelete: z.boolean(), canEdit: z.boolean(), liked: z.boolean() }).nullable(),
 });
 export type Comment = z.infer<typeof CommentSchema>;
 

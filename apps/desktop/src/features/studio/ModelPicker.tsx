@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Field, Select, cn } from '@/components/ui';
+import { t } from '@/i18n';
 import { useSettings } from '@/stores/settingsStore';
 import { STEP_PURPOSES, STEP_PURPOSE_HINTS, STEP_PURPOSE_LABELS, cleanProviderMap, type StepPurpose, type StepProviderMap } from '@/jobs/purposes';
 
@@ -20,7 +21,7 @@ export function ModelPurposePicker({ value, onChange, className }: { value: Step
   const set = (p: StepPurpose, id: string) => onChange(cleanProviderMap({ ...value, [p]: id || null }));
 
   if (providers.length === 0) {
-    return <p className={cn('text-xs text-amber-700 dark:text-amber-300', className)}>还没有配置 AI 供应商，去「设置 → 模型供应商」加一个再回来。</p>;
+    return <p className={cn('text-xs text-amber-700 dark:text-amber-300', className)} role="alert">{t.studio.models.noProvider}</p>;
   }
   return (
     <div className={cn('space-y-4', className)}>
@@ -28,15 +29,15 @@ export function ModelPurposePicker({ value, onChange, className }: { value: Step
         {shown.map((p) => (
           <Field key={p} label={STEP_PURPOSE_LABELS[p]} hint={STEP_PURPOSE_HINTS[p]}>
             <Select value={value[p] ?? ''} onChange={(e) => set(p, e.target.value)}>
-              <option value="">跟随设置里的默认</option>
+              <option value="">{t.studio.models.followDefault}</option>
               {providers.map((x) => <option key={x.id} value={x.id}>{x.name} · {x.model}</option>)}
             </Select>
           </Field>
         ))}
       </div>
-      <button type="button" className="flex items-center gap-1 text-xs text-ink-500 hover:text-ink-800 dark:hover:text-paper-100" onClick={() => setExpanded((v) => !v)}>
-        {expanded ? <ChevronDown size={13} strokeWidth={1.75} /> : <ChevronRight size={13} strokeWidth={1.75} />}
-        {expanded ? '收起校读类模型' : '总结 / 审校 / 校对 / 拆书用哪个模型？'}
+      <button type="button" aria-expanded={expanded} className="flex items-center gap-1 text-xs text-ink-500 hover:text-ink-800 dark:hover:text-paper-100" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? <ChevronDown size={13} strokeWidth={1.75} aria-hidden="true" /> : <ChevronRight size={13} strokeWidth={1.75} aria-hidden="true" />}
+        {expanded ? t.studio.models.collapse : t.studio.models.expand}
       </button>
     </div>
   );

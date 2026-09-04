@@ -22,6 +22,7 @@ import { generateToken, hashPassword, hashToken, isTokenShape, verifyPassword } 
 import { HOUR, iso } from '../../lib/time';
 import { buildBundle } from '../forks/bundle';
 import { syncAdminRole, toUserDto } from './service';
+import { syncNovelTags } from '../novels/tags';
 
 type TokenKind = 'verify' | 'reset';
 
@@ -262,11 +263,19 @@ export async function deleteAccount(deps: AppDeps, user: AuthUser, req: DeleteAc
   }
   const now = deps.clock.now();
   if (req.mode === 'delete_works') {
-    deps.db
-      .update(novels)
-      .set({ deletedAt: now, visibility: 'unpublished', updatedAt: now })
+    const mine = deps.db
+      .select({ id: novels.id })
+      .from(novels)
       .where(and(eq(novels.authorId, user.id), isNull(novels.deletedAt)))
-      .run();
+      .all();
+    deps.db.transaction((tx) => {
+      tx.update(novels)
+        .set({ deletedAt: now, visibility: 'unpublished', updatedAt: now })
+        .where(and(eq(novels.authorId, user.id), isNull(novels.deletedAt)))
+        .run();
+      // 作品随账号下架后不该再占标签计数（§3.4）。
+      for (const n of mine) syncNovelTags(deps, tx, n.id);
+    });
   }
   const patch = {
     email: `deleted+${user.id}@invalid`,

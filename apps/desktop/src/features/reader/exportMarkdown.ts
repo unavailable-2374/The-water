@@ -1,6 +1,8 @@
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { fmt, t } from '@/i18n';
 import type { Highlight } from '@/db/repos/highlightsRepo';
+import { colorLabel } from './colors';
 
 export interface ExportDocMeta {
   title: string;
@@ -8,28 +10,26 @@ export interface ExportDocMeta {
   pageCount?: number;
 }
 
-const COLOR_LABEL: Record<string, string> = { yellow: '黄', green: '绿', blue: '蓝', pink: '粉' };
-
 /** 划线与笔记导出成 Markdown：按页分组，先原文引用，再自己的笔记。 */
 export function buildHighlightsMarkdown(doc: ExportDocMeta, highlights: Highlight[], exportedAt = new Date()): string {
   const lines: string[] = [];
-  lines.push(`# ${doc.title || '未命名文档'}`);
+  lines.push(`# ${doc.title || t.common.untitledDoc}`);
   lines.push('');
   const meta: string[] = [];
   if (doc.author) meta.push(doc.author);
-  meta.push(`${highlights.length} 条划线与笔记`);
-  meta.push(`导出于 ${formatDate(exportedAt)}`);
+  meta.push(fmt(t.reader.export.countLine, { n: highlights.length }));
+  meta.push(fmt(t.reader.export.exportedAt, { date: formatDate(exportedAt) }));
   lines.push(`> ${meta.join(' · ')}`);
   lines.push('');
   if (highlights.length === 0) {
-    lines.push('（这本书还没有划线或笔记。）');
+    lines.push(t.reader.export.empty);
     lines.push('');
     return lines.join('\n');
   }
   const byPage = new Map<number, Highlight[]>();
   for (const h of highlights) byPage.set(h.pageNo, [...(byPage.get(h.pageNo) ?? []), h]);
   for (const [page, list] of [...byPage.entries()].sort((a, b) => a[0] - b[0])) {
-    lines.push(`## 第 ${page} 页`);
+    lines.push(`## ${fmt(t.reader.page, { n: page })}`);
     lines.push('');
     for (const h of [...list].sort((a, b) => a.createdAt - b.createdAt)) {
       const quote = (h.anchor.exact || '').trim();
@@ -37,15 +37,16 @@ export function buildHighlightsMarkdown(doc: ExportDocMeta, highlights: Highligh
         for (const l of quote.split('\n')) lines.push(`> ${l}`);
         lines.push('');
       }
-      const tag = COLOR_LABEL[h.color] ? `（${COLOR_LABEL[h.color]}）` : '';
+      const label = colorLabel(h.color);
+      const tag = label ? `（${label}）` : '';
       if (h.noteText.trim()) {
-        lines.push(`**笔记${tag}**：${h.noteText.trim().replace(/\n/g, '  \n')}`);
+        lines.push(fmt(t.reader.export.noteLine, { tag, text: h.noteText.trim().replace(/\n/g, '  \n') }));
         lines.push('');
       } else if (tag) {
-        lines.push(`**划线${tag}**`);
+        lines.push(fmt(t.reader.export.highlightLine, { tag }));
         lines.push('');
       }
-      lines.push(`— 第 ${page} 页`);
+      lines.push(fmt(t.reader.export.pageFooter, { n: page }));
       lines.push('');
     }
   }
@@ -60,7 +61,7 @@ function formatDate(d: Date): string {
 /** 选一个位置写出去；用户取消返回 null。 */
 export async function exportHighlights(doc: ExportDocMeta, highlights: Highlight[]): Promise<string | null> {
   const path = await save({
-    defaultPath: `${sanitize(doc.title) || '划线与笔记'}.md`,
+    defaultPath: `${sanitize(doc.title) || t.reader.export.fileName}.md`,
     filters: [{ name: 'Markdown', extensions: ['md'] }],
   });
   if (!path) return null;

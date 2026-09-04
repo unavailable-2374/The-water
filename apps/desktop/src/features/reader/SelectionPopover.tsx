@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Copy, Highlighter, MessageSquare, StickyNote } from 'lucide-react';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 import { Button, Textarea, cn } from '@/components/ui';
 import { toast } from '@/components/Toast';
 import { getPageText } from '@/db/repos/documentsRepo';
@@ -65,7 +65,7 @@ export function SelectionPopover() {
     await addHighlight({ pageNo: sel.pageNo, kind, color, anchor, noteText: kind === 'note' ? note : '' });
     setSelection(null);
     window.getSelection()?.removeAllRanges();
-    toast.success(kind === 'note' ? '笔记已保存' : '已高亮');
+    toast.success(kind === 'note' ? t.reader.noteSaved : t.reader.highlighted);
   };
 
   return (
@@ -78,18 +78,18 @@ export function SelectionPopover() {
     >
       {!noteMode ? (
         <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => save('highlight')}><Highlighter size={14} strokeWidth={1.75} />{t.reader.highlight}</Button>
-            <Button size="sm" variant="ghost" onClick={() => setNoteMode(true)}><StickyNote size={14} strokeWidth={1.75} />记笔记</Button>
-            <Button size="sm" variant="ai" onClick={() => ask(sel.text, sel.pageNo)}><MessageSquare size={14} strokeWidth={1.75} />和 AI 聊聊这段</Button>
-            <Button size="sm" variant="ghost" title="复制" onClick={() => { void navigator.clipboard.writeText(sel.text); toast.info(t.common.copied); setSelection(null); }}><Copy size={14} strokeWidth={1.75} /></Button>
+          <div role="toolbar" aria-label={t.reader.selectionActions} className="flex flex-wrap items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={() => save('highlight')}><Highlighter size={14} strokeWidth={1.75} aria-hidden="true" />{t.reader.highlight}</Button>
+            <Button size="sm" variant="ghost" onClick={() => setNoteMode(true)}><StickyNote size={14} strokeWidth={1.75} aria-hidden="true" />{t.reader.addNote}</Button>
+            <Button size="sm" variant="ai" onClick={() => ask(sel.text, sel.pageNo)}><MessageSquare size={14} strokeWidth={1.75} aria-hidden="true" />{t.reader.discussPassage}</Button>
+            <Button size="sm" variant="ghost" title={t.common.copy} aria-label={t.common.copy} onClick={() => { void navigator.clipboard.writeText(sel.text); toast.info(t.common.copied); setSelection(null); }}><Copy size={14} strokeWidth={1.75} aria-hidden="true" /></Button>
           </div>
           <ColorPicker value={color} onChange={setColor} />
         </div>
       ) : (
-        <div className="space-y-2.5 p-1">
+        <div role="group" aria-label={t.reader.addNote} className="space-y-2.5 p-1">
           <p className="line-clamp-2 border-l-2 border-tea-500/60 pl-2.5 font-serif text-xs leading-relaxed text-ink-500 dark:text-ink-300">{sel.text}</p>
-          <Textarea rows={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="写下此刻的想法…" className="font-serif placeholder:font-serif" />
+          <Textarea rows={3} autoFocus value={note} onChange={(e) => setNote(e.target.value)} aria-label={t.reader.addNote} placeholder={t.reader.notePlaceholder} className="font-serif placeholder:font-serif" />
           <ColorPicker value={color} onChange={setColor} />
           <div className="flex justify-end gap-1">
             <Button size="sm" variant="ghost" onClick={() => setNoteMode(false)}>{t.common.cancel}</Button>
@@ -103,16 +103,17 @@ export function SelectionPopover() {
 
 export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
-    <div className="flex items-center gap-1.5 px-1.5 pb-0.5">
-      <span className="font-serif text-[11px] text-ink-400">颜色</span>
+    <div role="group" aria-label={t.reader.colorGroup} className="flex items-center gap-1.5 px-1.5 pb-0.5">
+      <span aria-hidden="true" className="font-serif text-[11px] text-ink-400">{t.reader.colorGroup}</span>
       {HIGHLIGHT_COLORS.map((c) => (
         <button
           key={c.key}
           title={c.label}
           aria-label={c.label}
+          aria-pressed={value === c.key}
           onClick={() => onChange(c.key)}
           className={cn(
-            'h-4 w-4 rounded-full border transition',
+            'h-4 w-4 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50',
             value === c.key ? 'border-ink-600 ring-2 ring-ink-500/25 dark:border-paper-200' : 'border-black/10 hover:scale-110',
           )}
           style={{ background: c.css }}

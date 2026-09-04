@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { pageSchema } from './common';
+import { pageSchema, CursorQuerySchema } from './common';
 
 export const LikeResponseSchema = z.object({ liked: z.boolean(), likeCount: z.number().int() });
 
@@ -88,3 +88,80 @@ export const CommentModerationActionSchema = z.object({ note: z.string().max(500
 
 /** 举报记录（服务端 social/service.ts 的 Report 与此同形）。 */
 export type Report = z.infer<typeof ReportSchema>;
+
+// ---- 站内通知（§3.1）----
+
+/**
+ * 通知类型。title / body 由服务端在写入时渲染好（冗余存储），
+ * 客户端只负责按 kind 选图标与跳转目标，不再回查关联对象。
+ */
+export const NOTIFICATION_KINDS = [
+  'followed',
+  'liked',
+  'commented',
+  'replied',
+  'mentioned',
+  'comment_liked',
+  'forked',
+  'badge',
+  'moderation_novel',
+  'moderation_comment',
+] as const;
+export const NotificationKindSchema = z.enum(NOTIFICATION_KINDS);
+export type NotificationKind = z.infer<typeof NotificationKindSchema>;
+
+/** 触发者的最小名片；系统通知为 null。 */
+export const NotificationActorSchema = z.object({
+  id: z.string(),
+  handle: z.string(),
+  displayName: z.string(),
+});
+export type NotificationActor = z.infer<typeof NotificationActorSchema>;
+
+export const NotificationSchema = z.object({
+  id: z.string(),
+  kind: NotificationKindSchema,
+  /** 跳转目标的类型与 id：novel → 作品页，user → 作者主页，comment → 作品页留言区。 */
+  refType: z.enum(['novel', 'user', 'comment', 'badge', 'system']),
+  refId: z.string(),
+  /** 主标题，服务端已渲染成完整中文句子。 */
+  title: z.string(),
+  /** 副文本（留言摘要 / 审核备注），可能为空串。 */
+  body: z.string(),
+  actor: NotificationActorSchema.nullable(),
+  /** 点开留言类通知时要落到哪本书：refType='comment' 时非空。 */
+  novelId: z.string().nullable(),
+  readAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type Notification = z.infer<typeof NotificationSchema>;
+
+export const NotificationQuerySchema = CursorQuerySchema.extend({
+  /** unread 只返回未读。 */
+  filter: z.enum(['all', 'unread']).default('all'),
+});
+export type NotificationQuery = z.infer<typeof NotificationQuerySchema>;
+
+/** 列表响应顺带带上未读总数，省一次请求。 */
+export const NotificationListResponseSchema = pageSchema(NotificationSchema).extend({
+  unreadCount: z.number().int(),
+});
+export type NotificationListResponse = z.infer<typeof NotificationListResponseSchema>;
+
+export const UnreadCountResponseSchema = z.object({ unreadCount: z.number().int() });
+export type UnreadCountResponse = z.infer<typeof UnreadCountResponseSchema>;
+
+/** 批量已读：给 ids 就只标这些，给 all=true 就全部标已读。两者都不给是参数错误。 */
+export const MarkNotificationsReadRequestSchema = z
+  .object({
+    ids: z.array(z.string().max(64)).max(200).optional(),
+    all: z.boolean().optional(),
+  })
+  .refine((v) => v.all === true || (v.ids?.length ?? 0) > 0, '要么给 ids，要么 all=true');
+export type MarkNotificationsReadRequest = z.infer<typeof MarkNotificationsReadRequestSchema>;
+
+export const MarkNotificationsReadResponseSchema = z.object({
+  updated: z.number().int(),
+  unreadCount: z.number().int(),
+});
+export type MarkNotificationsReadResponse = z.infer<typeof MarkNotificationsReadResponseSchema>;

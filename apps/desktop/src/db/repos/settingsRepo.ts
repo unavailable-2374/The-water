@@ -3,7 +3,6 @@ import { getDb, selectOne } from '../db';
 export interface AppSettings {
   defaultProviderId: { chat: string | null; writing: string | null; planning: string | null };
   autoResumeJobs: boolean;
-  countMode: 'all' | 'han';
   theme: 'system' | 'light' | 'dark';
   clientId: string;
 }
@@ -11,7 +10,6 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultProviderId: { chat: null, writing: null, planning: null },
   autoResumeJobs: true,
-  countMode: 'all',
   theme: 'system',
   clientId: '',
 };

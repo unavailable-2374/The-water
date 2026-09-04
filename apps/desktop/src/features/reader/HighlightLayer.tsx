@@ -8,7 +8,8 @@ export function HighlightLayer({ pageNo }: { pageNo: number }) {
   const focus = useReader((s) => s.focusHighlightId);
   if (!mine || mine.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 z-[1]">
+    // 纯视觉覆盖层：读屏读到的是下面文字层里的原文，这里不该再念一遍
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1]">
       {mine.flatMap((h) => {
         // 重定位失败的先不画：宁可不显示，也不要画在错的地方（笔记面板会标「无法定位」）
         if (locations[h.id]?.status === 'missing') return [];

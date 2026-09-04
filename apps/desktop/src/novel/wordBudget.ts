@@ -3,20 +3,25 @@
  * All counts are 起点式 characters (see `countZh` in @the-water/shared).
  */
 import type { ProviderCaps } from '@/llm/types';
+import { WORD_BUDGET } from './config';
 
-export const DEFAULT_CHARS_PER_CHAPTER = 3000;
-export const MIN_CHAPTERS = 3;
-export const MAX_CHAPTERS = 150;
+/**
+ * 数值全部定义在 `novel/config.ts`（§2.3 第 4 条）；这里保留原来的具名导出，
+ * 调用方不用改，改值只改 config.ts。
+ */
+export const DEFAULT_CHARS_PER_CHAPTER = WORD_BUDGET.defaultCharsPerChapter;
+export const MIN_CHAPTERS = WORD_BUDGET.minChapters;
+export const MAX_CHAPTERS = WORD_BUDGET.maxChapters;
 /** A chapter can never be re-budgeted below this many characters. */
-export const MIN_CHAPTER_TARGET = 500;
+export const MIN_CHAPTER_TARGET = WORD_BUDGET.minChapterTarget;
 /** Chapters above this target are written as two halves. */
-export const SPLIT_CHAPTER_THRESHOLD = 4500;
+export const SPLIT_CHAPTER_THRESHOLD = WORD_BUDGET.splitChapterThreshold;
 
-export const EXPAND_BELOW_RATIO = 0.88;
-export const TRIM_ABOVE_RATIO = 1.2;
-export const ASK_RATIO = 1.08;
-export const MIN_ACCEPTABLE_RATIO = 0.9;
-export const REDISTRIBUTE_CLAMP = 0.3;
+export const EXPAND_BELOW_RATIO = WORD_BUDGET.expandBelowRatio;
+export const TRIM_ABOVE_RATIO = WORD_BUDGET.trimAboveRatio;
+export const ASK_RATIO = WORD_BUDGET.askRatio;
+export const MIN_ACCEPTABLE_RATIO = WORD_BUDGET.minAcceptableRatio;
+export const REDISTRIBUTE_CLAMP = WORD_BUDGET.redistributeClamp;
 
 export function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
@@ -118,7 +123,7 @@ export function minAcceptable(target: number): number {
 }
 
 export function maxTokensForChapter(target: number, caps: Pick<ProviderCaps, 'maxOutputTokens'>): number {
-  return Math.max(1, Math.min(caps.maxOutputTokens, Math.ceil(target * 1.6) + 400));
+  return Math.max(1, Math.min(caps.maxOutputTokens, Math.ceil(target * WORD_BUDGET.maxTokensRatio) + WORD_BUDGET.maxTokensSlack));
 }
 
 export function shouldSplitChapter(target: number): boolean {

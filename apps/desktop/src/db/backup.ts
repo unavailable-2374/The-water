@@ -2,8 +2,13 @@ import { getDb } from './db';
 
 /** 数据库文件在 appdata 下的相对路径。 */
 export const DB_FILE = 'the-water.db';
-/** 当前应用的数据版本 = 最新一条迁移的 version（src-tauri/src/lib.rs）。 */
-export const APP_SCHEMA_VERSION = 5;
+/**
+ * 当前应用的数据版本 = 最新一条迁移的 version（`src-tauri/src/lib.rs` 与 `src-tauri/migrations/`）。
+ * 加迁移时必须同步改这里，否则备份会被盖上过时的版本号，
+ * 而「备份来自更新版本的 The Water」这道保护就形同虚设。
+ * `test/db/backup.test.ts` 会读迁移目录断言两者一致，漏改即测试红。
+ */
+export const APP_SCHEMA_VERSION = 8;
 
 const SQLITE_MAGIC = 'SQLite format 3\0';
 /** 备份必须能找到的表，避免把别的 SQLite 文件当成本应用的库恢复进来。 */

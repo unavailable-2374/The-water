@@ -41,7 +41,12 @@ describe('handles', () => {
     expect(patched.status).toBe(200);
     expect(patched.body.user.handle).toBe('linwan');
     expect((await t.json('GET', '/api/v1/users/by-handle/linwan')).status).toBe(200);
-    expect((await t.json('GET', `/api/v1/users/by-handle/${before}`)).status).toBe(404);
+    // §3.4：旧用户名进 handle_history，仍能查到人（网页据此做 301），但返回的是新用户名。
+    const viaOld = await t.json('GET', `/api/v1/users/by-handle/${before}`);
+    expect(viaOld.status).toBe(200);
+    expect(viaOld.body.user.handle).toBe('linwan');
+    // 从没存在过的用户名依然 404。
+    expect((await t.json('GET', '/api/v1/users/by-handle/nobody_here')).status).toBe(404);
     // 改成自己已有的用户名不算冲突。
     expect((await t.json('PATCH', '/api/v1/auth/me', { token, body: { handle: 'linwan' } })).status).toBe(200);
 

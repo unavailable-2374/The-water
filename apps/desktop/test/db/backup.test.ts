@@ -85,3 +85,16 @@ describe('备份文件名', () => {
     expect(preRestoreCopyName(new Date(1000))).toBe('the-water.db.before-restore-1000');
   });
 });
+
+describe('数据版本不漂移', () => {
+  it('APP_SCHEMA_VERSION 等于迁移目录里最大的迁移号', () => {
+    const dir = fileURLToPath(new URL('../../src-tauri/migrations/', import.meta.url));
+    const nums = readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .map((f) => Number(f.slice(0, 4)))
+      .filter((n) => Number.isFinite(n));
+    expect(nums.length).toBeGreaterThan(0);
+    // 漏改这个常量，备份会被盖上过时版本号，恢复时的「来自更新版本」保护就失效了。
+    expect(APP_SCHEMA_VERSION).toBe(Math.max(...nums));
+  });
+});

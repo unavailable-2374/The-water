@@ -22,6 +22,7 @@ import { recordActivity } from '../feed/service';
 import { awardCompleted } from '../incentive/service';
 import { hasBlocked } from '../users/blocking';
 import { toNovelDetail, toNovelRef, toNovelSummary, unavailableRef, type AuthorParts } from './dto';
+import { syncNovelTags } from './tags';
 
 export type Viewer = AuthUser | null;
 
@@ -195,6 +196,8 @@ export async function createNovel(deps: AppDeps, user: AuthUser, req: CreateNove
     if (lineage.forkId) {
       tx.update(forks).set({ derivativeNovelId: id }).where(eq(forks.id, lineage.forkId)).run();
     }
+    // 新建时还没公开，计数不会变，但映射要先建起来，之后转公开只需重算计数。
+    syncNovelTags(deps, tx, id);
   });
   return buildNovelDetail(deps, findNovelRow(deps, id)!, user);
 }
@@ -223,12 +226,22 @@ export async function updateNovel(deps: AppDeps, user: AuthUser, id: string, pat
   if (patch.tags !== undefined) set.tags = patch.tags;
   if (patch.writingStatus !== undefined) set.writingStatus = patch.writingStatus;
   if (patch.visibility !== undefined) {
-    set.publishVisibility = patch.visibility;
-    if (n.visibility !== 'unpublished') set.visibility = patch.visibility;
+    // §3.2：可见性可以回到 unpublished（下架，保留数据与谱系），也可以从下架状态再上架。
+    if (patch.visibility === 'unpublished') {
+      // 下架不动 publishVisibility：作者原本想公开还是仅链接可见，再上架时照旧。
+      set.visibility = 'unpublished';
+    } else {
+      set.publishVisibility = patch.visibility;
+      // 还没提交过任何版本的小说只记录意愿，等首次提交时才真正公开。
+      if (n.currentVersionId) set.visibility = patch.visibility;
+    }
   }
   const completing = patch.writingStatus === 'completed' && n.writingStatus !== 'completed' && !!n.currentVersionId;
+  // 标签文本或可见性变了都要重算标签计数（计数只算 public + 审核通过 + 未删除）。
+  const tagsDirty = patch.tags !== undefined || set.visibility !== undefined;
   deps.db.transaction((tx) => {
     tx.update(novels).set(set).where(eq(novels.id, id)).run();
+    if (tagsDirty) syncNovelTags(deps, tx, id);
     // 「写完了这个故事」只在第一次切到完结时记一条动态。
     if (completing) {
       recordActivity(deps, tx, { actorId: n.authorId, kind: 'novel_completed', novelId: id });
@@ -242,7 +255,10 @@ export async function updateNovel(deps: AppDeps, user: AuthUser, id: string, pat
 export function deleteNovel(deps: AppDeps, user: AuthUser, id: string): void {
   loadOwnedNovel(deps, id, user);
   const now = deps.clock.now();
-  deps.db.update(novels).set({ deletedAt: now, updatedAt: now, visibility: 'unpublished' }).where(eq(novels.id, id)).run();
+  deps.db.transaction((tx) => {
+    tx.update(novels).set({ deletedAt: now, updatedAt: now, visibility: 'unpublished' }).where(eq(novels.id, id)).run();
+    syncNovelTags(deps, tx, id);
+  });
 }
 
 export function listMyNovels(deps: AppDeps, user: AuthUser, cursorRaw: string | undefined, limit: number): Page<NovelSummary> {

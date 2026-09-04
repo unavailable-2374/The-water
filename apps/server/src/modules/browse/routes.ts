@@ -1,9 +1,18 @@
 import { Hono } from 'hono';
-import { BrowseQuerySchema, ChaptersQuerySchema, type BrowseQuery } from '@the-water/shared';
+import {
+  BrowseQuerySchema,
+  ChaptersQuerySchema,
+  PopularTagsQuerySchema,
+  TagDirectoryQuerySchema,
+  type BrowseQuery,
+  type PopularTagsQuery,
+  type TagDirectoryQuery,
+} from '@the-water/shared';
 import type { z } from 'zod';
 import type { AppDeps, AppEnv } from '../../context';
 import { validation } from '../../lib/errors';
 import { getValid, validate } from '../../middleware/validate';
+import { listTags, popularTags } from '../novels/tags';
 import * as svc from './service';
 
 export function parseIndex(raw: string): number {
@@ -16,6 +25,18 @@ export function browseRoutes(deps: AppDeps) {
 
   r.get('/novels', validate('query', BrowseQuerySchema), (c) => {
     return c.json(svc.browseNovels(deps, getValid<BrowseQuery>(c, 'query'), c.get('user')));
+  });
+
+  // ---- 标签目录（§3.4）----
+  // 静态段在前：/tags/popular 不能被 /tags 的查询参数版本吃掉。
+
+  r.get('/tags/popular', validate('query', PopularTagsQuerySchema), (c) => {
+    const q = getValid<PopularTagsQuery>(c, 'query');
+    return c.json({ items: popularTags(deps, q.limit) });
+  });
+
+  r.get('/tags', validate('query', TagDirectoryQuerySchema), (c) => {
+    return c.json(listTags(deps, getValid<TagDirectoryQuery>(c, 'query')));
   });
 
   r.get('/novels/:id/versions/:vid/storyline', (c) => {

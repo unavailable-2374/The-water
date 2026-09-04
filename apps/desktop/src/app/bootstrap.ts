@@ -11,6 +11,7 @@ import { useJobs, wireJobsStore } from '@/stores/jobsStore';
 import { useAccount } from '@/stores/accountStore';
 import { watchAccountForCommunity } from '@/stores/communityStore';
 import { applyTheme } from './theme';
+import { fmt, t } from '@/i18n';
 import { runStartupMaintenance } from '@/db/maintenance';
 
 /** First-run: if no providers exist and an env API key is present, seed a provider that reads it at runtime. */
@@ -22,7 +23,7 @@ async function seedProvidersFromEnv(): Promise<void> {
     const key = await secrets().get(`env:${p.envVar}`).catch(() => null);
     if (!key) continue;
     await createProvider({
-      name: `${p.name}（环境变量）`, kind: p.kind, baseUrl: p.baseUrl, model: p.model, contextWindow: p.contextWindow,
+      name: fmt(t.common.providerFromEnv, { name: p.name }), kind: p.kind, baseUrl: p.baseUrl, model: p.model, contextWindow: p.contextWindow,
       maxOutputTokens: p.maxOutputTokens, jsonMode: p.jsonMode, temperature: 0.8, extraHeaders: {}, secretRef: `env:${p.envVar}`, isDefault: true,
     });
     break;

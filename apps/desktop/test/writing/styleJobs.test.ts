@@ -14,6 +14,8 @@ import { emptyBible, emptyDerivative, emptyStoryline, emptyStyleProfile, emptyVo
 import { defaultRequirements } from '@/novel/types';
 import { startGeneration, startStyleCheck, startStyleExtraction, wantsStyleCheck } from '@/novel/service';
 import { sampleChapterNos } from '@/jobs/steps/extractStyleStep';
+import { saveStyleCheckConfig } from '@/novel/config';
+import { clearAuthorNoteCache, saveAuthorNote } from '@/llm/prompts/authorNote';
 import type { FetchLike } from '@/llm/types';
 
 const terse = (n: number) => Array.from({ length: n }, (_, i) => (i % 3 === 0 ? `刀出。人退。灯灭了。\n\n“你来了。”\n\n“来了。”` : `他没有答话，把刀鞘往桌上一搁。风从檐角过，带着铁锈味。`)).join('\n\n');
@@ -97,6 +99,7 @@ async function setupNovel(chapterCount: number, opts: { withProfile?: boolean; d
 
 beforeEach(() => {
   useTestDb();
+  clearAuthorNoteCache();
   setSecretStore({ get: async () => 'k', set: async () => undefined, delete: async () => undefined });
 });
 
@@ -179,6 +182,50 @@ describe('generation with style_check', () => {
     expect(review.report.revisedVersionId).toBe(versions[0]!.id);
     expect(review.report.revisionInstructions.length).toBeGreaterThan(0);
     expect(review.oocCount).toBe(1);
+  });
+  it('maxRevisions = 0：只审不改，未达标如实记下来（§2.3 第 3 条）', async () => {
+    await saveStyleCheckConfig({ maxRevisions: 0 });
+    const f = makeFetch({ reviewVerdict: 'revise' });
+    setFetchImpl(f.fetch);
+    const novel = await setupNovel(1, { withProfile: true, derivative: true });
+    const jobId = await startGeneration(novel.id);
+    await waitFor(async () => terminal(await getJob(jobId)));
+    expect((await getJob(jobId))!.status).toBe('completed');
+    expect(f.calls.filter((c) => c.kind === 'review')).toHaveLength(1);
+    expect(f.calls.some((c) => c.kind === 'revise')).toBe(false);
+    const ch = (await listChapters(novel.id))[0]!;
+    // 步骤照样成功，但结论保留为「需修订」，章节表据此标「风格未达标」。
+    const review = (await latestReviewForChapter(ch.id))!;
+    expect(review.verdict).toBe('revise');
+    expect(review.report.revisedVersionId).toBeNull();
+    expect(await listVersions(ch.id)).toHaveLength(1);
+  });
+  it('maxRevisions = 2：改两轮仍不达标就停手，不无限循环', async () => {
+    await saveStyleCheckConfig({ maxRevisions: 2 });
+    const f = makeFetch({ reviewVerdict: 'revise' });
+    setFetchImpl(f.fetch);
+    const novel = await setupNovel(1, { withProfile: true, derivative: true });
+    const jobId = await startGeneration(novel.id);
+    await waitFor(async () => terminal(await getJob(jobId)));
+    expect((await getJob(jobId))!.status).toBe('completed');
+    // 初审 + 两轮修订后各复审一次
+    expect(f.calls.filter((c) => c.kind === 'review')).toHaveLength(3);
+    expect(f.calls.filter((c) => c.kind === 'revise')).toHaveLength(2);
+    const ch = (await listChapters(novel.id))[0]!;
+    expect((await latestReviewForChapter(ch.id))!.verdict).toBe('revise');
+  });
+  it('作者附加指令拼进定点修订的 system 提示（§2.3 第 6 条）', async () => {
+    await saveStyleCheckConfig({ maxRevisions: 1 });
+    const f = makeFetch({ reviewVerdict: 'revise' });
+    setFetchImpl(f.fetch);
+    const novel = await setupNovel(1, { withProfile: true, derivative: true });
+    await saveAuthorNote(novel.id, '每章至少出现一次天气。');
+    const jobId = await startGeneration(novel.id);
+    await waitFor(async () => terminal(await getJob(jobId)));
+    expect((await getJob(jobId))!.status).toBe('completed');
+    const revise = f.calls.find((c) => c.kind === 'revise')!;
+    expect(revise.system).toContain('【作者附加指令】');
+    expect(revise.system).toContain('每章至少出现一次天气。');
   });
   it('machine metrics alone catch drift: flowery prose against terse targets fails hard checks', async () => {
     const f = makeFetch({ prose: () => flowery(6) });

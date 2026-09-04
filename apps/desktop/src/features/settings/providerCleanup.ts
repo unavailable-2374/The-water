@@ -6,14 +6,22 @@
  * 2. `llm_providers.is_default` 那一行被删掉后，没有任何一行是默认的。
  * 这里只算「该怎么改」，落库交给调用方。
  */
+import { fmt, t } from '@/i18n';
 
 export type ProviderPurpose = 'chat' | 'writing' | 'planning';
 
-export const PURPOSE_LABELS: Record<ProviderPurpose, string> = {
-  chat: '对话',
-  writing: '写作',
-  planning: '规划',
-};
+/**
+ * 用途的短标签。写成函数而不是模块顶层常量表：`t` 是惰性代理，
+ * 但一旦把它读进常量对象里，切语言就更新不了了。
+ */
+export function purposeLabel(purpose: ProviderPurpose): string {
+  const labels: Record<ProviderPurpose, string> = {
+    chat: t.settings.purposeChatShort,
+    writing: t.settings.purposeWritingShort,
+    planning: t.settings.purposePlanningShort,
+  };
+  return labels[purpose];
+}
 
 const PURPOSES: readonly ProviderPurpose[] = ['chat', 'writing', 'planning'];
 
@@ -48,13 +56,13 @@ export function planProviderCleanup(input: ProviderCleanupInput): ProviderCleanu
     : { ...purposes, ...Object.fromEntries(cleared.map((p) => [p, null])) } as PurposeMap;
   const promoteDefaultTo = deleted.isDefault && remaining.length > 0 ? remaining[0]!.id : null;
 
-  const parts = [`已删除「${deleted.name}」。`];
-  if (cleared.length > 0) parts.push(`${cleared.map((p) => PURPOSE_LABELS[p]).join('、')}场景的模型已重置为跟随默认。`);
+  const parts = [fmt(t.settings.cleanupDeleted, { name: deleted.name })];
+  if (cleared.length > 0) parts.push(fmt(t.settings.cleanupPurposesReset, { purposes: cleared.map(purposeLabel).join('、') }));
   if (promoteDefaultTo) {
     const next = remaining.find((r) => r.id === promoteDefaultTo);
-    if (next) parts.push(`默认供应商已改为「${next.name}」。`);
+    if (next) parts.push(fmt(t.settings.cleanupDefaultMoved, { name: next.name }));
   }
-  if (remaining.length === 0) parts.push('现在没有可用的模型了，记得再添加一个。');
+  if (remaining.length === 0) parts.push(t.settings.cleanupNoneLeft);
 
   return { purposes: nextPurposes, clearedPurposes: cleared, promoteDefaultTo, notice: parts.join('') };
 }

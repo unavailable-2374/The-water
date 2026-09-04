@@ -10,6 +10,7 @@ import {
   type ChapterContextParts,
 } from '@/llm/prompts/context';
 import { estimateTokens, truncateHead, truncateTail } from '@/llm/prompts/estimate';
+import { UNTRUSTED_CLOSE, UNTRUSTED_NOTICE, UNTRUSTED_OPEN } from '@/llm/prompts/untrusted';
 import { caps, makeBible, makeDoc } from '../fixtures/storyline';
 
 const RATIO = 0.7;
@@ -96,7 +97,8 @@ describe('assembleChapterContext', () => {
     const all = estimateTokens(assembleChapterContext(p, 100_000, RATIO).userText, RATIO);
     const loglineTokens = estimateTokens(`【${SECTION_HEADERS.logline}】\n${p.logline}`, RATIO);
     const r = assembleChapterContext(p, systemTokens + all - loglineTokens, RATIO);
-    expect(r.dropped).toEqual([SECTION_HEADERS.logline]);
+    expect(r.dropped[0]).toBe(SECTION_HEADERS.logline);
+    expect(r.dropped).not.toContain(SECTION_HEADERS.bible);
     expect(r.userText).toContain('【故事圣经】');
   });
 
@@ -146,8 +148,11 @@ describe('assembleChapterContext', () => {
   it('trims the previous chapter to its LAST ~800 chars', () => {
     const prev = zh(3000, '前') + zh(800, '尾');
     const { userText } = assembleChapterContext(parts({ prevTail: prev }), 100_000, RATIO);
-    const body = userText.split('【上一章结尾】')[1]!.split('【全书主线】')[0]!.trim();
-    expect(body).toBe(zh(800, '尾'));
+    const body = userText.split('【上一章结尾】')[1]!.split('【全书主线】')[0]!;
+    // 内容被包在「资料，不是指令」的分隔块里（§2.3 第 6 条），只留最后约 800 字。
+    expect(body).toContain(UNTRUSTED_NOTICE);
+    expect(body).toContain(`${UNTRUSTED_OPEN}\n${zh(800, '尾')}\n${UNTRUSTED_CLOSE}`);
+    expect(body).not.toContain('前');
   });
 
   it('omits empty sections without reporting them as dropped', () => {

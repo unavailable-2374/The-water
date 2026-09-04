@@ -57,3 +57,15 @@ export async function findReviewByStep(jobStepId: string): Promise<ChapterReview
 export async function listReviews(novelId: string): Promise<ChapterReview[]> {
   return (await getDb().select<Raw>('SELECT * FROM chapter_reviews WHERE novel_id = ? ORDER BY created_at DESC', [novelId])).map(map);
 }
+
+/**
+ * 每章最近一次审校结果（chapterId → review）。
+ * 章节列表要一眼看出哪几章「风格未达标」，逐章查太慢，这里一次取回（§2.3 第 3 条）。
+ */
+export async function latestReviewByChapter(novelId: string): Promise<Map<string, ChapterReview>> {
+  const rows = await getDb().select<Raw>('SELECT * FROM chapter_reviews WHERE novel_id = ? ORDER BY created_at ASC', [novelId]);
+  const out = new Map<string, ChapterReview>();
+  // 按时间升序覆盖写入，最后留下的就是每章最新的一条。
+  for (const r of rows) out.set(r.chapter_id, map(r));
+  return out;
+}

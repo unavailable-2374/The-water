@@ -322,3 +322,53 @@ export function applyNameReplacements(text: string, reps: NameReplacement[]): st
     .join('|');
   return text.replace(new RegExp(pattern, 'g'), (m) => map.get(m) ?? m);
 }
+
+// ---------------------------------------------------------------------------
+// 按故事弧分组（§2.2 第 5 条）
+// ---------------------------------------------------------------------------
+
+export interface ArcGroup<T> {
+  /** null 表示「不在任何一个弧的章节范围里」。 */
+  arcId: string | null;
+  title: string;
+  startChapterNo: number | null;
+  endChapterNo: number | null;
+  items: T[];
+}
+
+/** 落在弧上的章节：范围包含它就算；同时落在多个弧里时取**最窄**的那个。 */
+function arcForChapter(arcs: readonly Arc[], chapterNo: number): Arc | null {
+  let best: Arc | null = null;
+  let bestSpan = Infinity;
+  for (const a of arcs) {
+    const lo = Math.min(a.startChapterNo, a.endChapterNo);
+    const hi = Math.max(a.startChapterNo, a.endChapterNo);
+    if (chapterNo < lo || chapterNo > hi) continue;
+    const span = hi - lo;
+    if (span < bestSpan) { bestSpan = span; best = a; }
+  }
+  return best;
+}
+
+/**
+ * 把改写计划行按故事弧分组，好让作者「整条弧一起勾」而不是一行行点。
+ * 组的顺序按弧里最小的章号；不属于任何弧的行归到最后一组。
+ */
+export function groupByArc<T extends { chapterNo: number }>(items: readonly T[], arcs: readonly Arc[], fallbackTitle = '未归入故事弧'): Array<ArcGroup<T>> {
+  const groups = new Map<string, ArcGroup<T>>();
+  for (const it of [...items].sort((a, b) => a.chapterNo - b.chapterNo)) {
+    const arc = arcForChapter(arcs, it.chapterNo);
+    const key = arc?.id ?? '';
+    let g = groups.get(key);
+    if (!g) {
+      g = arc
+        ? { arcId: arc.id, title: arc.title || '未命名故事弧', startChapterNo: arc.startChapterNo, endChapterNo: arc.endChapterNo, items: [] }
+        : { arcId: null, title: fallbackTitle, startChapterNo: null, endChapterNo: null, items: [] };
+      groups.set(key, g);
+    }
+    g.items.push(it);
+  }
+  const out = [...groups.values()];
+  const firstNo = (g: ArcGroup<T>) => g.items[0]?.chapterNo ?? Infinity;
+  return out.sort((a, b) => (a.arcId === null ? 1 : 0) - (b.arcId === null ? 1 : 0) || firstNo(a) - firstNo(b));
+}

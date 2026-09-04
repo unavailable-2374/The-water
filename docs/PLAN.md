@@ -234,7 +234,7 @@ Drizzle 列只用 `text / integer / integer{boolean} / integer{timestamp_ms} / t
 | **3** | 故事线编辑器、diff/affected、RewritePlanDialog、改写任务、过期标记、txt 导入 + 反推故事线 | 改主角弧 → 列出受影响章节及原因 → 改写完成 |
 | **4** | 服务端全部（P0 骨架 → 认证 → 发布管线 → 浏览 → fork/谱系 → 社交/管理 → 网页阅读）+ contract 测试 | `bun run dev` 起服务；`bun test` 全绿，含 100 章发布/续传/二创谱系用例 |
 | **5** | 桌面公共区：账号面板、PublishDialog、浏览/在线阅读、fork 导入、origin 徽标 | 发布 → 另一账号 fork → 改故事线 → 改写 → 发布二创 → 谱系可见 |
-| **6** | 打磨：导出 TXT/Markdown、任务运行时关窗最小化到 Dock、用量/费用统计、`thewater://` 深链、`bun tauri build` 打包 | 可安装的 .app |
+| **6** | 打磨：导出 TXT/Markdown ✅、任务运行时关窗最小化到 Dock ✅、用量/费用统计 ✅（§2.1 第 3 条）、`thewater://` 深链 ⏸（见 §7.6）、`bun tauri build` 打包 | 可安装的 .app |
 
 阶段 0–3 不依赖服务端；阶段 4 可与 3 并行。
 
@@ -324,7 +324,27 @@ bun run typecheck && bun run test       # tsc -b；vitest(desktop, shared) + bun
 
 ### 7.6 已知限制
 
-- `og:image` 是 SVG，微信/Twitter 的抓取器不渲染它；站内 `<img>` 与桌面端分享图不受影响。要外站卡片图需再写一个 PNG 编码器输出 `/n/:id/cover.png`。
-- 改 `handle` 会让旧 `/u/:handle` 链接失效；桌面端作者页先按 handle 查、404 再按 id 查作为兜底。
-- 匿名浏览计分可通过轮换 `X-Client-Id` 刷到每本每日 30 次上限；上限在 `POINT_RULES` 里可调。
-- 留言没有接入 `ContentModerator`（它的输入形状是整本小说），先靠举报 + 管理员隐藏。
+> 本节按批次维护。已经解决的用删除线留档（方便回溯当初为什么这么设计），下面「仍然存在」一栏才是当前的限制清单。
+
+**已解决**
+
+- ~~`og:image` 是 SVG，微信/Twitter 的抓取器不渲染它；要外站卡片图需再写一个 PNG 编码器输出 `/n/:id/cover.png`。~~
+  已补 `GET /n/:id/cover.png` 与 `GET /u/:handle/avatar.png`，作品页与作者页的 `og:image` 都改指 PNG。
+- ~~改 `handle` 会让旧 `/u/:handle` 链接失效。~~
+  已加 `handle_history` 表；`resolveHandle` 先查现役 handle、查不到再查历史，旧链接照样打得开（响应里回的是新 handle，客户端据此换 URL）。
+- ~~匿名浏览计分可通过轮换 `X-Client-Id` 刷到每本每日 30 次上限。~~
+  `viewerKey` 已绑定 IP 前缀（IPv4 /24、IPv6 前 4 组），换 `X-Client-Id` 不再等于换身份。
+- ~~留言没有接入 `ContentModerator`（它的输入形状是整本小说），先靠举报 + 管理员隐藏。~~
+  留言的新建与编辑都走 `assertTextAllowed`，命中即拦并落 `moderation_events` 审计。
+- ~~第五节阶段 6 的「用量 / 费用统计」未实现。~~
+  已实现：`usage_events` + `model_prices` 两张表，费用按记账当时的价格存快照；每任务 / 每本 / 每月三张卡、按用途拆分、预算告警、开工前费用预估。
+- ~~EPUB 阅读未实现，只留了接口与明确提示。~~
+  已补 `documents/epubSource.ts`，EPUB 与 PDF / TXT / Markdown 一样走 `DocumentSourceBase`。
+
+**仍然存在**
+
+- **`thewater://` 深链没做**（第五节阶段 6 列过，`grep thewater://` 全仓为空）。现在网页上的作品只能靠复制链接、回桌面端手动导入。
+  剩下的活是两件：`tauri.conf.json` 注册自定义 scheme + 装 `tauri-plugin-deep-link`，再在桌面端加一条 `/open/:remoteId` 路由把链接翻译成「打开或 fork 这本书」。
+  （`tauri-plugin-single-instance` 已经装好，冷启动/热启动的参数转发这一环不用再做。）
+- **内置价格表需要人工核对**：`novel/pricing.ts` 的默认价标注了抓取时间 `2026-05`，是各家公开定价页的列表价。结构上它们是可改的默认值，不是硬编码事实，但发版前仍应按最新定价核对一遍。
+- **`GENRES` / `POVS` 没有进 i18n**：`features/studio/wizard/CreateWizard.tsx` 里的题材与视角是**会写进数据库并原样进提示词的领域值**，翻译会改掉已存作品的设定。真要做多语言得先给它们做「值 / 显示名」分离（存英文枚举、按语言查显示名），属于一次数据迁移，不在本次范围。

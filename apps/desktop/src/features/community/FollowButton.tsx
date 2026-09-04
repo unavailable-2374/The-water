@@ -5,7 +5,7 @@ import { toast } from '@/components/Toast';
 import { friendlyError } from '@/community/errors';
 import { getClient } from '@/sync/account';
 import { useCommunity, useFollowState } from '@/stores/communityStore';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 
 interface Props {
   userId: string;
@@ -45,8 +45,8 @@ export function FollowButton({ userId, following: serverValue, onCount, requireL
   };
 
   return (
-    <Button size={size} variant={following ? 'secondary' : 'ai'} onClick={toggle} disabled={busy}>
-      {busy ? <Spinner className="h-3.5 w-3.5" /> : following ? <UserMinus size={16} strokeWidth={1.75} /> : <UserPlus size={16} strokeWidth={1.75} />}
+    <Button size={size} variant={following ? 'secondary' : 'ai'} onClick={toggle} disabled={busy} aria-pressed={following}>
+      {busy ? <Spinner className="h-3.5 w-3.5" /> : following ? <UserMinus size={16} strokeWidth={1.75} aria-hidden="true" /> : <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />}
       {following ? t.community.following : t.community.follow}
     </Button>
   );

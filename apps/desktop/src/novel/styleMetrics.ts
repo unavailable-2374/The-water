@@ -3,6 +3,7 @@
  * Everything is counted in code points; sentences split on 。！？…; paragraphs on blank lines / newlines.
  */
 import type { StyleMetrics, StyleTargets } from '@the-water/shared';
+import { STYLE_METRICS } from './config';
 
 const FUNCTION_WORDS = ['的', '了', '着', '过', '吗', '呢', '啊', '吧', '却', '便', '竟', '只', '就', '也', '都', '又', '还', '仿佛', '似乎'] as const;
 const PUNCT: Array<[string, RegExp]> = [
@@ -42,7 +43,7 @@ export function dialogueChars(text: string): number {
   return n;
 }
 
-export function ngramSignature(text: string, top = 12): string[] {
+export function ngramSignature(text: string, top: number = STYLE_METRICS.ngramTop): string[] {
   const clean = text.replace(/[^\p{Script=Han}]+/gu, ' ');
   const counts = new Map<string, number>();
   for (const run of clean.split(' ')) {
@@ -58,7 +59,7 @@ export function ngramSignature(text: string, top = 12): string[] {
   }
   const total = Math.max(1, Array.from(clean.replace(/\s/g, '')).length);
   return [...counts.entries()]
-    .filter(([, c]) => c >= 3 && c / total > 0.0004)
+    .filter(([, c]) => c >= STYLE_METRICS.ngramMinCount && c / total > STYLE_METRICS.ngramMinRatio)
     .sort((a, b) => b[1] * b[0].length - a[1] * a[0].length)
     .slice(0, top)
     .map(([g]) => g);
@@ -149,7 +150,7 @@ export function compareMetrics(m: StyleMetrics, t: StyleTargets): MetricComparis
     if (deviation <= 0) continue;
     const hard = t.hard.includes(key);
     findings.push({ key, label: LABEL[key], value, target, hard, deviation: r2(deviation), hint: hintFor(key, value, target) });
-    penalty += Math.min(1, deviation) * (hard ? 1.5 : 1);
+    penalty += Math.min(1, deviation) * (hard ? STYLE_METRICS.hardMetricWeight : 1);
   }
   const score = checked === 0 ? 100 : Math.max(0, Math.round(100 - (penalty / checked) * 100));
   return { score, findings, hardViolations: findings.filter((f) => f.hard) };
@@ -160,8 +161,8 @@ export function guessSceneType(text: string): 'fight' | 'dialogue' | 'quiet' | '
   const chars = Math.max(1, Array.from(text.replace(/\s+/g, '')).length);
   const dialogue = dialogueChars(text) / chars;
   const action = (text.match(/[刀剑枪拳掌击打杀砍劈冲扑闪撞血战斗]/g) ?? []).length / chars;
-  if (dialogue > 0.4) return 'dialogue';
-  if (action > 0.008) return 'fight';
-  if (dialogue < 0.15) return 'quiet';
+  if (dialogue > STYLE_METRICS.dialogueSceneRatio) return 'dialogue';
+  if (action > STYLE_METRICS.fightSceneRatio) return 'fight';
+  if (dialogue < STYLE_METRICS.quietSceneRatio) return 'quiet';
   return 'other';
 }

@@ -27,9 +27,11 @@ import { forks, novels, pointLedger, userBadges, users, type NovelRow } from '..
 import { decodeCursor, encodeCursor } from '../../lib/cursor';
 import { newId } from '../../lib/ids';
 import { DAY, iso } from '../../lib/time';
+import { notifyBadge, notifyFollow, notifyFork, notifyLike } from '../notifications/service';
 import { publicListWhere } from '../browse/service';
 import { toNovelSummary } from '../novels/dto';
 import { toUserCard } from '../users/service';
+import { getCached } from '../../lib/cache';
 
 /** Db 与事务共有的部分：积分写入既可以独立执行，也可以挂在调用方事务里。 */
 export type Executor = Pick<AppDeps['db'], 'select' | 'insert' | 'update' | 'delete'>;
@@ -155,7 +157,9 @@ export function maybeAwardBadges(deps: AppDeps, ex: Executor, userId: string): B
   const earned = badgesFor(badgeStatsOf(deps, ex, userId));
   const now = deps.clock.now();
   for (const badge of earned) {
-    ex.insert(userBadges).values({ userId, badge, awardedAt: now }).onConflictDoNothing().run();
+    const res = ex.insert(userBadges).values({ userId, badge, awardedAt: now }).onConflictDoNothing().run();
+    // 只有真正第一次拿到才通知；重算徽章不会反复打扰。
+    if (changes(res) > 0) notifyBadge(deps, ex, userId, badge);
   }
   return earned;
 }
@@ -198,6 +202,8 @@ export function awardCompleted(deps: AppDeps, ex: Executor, novel: NovelRow): vo
 }
 
 export function awardLike(deps: AppDeps, ex: Executor, novel: NovelRow, likerId: string): void {
+  // 通知与积分各有各的去重键：日上限吃掉的分不该顺带吃掉通知。
+  notifyLike(deps, ex, novel, likerId);
   award(deps, ex, {
     userId: novel.authorId,
     actorId: likerId,
@@ -209,6 +215,7 @@ export function awardLike(deps: AppDeps, ex: Executor, novel: NovelRow, likerId:
 }
 
 export function awardFork(deps: AppDeps, ex: Executor, novel: NovelRow, forkerId: string): void {
+  notifyFork(deps, ex, novel, forkerId);
   award(deps, ex, {
     userId: novel.authorId,
     actorId: forkerId,
@@ -256,6 +263,7 @@ export function awardView(deps: AppDeps, ex: Executor, novel: NovelRow, viewerKe
 }
 
 export function awardFollow(deps: AppDeps, ex: Executor, followeeId: string, followerId: string): void {
+  notifyFollow(deps, ex, followeeId, followerId);
   award(deps, ex, {
     userId: followeeId,
     actorId: followerId,
@@ -430,16 +438,9 @@ export function leaderboard(deps: AppDeps, q: LeaderboardQuery): LeaderboardResp
   return { board: 'novels', period: q.period, generatedAt, authors: null, novels: items };
 }
 
-/** 榜单缓存：每个 app 实例一份，测试推进时钟即可失效。 */
+/** 榜单缓存：落 cache_entries 表，多实例共享同一份快照（§4.5）。测试推进时钟即可失效。 */
 export class LeaderboardCache {
-  private entries = new Map<string, { at: number; value: LeaderboardResponse }>();
   get(deps: AppDeps, q: LeaderboardQuery): LeaderboardResponse {
-    const key = `${q.board}:${q.period}`;
-    const now = deps.clock.now().getTime();
-    const hit = this.entries.get(key);
-    if (hit && now - hit.at < CACHE_TTL_MS) return hit.value;
-    const value = leaderboard(deps, q);
-    this.entries.set(key, { at: now, value });
-    return value;
+    return getCached(deps, `leaderboard:${q.board}:${q.period}`, CACHE_TTL_MS, () => leaderboard(deps, q));
   }
 }

@@ -1,9 +1,9 @@
 import type { DocKind } from './types';
 
 /** 已经能读的格式（文件选择器与拖拽都用这一份）。 */
-export const READABLE_EXTENSIONS = ['pdf', 'txt', 'md', 'markdown'] as const;
-/** 认得出、但还读不了的格式：给明确提示，不做静默失败。 */
-export const KNOWN_UNSUPPORTED_EXTENSIONS = ['epub'] as const;
+export const READABLE_EXTENSIONS = ['pdf', 'epub', 'txt', 'md', 'markdown'] as const;
+/** 认得出、但还读不了的格式：给明确提示，不做静默失败。目前全都能读了。 */
+export const KNOWN_UNSUPPORTED_EXTENSIONS = [] as const;
 
 const EXT_TO_KIND: Record<string, DocKind> = {
   pdf: 'pdf',
@@ -28,8 +28,7 @@ export function kindFromPath(path: string): DocKind | null {
 
 /** 是否是当前真正能读的格式。 */
 export function isReadable(path: string): boolean {
-  const k = kindFromPath(path);
-  return k === 'pdf' || k === 'txt' || k === 'md';
+  return kindFromPath(path) !== null;
 }
 
 /** 去掉扩展名，作为默认书名。 */

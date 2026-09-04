@@ -5,6 +5,7 @@
 import { AI_TELLS_ZH, type StyleProfile } from '@the-water/shared';
 import { splitParagraphs, splitSentences } from './styleMetrics';
 import type { MergedGenre } from './genrePacks';
+import { LINT } from './config';
 
 export type LintSeverity = 'block' | 'warn';
 export interface LintIssue {
@@ -42,7 +43,7 @@ const perK = (n: number, chars: number) => (chars > 0 ? (n / chars) * 1000 : 0);
 function findAll(text: string, needle: string): number[] {
   const out: number[] = [];
   let i = text.indexOf(needle);
-  while (i !== -1 && out.length < 50) { out.push(i); i = text.indexOf(needle, i + needle.length); }
+  while (i !== -1 && out.length < LINT.maxScanPerNeedle) { out.push(i); i = text.indexOf(needle, i + needle.length); }
   return out;
 }
 
@@ -56,7 +57,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
   const chars = Array.from(text.replace(/\s+/g, '')).length;
   const sentences = splitSentences(text);
   const paragraphs = splitParagraphs(text);
-  const minStruct = opts.minCharsForStructure ?? 600;
+  const minStruct = opts.minCharsForStructure ?? LINT.minCharsForStructure;
   let hardHits = 0;
   let softHits = 0;
 
@@ -65,7 +66,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
     const hits = findAll(text, w);
     if (hits.length === 0) continue;
     hardHits += hits.length;
-    for (const h of hits.slice(0, 5)) issues.push({ rule: 'ai-word-hard', severity: perK(hits.length, chars) > 1 ? 'block' : 'warn', message: `AI 味用词「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
+    for (const h of hits.slice(0, LINT.maxHitsPerRule)) issues.push({ rule: 'ai-word-hard', severity: perK(hits.length, chars) > 1 ? 'block' : 'warn', message: `AI 味用词「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
   }
   // ---- AI tells: soft words over limit ----
   const softLimit = AI_TELLS_ZH.wordsSoft.limitPerK;
@@ -82,7 +83,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
     try { re = new RegExp(p.regex, 'gmu'); } catch { continue; }
     let m: RegExpExecArray | null;
     let n = 0;
-    while ((m = re.exec(text)) !== null && n < 5) {
+    while ((m = re.exec(text)) !== null && n < LINT.maxHitsPerRule) {
       n++;
       issues.push({ rule: `ai-pattern:${p.id}`, severity: 'warn', message: `套话句式：${p.note}`, offset: m.index, length: m[0].length, quote: quoteAt(text, m.index, m[0].length) });
       if (m[0].length === 0) re.lastIndex++;
@@ -96,7 +97,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
     for (const w of genre.forbiddenWords) {
       genreWords.add(w);
       const hits = findAll(text, w);
-      for (const h of hits.slice(0, 5)) issues.push({ rule: 'genre-avoid-word', severity: 'block', message: `${label}题材里不用「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
+      for (const h of hits.slice(0, LINT.maxHitsPerRule)) issues.push({ rule: 'genre-avoid-word', severity: 'block', message: `${label}题材里不用「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
     }
     for (const w of genre.softWords) {
       genreWords.add(w);
@@ -110,7 +111,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
       if (!re) continue;
       let m: RegExpExecArray | null;
       let n = 0;
-      while ((m = re.exec(text)) !== null && n < 5) {
+      while ((m = re.exec(text)) !== null && n < LINT.maxHitsPerRule) {
         n++;
         issues.push({ rule: 'genre-avoid-pattern', severity: 'warn', message: `${label}题材避免的句式：${p}`, offset: m.index, length: m[0].length, quote: quoteAt(text, m.index, m[0].length) });
         if (m[0].length === 0) re.lastIndex++;
@@ -124,7 +125,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
     for (const w of prof.negatives.avoidWords) {
       if (genreWords.has(w)) continue;
       const hits = findAll(text, w);
-      for (const h of hits.slice(0, 5)) issues.push({ rule: 'profile-avoid-word', severity: 'block', message: `这本书里不用「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
+      for (const h of hits.slice(0, LINT.maxHitsPerRule)) issues.push({ rule: 'profile-avoid-word', severity: 'block', message: `这本书里不用「${w}」`, offset: h, length: w.length, quote: quoteAt(text, h, w.length) });
     }
     for (const w of prof.negatives.avoidWordsSoft.list) {
       if (genreWords.has(w)) continue;
@@ -140,7 +141,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
       if (!re) continue;
       let m: RegExpExecArray | null;
       let n = 0;
-      while ((m = re.exec(text)) !== null && n < 5) {
+      while ((m = re.exec(text)) !== null && n < LINT.maxHitsPerRule) {
         n++;
         issues.push({ rule: 'profile-avoid-pattern', severity: 'warn', message: `这本书避免的句式：${p}`, offset: m.index, length: m[0].length, quote: quoteAt(text, m.index, m[0].length) });
         if (m[0].length === 0) re.lastIndex++;
@@ -158,7 +159,7 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
       counts.set(g, (counts.get(g) ?? 0) + 1);
     }
     for (const [g, c] of counts) {
-      if (c >= 4 && Array.from(para).length < 400) {
+      if (c >= LINT.wordRepeatMin && Array.from(para).length < LINT.wordRepeatParaMax) {
         const off = text.indexOf(para);
         issues.push({ rule: 'word-repeat', severity: 'warn', message: `同一段里「${g}」重复了 ${c} 次`, offset: off >= 0 ? off : null, length: 0, quote: g });
         break;
@@ -169,31 +170,31 @@ export function lintText(text: string, opts: LintOptions = {}): LintReport {
   // ---- structure ----
   if (chars >= minStruct) {
     const sl = sentences.map((s) => Array.from(s).length);
-    if (sl.length >= 15) {
+    if (sl.length >= LINT.minSentencesForBurstiness) {
       const mean = sl.reduce((a, b) => a + b, 0) / sl.length;
       const sd = Math.sqrt(sl.reduce((a, b) => a + (b - mean) ** 2, 0) / sl.length);
-      if (mean > 0 && sd / mean < 0.3) issues.push({ rule: 'low-burstiness', severity: 'warn', message: `句长过于均一（起伏 ${(sd / mean).toFixed(2)}），像机器写的；让长短句交错`, offset: null, length: 0, quote: '' });
+      if (mean > 0 && sd / mean < LINT.burstinessWarn) issues.push({ rule: 'low-burstiness', severity: 'warn', message: `句长过于均一（起伏 ${(sd / mean).toFixed(2)}），像机器写的；让长短句交错`, offset: null, length: 0, quote: '' });
     }
     const pl = paragraphs.map((p) => Array.from(p).length);
-    if (pl.length >= 6) {
+    if (pl.length >= LINT.minParagraphsForUniformity) {
       const mean = pl.reduce((a, b) => a + b, 0) / pl.length;
       const sd = Math.sqrt(pl.reduce((a, b) => a + (b - mean) ** 2, 0) / pl.length);
-      if (mean > 0 && sd / mean < 0.25) issues.push({ rule: 'uniform-paragraphs', severity: 'warn', message: '每段长度几乎一样，过于工整', offset: null, length: 0, quote: '' });
+      if (mean > 0 && sd / mean < LINT.paragraphUniformWarn) issues.push({ rule: 'uniform-paragraphs', severity: 'warn', message: '每段长度几乎一样，过于工整', offset: null, length: 0, quote: '' });
     }
     const headed = paragraphs.filter((p) => /^(\*\*.{1,12}\*\*|[^，。！？\n]{1,10}[：:])/.test(p)).length;
-    if (paragraphs.length >= 4 && headed / paragraphs.length >= 0.5) issues.push({ rule: 'heading-every-para', severity: 'warn', message: '段段都是小标题式开头', offset: null, length: 0, quote: '' });
-    if ((text.match(/[✅❌💡🚀✨🔥📌]/gu) ?? []).length >= 2) issues.push({ rule: 'emoji-bullets', severity: 'warn', message: '出现了 emoji 列表符号', offset: null, length: 0, quote: '' });
+    if (paragraphs.length >= 4 && headed / paragraphs.length >= LINT.headedParagraphRatio) issues.push({ rule: 'heading-every-para', severity: 'warn', message: '段段都是小标题式开头', offset: null, length: 0, quote: '' });
+    if ((text.match(/[✅❌💡🚀✨🔥📌]/gu) ?? []).length >= LINT.emojiBulletMin) issues.push({ rule: 'emoji-bullets', severity: 'warn', message: '出现了 emoji 列表符号', offset: null, length: 0, quote: '' });
     const last = paragraphs.at(-1) ?? '';
     if (/(总之|归根结底|综上所述|真正重要的是|让我们|未来.{0,6}(可期|光明))/u.test(last)) issues.push({ rule: 'hollow-ending', severity: 'warn', message: '结尾像总结陈词', offset: text.lastIndexOf(last), length: last.length, quote: last.slice(0, 40) });
   }
 
   const tellRate = perK(hardHits * 2 + softHits + issues.filter((i) => i.rule.startsWith('ai-pattern')).length * 2, chars);
-  const aiTellScore = Math.max(0, Math.round(100 - tellRate * 12));
+  const aiTellScore = Math.max(0, Math.round(100 - tellRate * LINT.aiTellPenaltyPerK));
   return { issues, aiTellScore, stats: { chars, sentences: sentences.length, paragraphs: paragraphs.length, hardHits, softHits } };
 }
 
 /** Compact issue lines for feeding a revision prompt. */
-export function lintIssuesToInstructions(report: LintReport, max = 8): string[] {
+export function lintIssuesToInstructions(report: LintReport, max: number = LINT.maxInstructions): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const i of [...report.issues].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'block' ? -1 : 1))) {

@@ -1,3 +1,5 @@
+export * from './untrusted';
+export * from './authorNote';
 export * from './base';
 export * from './estimate';
 export * from './context';

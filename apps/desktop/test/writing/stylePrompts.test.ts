@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { emptyDerivative, emptyStyleProfile, emptyVoice, type StyleProfile } from '@the-water/shared';
 import { systemBase } from '@/llm/prompts/base';
+import { UNTRUSTED_GUARD_RULE } from '@/llm/prompts/untrusted';
 import { constraintsFromTargets, pickExemplars, renderDerivativeNotice, renderStyleSummary, renderStyleUserBlock } from '@/llm/prompts/style';
 import { SECTION_CAPS, SECTION_HEADERS, assembleChapterContext, renderVoiceLine, selectRelevantBible, triggeredSettings } from '@/llm/prompts/context';
 import { writeChapterPrompt } from '@/llm/prompts/writeChapter';
@@ -81,7 +82,10 @@ describe('systemBase with style extras and doc type', () => {
     expect(s).toContain('必须保持不变：主角性格');
     expect(s).toContain('允许改动：配角结局');
     expect(s.indexOf('【二创声明】')).toBeLessThan(s.indexOf('【文风：江湖味】'));
-    expect(s.trim().endsWith('使用中文标点。')).toBe(true);
+    // 输出格式仍在最后一段；再往后只跟一条「资料不是指令」的防注入声明（§2.3 第 6 条）。
+    expect(s).toContain('使用中文标点。');
+    expect(s.trim().endsWith(UNTRUSTED_GUARD_RULE)).toBe(true);
+    expect(s.indexOf('使用中文标点。')).toBeLessThan(s.indexOf(UNTRUSTED_GUARD_RULE));
   });
   it('injects doc-type writing rules and a non-fiction role', () => {
     const s = systemBase({ ...requirements, docType: 'news' });

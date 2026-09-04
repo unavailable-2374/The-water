@@ -8,7 +8,7 @@ import { filterImportable, importDocuments } from './import';
 export const DOCUMENTS_IMPORTED_EVENT = 'the-water:documents-imported';
 
 /**
- * 窗口级拖拽导入：把 PDF / TXT / Markdown 拖进窗口任意位置即可入库。
+ * 窗口级拖拽导入：把 PDF / EPUB / TXT / Markdown 拖进窗口任意位置即可入库。
  * 挂在应用外壳上就一直生效，不依赖当前在哪一页。
  */
 export function DropImport() {
@@ -26,7 +26,7 @@ export function DropImport() {
         setHovering(false);
         const { accepted, rejected } = filterImportable(payload.paths);
         if (accepted.length === 0) {
-          toast.info('只能拖入 PDF、TXT 或 Markdown');
+          toast.info('只能拖入 PDF、EPUB、TXT 或 Markdown');
           return;
         }
         setBusy(true);
@@ -62,7 +62,7 @@ export function DropImport() {
       <div className="flex flex-col items-center gap-3 rounded-3xl bg-paper-0 px-10 py-8 shadow-lift dark:bg-paper-900">
         <FileDown size={32} strokeWidth={1.25} className="text-tea-600" />
         <p className="font-serif text-sm text-ink-700 dark:text-paper-100">{busy ? '正在放上书架…' : '松手就放上书架'}</p>
-        <p className="font-serif text-xs text-ink-400">支持 PDF、TXT、Markdown</p>
+        <p className="font-serif text-xs text-ink-400">支持 PDF、EPUB、TXT、Markdown</p>
       </div>
     </div>
   );

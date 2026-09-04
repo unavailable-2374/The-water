@@ -7,10 +7,12 @@ import { forbidden, notFound, validation } from '../../lib/errors';
 import { iso, isoOrNull } from '../../lib/time';
 import { setCommentStatus } from '../comments/service';
 import { reverseNovelPoints } from '../incentive/service';
+import { notifyCommentModeration, notifyNovelModeration } from '../notifications/service';
 import { buildNovelDetail, findNovelRow } from '../novels/service';
 import { toReport, type Report } from '../social/service';
 import { findUserRow } from '../users/service';
 import { listModerationEvents, recordModerationEvent, type ModerationEventFilter } from './audit';
+import { syncNovelTags } from '../novels/tags';
 
 export { listModerationEvents };
 export type { ModerationEventFilter };
@@ -55,12 +57,16 @@ export function setModeration(
   const now = deps.clock.now();
   deps.db.transaction((tx) => {
     tx.update(novels).set({ moderationStatus, moderationNote: note ?? null, updatedAt: now }).where(eq(novels.id, novelId)).run();
+    // 审核隐藏 / 恢复会改变「这本书算不算进标签计数」（§3.4）。
+    syncNovelTags(deps, tx, novelId);
     if (moderationStatus !== 'ok') {
       // 处理中的举报视为已处理。
       tx.update(reports).set({ status: 'resolved', resolvedAt: now, note: note ?? null }).where(and(eq(reports.novelId, novelId), eq(reports.status, 'open'))).run();
       // 账本不删，用一笔负数抵消，历史仍然可查。
       if (reversePoints) reverseNovelPoints(deps, tx, novelId);
     }
+    // §3.1：作者要知道自己的作品被隐藏 / 下架 / 恢复了。状态没变就不打扰。
+    if (moderationStatus !== n.moderationStatus) notifyNovelModeration(deps, tx, n, moderationStatus, note ?? null);
     // 每一次处置都要能追溯到人。
     recordModerationEvent(
       deps,
@@ -114,7 +120,13 @@ export function setCommentModeration(
   status: 'ok' | 'hidden',
   note?: string,
 ) {
+  const before = deps.db.select().from(comments).where(eq(comments.id, commentId)).get();
   const comment = setCommentStatus(deps, admin, novelId, commentId, status);
+  // 状态真的变了才通知留言作者（重复点隐藏不该刷屏）。
+  if (before && before.status !== status && (status === 'hidden' || before.status === 'hidden')) {
+    const title = deps.db.select({ t: novels.title }).from(novels).where(eq(novels.id, novelId)).get()?.t ?? '这个故事';
+    notifyCommentModeration(deps, deps.db, before, title, status, note ?? null);
+  }
   if (status !== 'ok') {
     deps.db
       .update(reports)

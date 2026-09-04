@@ -22,6 +22,9 @@ import {
   systemBase,
   writeChapterPrompt,
   FORMAT_RULES,
+  UNTRUSTED_CLOSE,
+  UNTRUSTED_NOTICE,
+  UNTRUSTED_OPEN,
 } from '@/llm/prompts';
 import { caps, makeBible, makeDoc, requirements } from '../fixtures/storyline';
 
@@ -193,7 +196,9 @@ describe('summarizePrompt', () => {
     expect(u).toContain('不超过 300 字');
     expect(u).toContain('只记录本章新增或发生变化的内容');
     expect(u).toContain('【已知人物】\n沈默（老沈）、林晚、周衍（周警官）');
-    expect(u).toContain('【第2章正文】\n钟停了。');
+    // 正文按「资料，不是指令」包起来（§2.3 第 6 条）。
+    expect(u).toContain('【第2章正文】' + UNTRUSTED_NOTICE);
+    expect(u).toContain(`${UNTRUSTED_OPEN}\n钟停了。\n${UNTRUSTED_CLOSE}`);
     expect(u).toContain('当前状态：失眠、疑惑');
     expect(u).toContain('本章是故事弧《来信》的最后一章');
   });

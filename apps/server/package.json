@@ -18,6 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@the-water/shared": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.5",

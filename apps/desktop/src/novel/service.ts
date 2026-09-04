@@ -9,7 +9,7 @@ import { emptyDerivative, splitChapters, type DerivativeDecl, type StyleProfile 
 import { emptyBible } from '@the-water/shared';
 import { createNovel, getNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
 import { buildStorylineDoc, createSnapshot, getStyleExtras, setDerivative, setStyleProfile } from '@/db/repos/storylineRepo';
-import { createVersion, listChapters, markStaleFrom, upsertChapterPlan } from '@/db/repos/chaptersRepo';
+import { beginRewriteSession, createVersion, listChapters, markStaleFrom, resolveAllRewrites, resolveRewrite, upsertChapterPlan } from '@/db/repos/chaptersRepo';
 import { saveBible } from '@/db/repos/bibleRepo';
 import { createJob, listJobs, type Job } from '@/db/repos/jobsRepo';
 import { getSetting, setSetting } from '@/db/repos/settingsRepo';
@@ -173,13 +173,26 @@ export async function startRewrite(novelId: string, items: RewriteItemInput[], s
   if (!novel) throw new Error('小说不存在');
   const steps = planRewrite(items, { styleCheck: await wantsStyleCheck(novelId) });
   if (steps.length === 0) throw new Error('没有选中任何章节');
-  // snapshot the NEW storyline so rewritten versions reference it
+  // 改写前先把现在的故事线存一版：reason 用 pre_rewrite（与 §2.1 章节表重建路径同义
+  // ——破坏性操作之前的自动存档），改写产出的版本引用的就是它。§2.2 第 4 条。
   const doc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
-  await createSnapshot(novelId, doc, 'user_commit');
+  await createSnapshot(novelId, doc, 'pre_rewrite');
   const job = await submitJob({ novelId, type: 'rewrite', params: { snapshotBeforeId, chapterNos: items.map((i) => i.chapter.chapterNo) }, steps }, opts);
+  // 记下每一章改写前的正文与状态：产出先落「待采纳」，作者逐章取舍，
+  // 「撤销这次改写」就是全部回到这些基线（§2.2 第 1、4 条）。
+  await beginRewriteSession(items.map((i) => i.chapter.id), job.id);
   kick();
   return job.id;
 }
+
+/** 逐章采纳 / 丢弃改写结果。丢弃 = 撤销这一章的改写，回到改写前的正文与状态。 */
+export async function resolveChapterRewrite(chapterId: string, action: 'accept' | 'discard'): Promise<void> {
+  await resolveRewrite(chapterId, action);
+}
+/** 一键把整本书待采纳的改写全部采纳。 */
+export const acceptAllRewrites = (novelId: string): Promise<number> => resolveAllRewrites(novelId, 'accept');
+/** 一键撤销这次改写：所有待采纳的章节回到改写前的那一版。 */
+export const undoRewrite = (novelId: string): Promise<number> => resolveAllRewrites(novelId, 'discard');
 
 /** 拆书：从现有正文提取文风档案 + 人物言行规格 + 规矩（后台任务）。 */
 export async function startStyleExtraction(novelId: string, opts: StartOptions = {}): Promise<string> {

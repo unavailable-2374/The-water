@@ -11,6 +11,7 @@ import { guessSceneType } from '@/novel/styleMetrics';
 import type { SceneType } from '@the-water/shared';
 import type { LLMProvider } from '@/llm/types';
 import type { StepContext } from '../context';
+import { authorNoteOf, primeAuthorNote } from '@/llm/prompts/authorNote';
 
 export interface ChapterEnv {
   novel: Novel;
@@ -24,6 +25,8 @@ export interface ChapterEnv {
 export async function loadChapterEnv(ctx: StepContext): Promise<ChapterEnv> {
   const novel = await getNovel(ctx.job.novelId);
   if (!novel) throw new Error('小说不存在');
+  // 预热作者附加指令的同步缓存，供下面同步的 styleExtrasOf 取用。
+  await primeAuthorNote(novel.id);
   const chapterId = ctx.step.chapterId;
   if (!chapterId) throw new Error('步骤缺少章节');
   const chapter = await getChapter(chapterId);
@@ -37,7 +40,12 @@ export async function loadChapterEnv(ctx: StepContext): Promise<ChapterEnv> {
 
 /** Style profile / derivative declaration / source title for the prose system prompt. */
 export function styleExtrasOf(env: Pick<ChapterEnv, 'novel' | 'doc'>): StyleExtras {
-  return { profile: env.doc.styleProfile, derivative: env.doc.derivative, sourceTitle: env.novel.origin?.sourceTitle ?? null };
+  return {
+    profile: env.doc.styleProfile,
+    derivative: env.doc.derivative,
+    sourceTitle: env.novel.origin?.sourceTitle ?? null,
+    authorNote: authorNoteOf(env.novel.id),
+  };
 }
 
 /** Scene type for picking exemplars: opening/ending by position, otherwise guessed from the plan text. */

@@ -1,7 +1,9 @@
+import { t } from '@/i18n';
 import type { ReaderTheme } from '@/stores/readerStore';
 
 export interface ReaderThemeSpec {
   key: ReaderTheme;
+  /** 界面上显示的主题名 */
   label: string;
   /** 书页底色 */
   pageBg: string;
@@ -15,10 +17,14 @@ export interface ReaderThemeSpec {
   mutedColor: string;
 }
 
+/**
+ * 三套阅读主题。`label` 写成 getter：这张表是模块顶层常量，
+ * 直接把 `t.reader.themes.*` 拷进来的话，切语言后主题名不会跟着变。
+ */
 export const READER_THEMES: Record<ReaderTheme, ReaderThemeSpec> = {
   paper: {
     key: 'paper',
-    label: '纸',
+    get label() { return t.reader.themes.paper; },
     pageBg: '#ffffff',
     canvasFilter: 'none',
     stageBg: 'transparent',
@@ -27,7 +33,7 @@ export const READER_THEMES: Record<ReaderTheme, ReaderThemeSpec> = {
   },
   night: {
     key: 'night',
-    label: '夜',
+    get label() { return t.reader.themes.night; },
     pageBg: '#14161a',
     canvasFilter: 'invert(1) hue-rotate(180deg) brightness(0.92) contrast(1.05)',
     stageBg: '#0c0d10',
@@ -36,7 +42,7 @@ export const READER_THEMES: Record<ReaderTheme, ReaderThemeSpec> = {
   },
   eye: {
     key: 'eye',
-    label: '护眼',
+    get label() { return t.reader.themes.eye; },
     pageBg: '#f3e9d2',
     canvasFilter: 'sepia(0.35) saturate(0.92) brightness(0.99)',
     stageBg: '#e7dcc2',

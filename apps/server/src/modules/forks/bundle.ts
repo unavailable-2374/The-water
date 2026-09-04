@@ -4,6 +4,7 @@ import type { AppDeps } from '../../context';
 import { blobs, versionChapters } from '../../db/schema';
 import { ApiError, forbidden, notFound } from '../../lib/errors';
 import { iso, isoOrNull } from '../../lib/time';
+import { buildAttribution } from '../novels/attribution';
 import { authorOf, isPubliclyViewable, loadViewableNovel, type Viewer } from '../novels/service';
 import { resolveVersion } from '../versions/service';
 import { findFork } from './service';
@@ -76,5 +77,8 @@ export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer:
       depth: novel.depth,
     },
     fork,
+    // §3.7：机器可读署名块。二创拿到 bundle 就自带原作署名与许可全文链接，
+    // 导出成文件后也不会丢。
+    attribution: buildAttribution(deps, novel, version.versionNumber, viewer),
   };
 }

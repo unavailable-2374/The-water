@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { FeedResponseSchema } from '@the-water/shared';
+import { FeedResponseSchema, FoldedFeedResponseSchema } from '@the-water/shared';
 import { createNovel, makeChapters, makeTestApp, publish } from './helpers';
 
 /** 建一本已发布的小说，返回 id。 */
@@ -19,7 +19,8 @@ describe('feed', () => {
     t.clock.advance(1000);
     await t.json('PATCH', `/api/v1/novels/${id}`, { token: a, body: { writingStatus: 'completed' } });
 
-    const feed = await t.json('GET', '/api/v1/feed?scope=all');
+    // 折叠是默认行为，逐条动态要显式关掉（§3.4）。
+    const feed = await t.json('GET', '/api/v1/feed?scope=all&collapse=false');
     const page = FeedResponseSchema.parse(feed.body);
     expect(page.items.map((i) => i.kind)).toEqual(['novel_completed', 'version_published', 'novel_published']);
     const update = page.items[1]!;
@@ -31,7 +32,56 @@ describe('feed', () => {
     // 再次切到完结不会重复记。
     await t.json('PATCH', `/api/v1/novels/${id}`, { token: a, body: { writingStatus: 'ongoing' } });
     await t.json('PATCH', `/api/v1/novels/${id}`, { token: a, body: { writingStatus: 'completed' } });
-    expect((await t.json('GET', '/api/v1/feed?scope=all')).body.items.filter((i: any) => i.kind === 'novel_completed').length).toBe(1);
+    expect((await t.json('GET', '/api/v1/feed?scope=all&collapse=false')).body.items.filter((i: any) => i.kind === 'novel_completed').length).toBe(1);
+  });
+
+  it('folds one novel into a single item and counts what was folded (§3.4)', async () => {
+    const t = makeTestApp();
+    const { token: a } = await t.register('a@example.com');
+    const id = await publishNovel(t, a, '连更的书');
+    // 连发四个版本：不折叠是 5 条（首发 + 4 次更新），折叠后只剩 1 条。
+    for (let i = 0; i < 4; i++) {
+      t.clock.advance(1000);
+      await publish(t, a, id, await makeChapters(i + 2, i + 10), { changeNote: `第 ${i + 2} 章` });
+    }
+    t.clock.advance(1000);
+    const other = await publishNovel(t, a, '另一本', 99);
+    expect(other).toBeTruthy();
+
+    const raw = await t.json('GET', '/api/v1/feed?scope=all&collapse=false');
+    expect(raw.body.items.length).toBe(6);
+
+    const folded = await t.json('GET', '/api/v1/feed?scope=all');
+    const page = FoldedFeedResponseSchema.parse(folded.body);
+    expect(page.items.map((i) => i.novel.title)).toEqual(['另一本', '连更的书']);
+    expect(page.items[1]!.collapsedCount).toBe(5);
+    expect(page.items[0]!.collapsedCount).toBe(1);
+    // 代表条目是该组最新的一条。
+    expect(page.items[1]!.version?.versionNumber).toBe(5);
+  });
+
+  it('marks an item read once the reader syncs progress past it, and can filter to unread', async () => {
+    const t = makeTestApp();
+    const { token: a } = await t.register('a@example.com');
+    const { token: b } = await t.register('b@example.com');
+    const id = await publishNovel(t, a, '被读过的书');
+    t.clock.advance(1000);
+    const other = await publishNovel(t, a, '没读过的书', 7);
+
+    const before = FoldedFeedResponseSchema.parse((await t.json('GET', '/api/v1/feed?scope=all', { token: b })).body);
+    expect(before.items.every((i) => !i.read)).toBe(true);
+    // 匿名恒为未读。
+    const anon = FoldedFeedResponseSchema.parse((await t.json('GET', '/api/v1/feed?scope=all')).body);
+    expect(anon.items.every((i) => !i.read)).toBe(true);
+
+    t.clock.advance(1000);
+    await t.json('PUT', `/api/v1/novels/${id}/progress`, { token: b, body: { chapterIndex: 0, percent: 40 } });
+    const after = FoldedFeedResponseSchema.parse((await t.json('GET', '/api/v1/feed?scope=all', { token: b })).body);
+    expect(after.items.find((i) => i.novel.id === id)!.read).toBe(true);
+    expect(after.items.find((i) => i.novel.id === other)!.read).toBe(false);
+
+    const unread = FoldedFeedResponseSchema.parse((await t.json('GET', '/api/v1/feed?scope=all&unreadOnly=true', { token: b })).body);
+    expect(unread.items.map((i) => i.novel.id)).toEqual([other]);
   });
 
   it('marks a derivative and links back to its source', async () => {

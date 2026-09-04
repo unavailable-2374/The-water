@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { errorMessageOf, errorStackOf, formatErrorReport } from '@/components/errorReport';
+import { t } from '@/i18n';
 
 const at = new Date('2026-09-04T00:00:00.000Z');
 
@@ -16,8 +17,9 @@ describe('errorMessageOf', () => {
     expect(errorMessageOf('坏了')).toBe('坏了');
     expect(errorMessageOf({ message: '接口 500' })).toBe('接口 500');
     expect(errorMessageOf({ code: 7 })).toBe('{"code":7}');
-    expect(errorMessageOf(null)).toBe('未知错误');
-    expect(errorMessageOf(undefined)).toBe('未知错误');
+    // 兜底文案改成走词典（t.common.unknownError），这里跟着词典断言，别再写死字面量。
+    expect(errorMessageOf(null)).toBe(t.common.unknownError);
+    expect(errorMessageOf(undefined)).toBe(t.common.unknownError);
   });
 
   it('循环引用不会把自己搞崩', () => {

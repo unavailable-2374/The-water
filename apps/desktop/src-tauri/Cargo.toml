@@ -20,6 +20,20 @@ tauri-plugin-fs = "2.5"
 tauri-plugin-dialog = "2.7"
 tauri-plugin-http = "2.6"
 tauri-plugin-clipboard-manager = "2"
-keyring = { version = "3", features = ["apple-native"] }
+tauri-plugin-log = "2.9"
+tauri-plugin-os = "2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# 只有桌面平台有窗口、单实例与安装包更新这几件事。
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2.4"
+tauri-plugin-window-state = "2.4"
+tauri-plugin-updater = "2.11"
+tauri-plugin-process = "2.3"
+
+# v1 只发 macOS：密钥存储目前只有 apple-native 后端。
+# 其它平台不链接 keyring，secrets.rs 会走「本平台无密钥存储」的显式报错分支，
+# 而不是悄悄把 API Key 存到不安全的地方。详见 docs/RELEASE.md。
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { LIMITS } from '@the-water/shared';
-import { t } from '@/i18n/zh';
+import { t } from '@/i18n';
 import { Button, Spinner, Textarea } from '@/components/ui';
 
 interface Props {
+  /** 编辑既有留言时的初始正文。 */
+  initialBody?: string;
   placeholder?: string;
   submitLabel?: string;
   autoFocus?: boolean;
@@ -13,8 +15,8 @@ interface Props {
 }
 
 /** 留言输入框。提交成功（返回 true）才清空，失败时保留用户写的字。 */
-export function CommentComposer({ placeholder, submitLabel, autoFocus, onSubmit, onCancel, requireLogin }: Props) {
-  const [body, setBody] = useState('');
+export function CommentComposer({ initialBody, placeholder, submitLabel, autoFocus, onSubmit, onCancel, requireLogin }: Props) {
+  const [body, setBody] = useState(initialBody ?? '');
   const [busy, setBusy] = useState(false);
   const trimmed = body.trim();
 
@@ -22,7 +24,8 @@ export function CommentComposer({ placeholder, submitLabel, autoFocus, onSubmit,
     if (!requireLogin() || !trimmed) return;
     setBusy(true);
     try {
-      if (await onSubmit(trimmed)) setBody('');
+      // 编辑模式（带初始正文）成功后由父组件收起，不清空输入。
+      if (await onSubmit(trimmed) && initialBody === undefined) setBody('');
     } finally {
       setBusy(false);
     }
@@ -35,6 +38,7 @@ export function CommentComposer({ placeholder, submitLabel, autoFocus, onSubmit,
         autoFocus={autoFocus}
         value={body}
         maxLength={LIMITS.COMMENT_BODY_MAX}
+        aria-label={placeholder ?? t.community.commentPlaceholder}
         placeholder={placeholder ?? t.community.commentPlaceholder}
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {

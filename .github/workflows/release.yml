@@ -1,0 +1,110 @@
+name: Release
+
+# 打 v* 标签就发布一次桌面版：构建 → 签名 → 生成更新清单 latest.json → 传到 GitHub Release。
+# 私钥只存在仓库 secret 里，任何时候都不进仓库，见 docs/RELEASE.md。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的标签（形如 v0.2.0，必须已经存在）'
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 桌面版发布（macOS · universal）
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: 校验版本号与签名配置
+        id: check
+        env:
+          # 只把「有没有配」传进来，密钥本身不进 shell 脚本文本
+          SIGNING_KEY_PRESENT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' && 'yes' || '' }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          CONF_VERSION=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          PKG_VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          echo "标签 $TAG / tauri.conf.json $CONF_VERSION / package.json $PKG_VERSION"
+          if [ "$VERSION" != "$CONF_VERSION" ] || [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::版本号对不上：标签是 $VERSION，但 tauri.conf.json 是 $CONF_VERSION、package.json 是 $PKG_VERSION。发版前请先改这两个文件。"
+            exit 1
+          fi
+          PUBKEY=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').plugins?.updater?.pubkey || ''")
+          if [ -z "$PUBKEY" ]; then
+            echo "::error::tauri.conf.json 的 plugins.updater.pubkey 是空的，装出来的包无法校验更新签名。请按 docs/RELEASE.md 生成密钥对并把公钥填进去。"
+            exit 1
+          fi
+          if [ -z "${SIGNING_KEY_PRESENT}" ]; then
+            echo "::error::仓库缺少 secret TAURI_SIGNING_PRIVATE_KEY，无法给更新包签名。见 docs/RELEASE.md。"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: 安装依赖
+        run: bun install --frozen-lockfile
+
+      - name: 类型检查与测试
+        run: |
+          bun run typecheck
+          bun run test
+
+      - name: 构建、签名并发布
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 更新包签名。私钥只在这里以 secret 形式出现，绝不写进仓库。
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # 以下是 Apple 代码签名与公证，没配就产出未签名的包（用户首次打开要右键「打开」）。
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ steps.check.outputs.tag }}
+          releaseName: The Water ${{ steps.check.outputs.version }}
+          releaseBody: |
+            桌面版 ${{ steps.check.outputs.version }}（macOS，Apple Silicon 与 Intel 通用包）。
+
+            已装好的版本会自动检查更新；也可以在「设置 → 通用 → 关于」里点「检查更新」。
+
+            <!-- 发布前把这段换成本次的变更说明，它会显示在应用内的更新提示里。 -->
+          # 先发草稿：人工确认产物齐全（.dmg / .app.tar.gz / .app.tar.gz.sig / latest.json）后再手动 Publish。
+          # 只有 Publish 之后 releases/latest/download/latest.json 才会指向这一版。
+          releaseDraft: true
+          prerelease: false
+          # 生成并上传更新清单 latest.json，它就是 tauri.conf.json 里配的更新端点。
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: false
+          args: --target universal-apple-darwin
