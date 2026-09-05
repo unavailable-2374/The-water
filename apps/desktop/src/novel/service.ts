@@ -11,7 +11,7 @@ import { createNovel, getNovel, updateNovel, type Novel } from '@/db/repos/novel
 import { buildStorylineDoc, createSnapshot, getStyleExtras, setDerivative, setStyleProfile } from '@/db/repos/storylineRepo';
 import { beginRewriteSession, createVersion, listChapters, markStaleFrom, resolveAllRewrites, resolveRewrite, upsertChapterPlan } from '@/db/repos/chaptersRepo';
 import { saveBible } from '@/db/repos/bibleRepo';
-import { createJob, listJobs, type Job } from '@/db/repos/jobsRepo';
+import { BLOCKING_JOB_STATUSES, createJob, listJobs, type Job } from '@/db/repos/jobsRepo';
 import { getSetting, setSetting } from '@/db/repos/settingsRepo';
 import { assertBudget } from '@/db/repos/usageRepo';
 import type { NovelRequirements } from '@/novel/types';
@@ -49,7 +49,7 @@ export async function wantsStyleCheck(novelId: string): Promise<boolean> {
 }
 
 async function ensureNoActiveJob(novelId: string): Promise<void> {
-  const active = await listJobs({ novelId, statuses: ['queued', 'running', 'pausing', 'paused'] });
+  const active = await listJobs({ novelId, statuses: [...BLOCKING_JOB_STATUSES] });
   if (active.length) throw new Error('该小说已有进行中的任务，请先完成或取消');
 }
 

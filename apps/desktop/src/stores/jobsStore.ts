@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { listJobs, listSteps, type Job, type JobStep } from '@/db/repos/jobsRepo';
+import { isBlockingJob, listJobs, listSteps, type Job, type JobStep } from '@/db/repos/jobsRepo';
 import { onJobEvent } from '@/jobs/events';
 
 interface JobsState {
@@ -23,6 +23,15 @@ export const useJobs = create<JobsState>((set, get) => ({
 
 export const activeJobsForNovel = (jobs: Record<string, Job>, novelId: string) =>
   Object.values(jobs).filter((j) => j.novelId === novelId && !['completed', 'cancelled'].includes(j.status)).sort((a, b) => b.createdAt - a.createdAt);
+
+/**
+ * 挡住「再起一个任务」的那一个（判定与 service 的 ensureNoActiveJob 同源）。
+ * 界面拿它来禁用按钮；`activeJobsForNovel` 那个更宽的集合只用于展示流式文本。
+ */
+export const blockingJobForNovel = (jobs: Record<string, Job>, novelId: string): Job | null =>
+  Object.values(jobs)
+    .filter((j) => j.novelId === novelId && isBlockingJob(j.status))
+    .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
 
 let wired = false;
 export function wireJobsStore(): void {

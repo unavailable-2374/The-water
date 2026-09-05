@@ -82,6 +82,8 @@ export const studio: Locale['studio'] = {
     unfinalize: 'Unfinalize',
     unfinalized: 'No longer final',
     finalized: 'This chapter is final',
+    blockedByJob: 'A job on this book is {status}. Resume or cancel it in Jobs before editing this chapter by hand.',
+    blockedNoVersion: 'This chapter has no text yet — let the AI write it first.',
     styleCheckTitle: 'Review this chapter: style fit, characters slipping out of character, contradictions with the lore',
     styleCheckQueued: 'The AI will review this chapter shortly',
     regenerate: 'Let the AI rewrite this chapter',

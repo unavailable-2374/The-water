@@ -93,8 +93,18 @@ export function availableLocales(): ReadonlyArray<{ code: LocaleCode; nativeName
   return LOCALES.map((code) => ({ code, nativeName: LOCALE_META[code].nativeName }));
 }
 
-/** 把 `{name}` 这样的占位符替换掉。 */
+/**
+ * 把 `{name}` 这样的占位符替换掉。
+ *
+ * 类型上 `s` 必填，但动态取值（`t.jobs.type[job.type]`）在运行时可能落空 ——
+ * 本地库里的任务类型可能来自更新或更旧的版本。少一句文案不该白屏整个页面，
+ * 所以这里降级为空串并留一条 warn（会被 installDiagnostics 转发进日志文件）。
+ */
 export function fmt(s: string, vars: Record<string, string | number>): string {
+  if (typeof s !== 'string') {
+    console.warn('[i18n] fmt 收到缺失的文案，已降级为空串', { vars });
+    return '';
+  }
   return s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
 }
 

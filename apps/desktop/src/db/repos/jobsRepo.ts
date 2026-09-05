@@ -4,6 +4,17 @@ import { num, parseJsonLoose } from '../mappers';
 
 export type JobType = 'generate_novel' | 'regenerate_chapter' | 'rewrite' | 'extract_style' | 'style_check';
 export type JobStatus = 'queued' | 'running' | 'pausing' | 'paused' | 'cancelling' | 'cancelled' | 'failed' | 'completed';
+
+/**
+ * 「这本小说已有任务占着，不能再起新任务」的判定 —— 服务层与界面必须用同一份，
+ * 否则会出现按钮灰着但服务层其实肯收（failed 就是这样），用户只能干瞪眼。
+ * 注意 failed / cancelling 不在其中：失败的任务不该锁死整本书的手工操作。
+ */
+export const BLOCKING_JOB_STATUSES = ['queued', 'running', 'pausing', 'paused'] as const satisfies readonly JobStatus[];
+
+export function isBlockingJob(status: JobStatus): boolean {
+  return (BLOCKING_JOB_STATUSES as readonly JobStatus[]).includes(status);
+}
 export type StepKind = 'outline' | 'chapter_table' | 'write_chapter' | 'adjust_length' | 'summarize' | 'rewrite_chapter' | 'name_replace' | 'style_check' | 'extract_style';
 export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
 

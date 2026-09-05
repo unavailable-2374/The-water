@@ -62,3 +62,18 @@ describe('fmt', () => {
     expect(fmt('没有占位符', { a: 1 })).toBe('没有占位符');
   });
 });
+
+describe('fmt 对缺失文案的降级', () => {
+  it('文案缺失时返回空串而不是抛错', () => {
+    // 动态取值（t.jobs.type[job.type]）可能落空：本地库里的任务类型可能来自
+    // 更新或更旧的版本。少一句文案不该把整个工坊页炸成错误边界。
+    const missing = undefined as unknown as string;
+    expect(() => fmt(missing, { n: 1 })).not.toThrow();
+    expect(fmt(missing, { n: 1 })).toBe('');
+  });
+
+  it('正常文案不受影响', () => {
+    expect(fmt('已写 {n} 章', { n: 3 })).toBe('已写 3 章');
+    expect(fmt('缺 {miss} 值', {})).toBe('缺  值');
+  });
+});

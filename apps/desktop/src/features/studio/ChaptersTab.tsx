@@ -21,11 +21,12 @@ import { recordUserEdit } from '@/db/repos/feedbackRepo';
 import { lintText, type LintReport } from '@/novel/lint';
 import type { StyleProfile } from '@the-water/shared';
 import { kick } from '@/jobs/runner';
-import { activeJobsForNovel, useJobs } from '@/stores/jobsStore';
+import { activeJobsForNovel, blockingJobForNovel, useJobs } from '@/stores/jobsStore';
 import { getSetting, setSetting } from '@/db/repos/settingsRepo';
 import { FORMAT_LABEL, exportNovel, type ExportFormat } from '@/novel/export';
 import { diffText, sideOf, summarizeTextDiff, type DiffOp } from '@/novel/diff';
 import { AUTOSAVE_DEBOUNCE_MS, DEFAULT_KEEP_VERSIONS, SESSION_IDLE_MS, shouldSealSession } from '@/novel/versionPolicy';
+import { jobStatusLabel } from './JobsTab';
 
 /** 章节状态的圆点颜色；文案统一从 `t.studio` 现取，不在模块顶层拷贝。 */
 const STATUS_DOT: Record<Chapter['status'], string> = {
@@ -75,6 +76,9 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
   const jobs = useJobs((s) => s.jobs);
   const live = useJobs((s) => s.live);
   const active = activeJobsForNovel(jobs, novel.id)[0];
+  // 禁用按钮看的是「服务层会不会拒收新任务」，与流式展示用的 active 不是一回事：
+  // 失败的任务不该把整章工具栏锁死（服务层本来就肯收）。
+  const blocking = blockingJobForNovel(jobs, novel.id);
   const liveText = active ? live[active.id]?.text : undefined;
   const liveStepId = active ? live[active.id]?.stepId : undefined;
   const steps = useJobs((s) => (active ? s.steps[active.id] : undefined));
@@ -132,7 +136,7 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
       <section className="flex min-w-0 flex-col overflow-hidden">
         {pending.length > 0 && <PendingRewriteBar novel={novel} pending={pending} busy={!!active} onChanged={reload} onPick={setSelectedId} />}
         <div className="min-h-0 flex-1 overflow-hidden">
-          {selected ? <ChapterEditor key={selected.id} novel={novel} chapter={selected} liveText={liveChapterId === selected.id ? liveText : undefined} busy={!!active} onChanged={reload} /> : <EmptyState icon={<BookOpen size={40} strokeWidth={1.25} aria-hidden="true" />} title={t.studio.chaptersTab.pickChapter} description={t.studio.chaptersTab.pickChapterDesc} />}
+          {selected ? <ChapterEditor key={selected.id} novel={novel} chapter={selected} liveText={liveChapterId === selected.id ? liveText : undefined} busy={!!blocking} busyReason={blocking ? fmt(t.studio.chaptersTab.blockedByJob, { status: jobStatusLabel(blocking.status) }) : ''} onChanged={reload} /> : <EmptyState icon={<BookOpen size={40} strokeWidth={1.25} aria-hidden="true" />} title={t.studio.chaptersTab.pickChapter} description={t.studio.chaptersTab.pickChapterDesc} />}
         </div>
       </section>
       <ExportDialog novel={novel} chapters={chapters} open={exportOpen} onClose={() => setExportOpen(false)} />
@@ -361,7 +365,7 @@ function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapte
   );
 }
 
-function ChapterEditor({ novel, chapter, liveText, busy, onChanged }: { novel: Novel; chapter: Chapter; liveText?: string; busy: boolean; onChanged: () => Promise<void> }) {
+function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }: { novel: Novel; chapter: Chapter; liveText?: string; busy: boolean; busyReason: string; onChanged: () => Promise<void> }) {
   const [text, setText] = useState('');
   const [dirty, setDirty] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
@@ -504,6 +508,9 @@ function ChapterEditor({ novel, chapter, liveText, busy, onChanged }: { novel: N
   const ratio = chapter.targetChars ? Math.round((count / chapter.targetChars) * 100) : 0;
   const isFinal = chapter.status === 'final';
   const versionList = versions ?? [];
+  /** 按钮为什么点不动：有任务占着 > 这章还没写。灰着却不说理由，用户只会以为是坏了。 */
+  const whyDisabled = (needsVersion: boolean): string | undefined =>
+    busy ? busyReason : needsVersion && !version ? t.studio.chaptersTab.blockedNoVersion : undefined;
 
   return (
     <div className="flex h-full flex-col">
@@ -535,14 +542,15 @@ function ChapterEditor({ novel, chapter, liveText, busy, onChanged }: { novel: N
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={t.studio.expand} aria-label={t.studio.expand} onClick={() => adjust('expand')}><Maximize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
-          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={t.studio.trim} aria-label={t.studio.trim} onClick={() => adjust('trim')}><Minimize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.expand} aria-label={t.studio.expand} onClick={() => adjust('expand')}><Maximize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.trim} aria-label={t.studio.trim} onClick={() => adjust('trim')}><Minimize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
           <Button size="sm" variant="ghost" className={cn('px-2', isFinal && 'text-tea-700 dark:text-tea-200')} disabled={!version} title={isFinal ? t.studio.chaptersTab.unfinalize : t.studio.finalize} aria-label={isFinal ? t.studio.chaptersTab.unfinalize : t.studio.finalize} onClick={() => act(() => setChapterStatus(chapter.id, isFinal ? 'draft' : 'final', []), isFinal ? t.studio.chaptersTab.unfinalized : t.studio.chaptersTab.finalized)}><CheckCircle2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
           <Button size="sm" variant="ghost" className={cn('px-2', showVersions && 'bg-paper-200/70 text-ink-900 dark:bg-paper-800')} title={t.studio.versions} aria-label={t.studio.versions} aria-pressed={showVersions} onClick={() => setShowVersions((v) => !v)}><History size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
-          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={t.studio.chaptersTab.styleCheckTitle} aria-label={t.studio.chaptersTab.styleCheckTitle} onClick={() => act(() => startStyleCheck(novel.id, chapter.chapterNo), t.studio.chaptersTab.styleCheckQueued)}><ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
-          <Button size="sm" variant="ai" className="ml-2" disabled={busy} onClick={() => act(() => regenerateChapter(novel.id, chapter.chapterNo), t.studio.chaptersTab.regenerateQueued)}><Sparkles size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.regenerate}</Button>
+          <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.chaptersTab.styleCheckTitle} aria-label={t.studio.chaptersTab.styleCheckTitle} onClick={() => act(() => startStyleCheck(novel.id, chapter.chapterNo), t.studio.chaptersTab.styleCheckQueued)}><ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ai" className="ml-2" disabled={busy} title={whyDisabled(false)} onClick={() => act(() => regenerateChapter(novel.id, chapter.chapterNo), t.studio.chaptersTab.regenerateQueued)}><Sparkles size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.regenerate}</Button>
         </div>
       </div>
+      {busy && <div role="status" className="mx-8 mb-2 rounded-xl bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">{busyReason}</div>}
       {chapter.status === 'stale' && chapter.staleReasons.length > 0 && <div role="status" className="mx-8 mb-2 rounded-xl bg-cinnabar-50 px-4 py-2 text-xs leading-relaxed text-cinnabar-700 dark:bg-cinnabar-700/20 dark:text-cinnabar-100">{fmt(t.studio.chaptersTab.staleNotice, { reasons: chapter.staleReasons.join('；') })}</div>}
       {chapter.goal && <div className="mx-8 mb-3 text-xs leading-relaxed text-ink-400">{fmt(t.studio.chaptersTab.chapterGoal, { goal: chapter.goal })}</div>}
       {showLint && lint && (
