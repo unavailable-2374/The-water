@@ -59,7 +59,8 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
       chapterNo: chapter.chapterNo, chapterText: text, profile, characters: doc.characters, derivative: doc.derivative,
       sourceTitle: novel.origin?.sourceTitle ?? null, canonFacts, metricHints: [...metricHints, ...lintHints], qcReminders,
     });
-    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    // 审校结论是 JSON，不走正文预览通道（见 summarizeStep 的说明）。
+    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
     await ctx.recordUsage(r.usage, { purpose: 'styleReview' });
     llm = r.value;
   }
@@ -81,7 +82,7 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
       const spec = consistencyReviewPrompt(cInput);
       // 设定校对是独立职能，允许配一个更便宜的模型（§2.1 第 2 条）。
       const checker = await ctx.providerFor('consistency');
-      const r = await requestJson(checker, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+      const r = await requestJson(checker, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
       await ctx.recordUsage(r.usage, { purpose: 'consistency', provider: checker });
       consistency = r.value;
     }

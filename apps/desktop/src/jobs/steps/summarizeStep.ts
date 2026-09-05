@@ -21,7 +21,9 @@ export const summarizeStep: StepHandler = async (ctx) => {
 
   ctx.setMessage(`正在总结第 ${chapter.chapterNo} 章并更新故事圣经`);
   const spec = summarizePrompt({ chapterNo: chapter.chapterNo, chapterText: version.content, bibleBefore: bible, doc });
-  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+  // 不推 onDelta：那条通道的语义是「正在写的章节正文」，编辑器会原样显示。
+  // 总结输出的是 JSON，推上去会让读者在正文区看到一坨 {"summary":...}。进度靠上面的 setMessage。
+  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
   await ctx.recordUsage(r.usage);
   const next = applyBibleDelta(bible, r.value.bibleDelta, chapter.chapterNo, doc, arcIdForChapter(doc, chapter.chapterNo));
   await updateVersionSummary(version.id, r.value.summary);

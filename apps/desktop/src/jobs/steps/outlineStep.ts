@@ -17,7 +17,7 @@ export const outlineStep: StepHandler = async (ctx) => {
   ctx.setMessage('AI 正在构思大纲');
   const chapterCount = planChapterCount(novel.targetChars);
   const spec = outlinePrompt({ premise: novel.premise, requirements: novel.requirements, targetChars: novel.targetChars, chapterCount });
-  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+  const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
   await ctx.recordUsage(r.usage);
   await applyOutline(novel.id, r.value);
   return { outputRef: null };

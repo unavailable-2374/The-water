@@ -63,7 +63,7 @@ export const extractStyleStep: StepHandler = async (ctx) => {
   for (const [i, b] of batches.slice(0, MAX_BATCHES).entries()) {
     ctx.setMessage(`正在拆书（第 ${i + 1}/${Math.min(batches.length, MAX_BATCHES)} 批：第 ${b.map((x) => x.chapterNo).join('、')} 章）`);
     const spec = styleExtractPrompt({ title: novel.origin?.sourceTitle ?? novel.title, excerpts: b, knownCharacterNames: known, metricsHint });
-    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
     await ctx.recordUsage(r.usage);
     results.push(r.value);
   }

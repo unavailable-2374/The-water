@@ -68,7 +68,7 @@ export const chapterTableStep: StepHandler = async (ctx) => {
       batchTotalChars: perChapter * count, minChars: Math.max(800, Math.round(perChapter * 0.6)),
       maxChars: Math.round(perChapter * 1.5), previousEntries: table.slice(-3),
     });
-    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate, onDelta: (_d, acc) => ctx.onDelta(acc) });
+    const r = await requestJson(ctx.provider, { ...spec, schema: spec.schema! }, { signal: ctx.signal, gate: ctx.gate });
     await ctx.recordUsage(r.usage);
     table.push(...normalizeBatchEntries(r.value, from, to, perChapter));
     // 跑完一批立刻落盘：下次恢复从这里接着来，不重复计费。

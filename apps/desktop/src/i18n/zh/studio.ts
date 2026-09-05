@@ -80,7 +80,7 @@ export const studio = {
     unfinalize: '取消定稿',
     unfinalized: '已取消定稿',
     finalized: '这一章定稿了',
-    blockedByJob: '这本书有任务{status}，先在「任务」里继续或取消，才能手动改这一章。',
+    blockedByJob: '这本书正有任务在跑（{status}），先去「任务」里等它跑完、继续或取消，才能手动改这一章。',
     blockedNoVersion: '这一章还没有正文，先让 AI 写出来。',
     styleCheckTitle: '审校这一章：文风贴合度、人物是否出戏、与设定是否矛盾',
     styleCheckQueued: 'AI 稍后会来审校这一章',

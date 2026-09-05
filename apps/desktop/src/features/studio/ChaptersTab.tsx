@@ -12,7 +12,7 @@ import {
   resolveRewrite, restoreVersion, saveSessionEdit, sealChapterSessions, sealVersionSession, setChapterStatus, setVersionPinned,
   type Chapter, type ChapterVersion, type PendingRewrite,
 } from '@/db/repos/chaptersRepo';
-import { createJob } from '@/db/repos/jobsRepo';
+import { isProseStep, createJob } from '@/db/repos/jobsRepo';
 import { regenerateChapter, startGeneration, startStyleCheck } from '@/novel/service';
 import { latestReviewForChapter, type ChapterReview } from '@/db/repos/reviewsRepo';
 import { mergedGenreOf } from '@/novel/genrePacks';
@@ -82,7 +82,11 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
   const liveText = active ? live[active.id]?.text : undefined;
   const liveStepId = active ? live[active.id]?.stepId : undefined;
   const steps = useJobs((s) => (active ? s.steps[active.id] : undefined));
-  const liveChapterId = useMemo(() => steps?.find((s) => s.id === liveStepId)?.chapterId ?? null, [steps, liveStepId]);
+  // 只有输出正文的步骤才驱动编辑器预览；JSON 类步骤即使带着 chapterId 也不显示。
+  const liveChapterId = useMemo(() => {
+    const st = steps?.find((x) => x.id === liveStepId);
+    return st && isProseStep(st.kind) ? (st.chapterId ?? null) : null;
+  }, [steps, liveStepId]);
   useEffect(() => { if (active && !steps) void useJobs.getState().loadSteps(active.id); }, [active?.id, steps]);
 
   const { data, reload: reloadList } = useAsyncData<ChapterListData>(async () => {

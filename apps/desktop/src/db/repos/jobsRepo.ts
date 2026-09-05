@@ -16,6 +16,17 @@ export function isBlockingJob(status: JobStatus): boolean {
   return (BLOCKING_JOB_STATUSES as readonly JobStatus[]).includes(status);
 }
 export type StepKind = 'outline' | 'chapter_table' | 'write_chapter' | 'adjust_length' | 'summarize' | 'rewrite_chapter' | 'name_replace' | 'style_check' | 'extract_style';
+/**
+ * 流式输出就是「章节正文」的步骤。只有这些步骤的 delta 该显示在章节编辑器里。
+ * 总结 / 风格审校 / 设定校对 / 大纲 / 章节表 / 拆书输出的是 JSON，
+ * 曾经也往同一条通道推，结果读者在正文区看到一坨 {"summary":...}。
+ */
+export const PROSE_STEP_KINDS = ['write_chapter', 'rewrite_chapter', 'adjust_length', 'style_check'] as const satisfies readonly StepKind[];
+
+export function isProseStep(kind: StepKind): boolean {
+  return (PROSE_STEP_KINDS as readonly StepKind[]).includes(kind);
+}
+
 export type StepStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped';
 
 export interface JobProgress { done: number; total: number; currentStepId: string | null; charsSoFar: number; message: string }
