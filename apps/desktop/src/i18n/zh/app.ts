@@ -17,7 +17,7 @@ export const nav = {
 export const common = {
   save: '保存', cancel: '取消', delete: '删除', confirm: '确认', close: '关闭', edit: '编辑', add: '添加', back: '返回',
   loading: '加载中…', empty: '暂无内容', retry: '重试', copy: '复制', copied: '已复制', search: '搜索', yes: '是', no: '否',
-  chars: '字', pages: '页', unknownError: '发生未知错误', confirmDelete: '确定要删除吗？此操作不可撤销。',
+  unknownError: '发生未知错误', confirmDelete: '确定要删除吗？此操作不可撤销。',
   loadMore: '加载更多', more: '再看一些', reachedEnd: '— 已经翻到底了 —', trash: '回收站',
   untitledNovel: '未命名故事', untitledDoc: '未命名文档', untitled: '未命名',
   /** 启动时从环境变量里认出的供应商，会以这个名字落库。 */

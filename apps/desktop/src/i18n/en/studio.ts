@@ -10,7 +10,7 @@ export const studio: Locale['studio'] = {
   storyline: 'Storyline', chapters: 'Chapters', jobs: 'Jobs', characters: 'Characters', settings: 'Lore', arcs: 'Arcs', beats: 'Beats', chapterPlans: 'Chapter plans',
   pause: 'Pause', resume: 'Resume', expand: 'Expand', trim: 'Trim', finalize: 'Finalize',
   versions: 'Version history', restore: 'Restore this version', stale: 'Stale', planned: 'Planned', generating: 'Writing', draft: 'Draft', final: 'Final',
-  rewrite: 'Start rewriting', target: 'Target',
+  target: 'Target',
   jobsEmptyTitle: 'Nothing has happened yet',
   jobsEmptyDesc: 'Once the AI starts writing, every step it takes is noted here.',
   unnamed: '(Untitled)',

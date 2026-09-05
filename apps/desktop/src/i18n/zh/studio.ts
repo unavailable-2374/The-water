@@ -8,7 +8,7 @@ export const studio = {
   storyline: '故事线', chapters: '章节', jobs: '任务', characters: '人物', settings: '设定', arcs: '故事弧', beats: '情节点', chapterPlans: '章节计划',
   pause: '暂停', resume: '继续', expand: '扩写', trim: '精简', finalize: '定稿',
   versions: '版本历史', restore: '恢复此版本', stale: '过期', planned: '计划', generating: '生成中', draft: '草稿', final: '定稿',
-  rewrite: '开始改写', target: '目标',
+  target: '目标',
   jobsEmptyTitle: '还没有进展',
   jobsEmptyDesc: '让 AI 开始写作后，它每一步做了什么都会记在这里。',
   unnamed: '（未命名）',

@@ -19,7 +19,7 @@ export const nav: Locale['nav'] = {
 export const common: Locale['common'] = {
   save: 'Save', cancel: 'Cancel', delete: 'Delete', confirm: 'Confirm', close: 'Close', edit: 'Edit', add: 'Add', back: 'Back',
   loading: 'Loading…', empty: 'Nothing here yet', retry: 'Retry', copy: 'Copy', copied: 'Copied', search: 'Search', yes: 'Yes', no: 'No',
-  chars: 'words', pages: 'pages', unknownError: 'Something went wrong', confirmDelete: 'Delete this? It cannot be undone.',
+  unknownError: 'Something went wrong', confirmDelete: 'Delete this? It cannot be undone.',
   loadMore: 'Load more', more: 'Show more', reachedEnd: '— That is everything —', trash: 'Trash',
   untitledNovel: 'Untitled story', untitledDoc: 'Untitled document', untitled: 'Untitled',
   /** 启动时从环境变量里认出的供应商，会以这个名字落库。 */

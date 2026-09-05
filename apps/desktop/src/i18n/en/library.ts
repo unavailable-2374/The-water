@@ -2,7 +2,7 @@
 import type { Locale } from '../shape';
 
 export const library: Locale['library'] = {
-  novels: 'Stories', newNovel: 'New story', importText: 'Import text',
+  newNovel: 'New story', importText: 'Import text',
   lastRead: 'Last read on page {page}',
   importing: 'Importing…', duplicate: 'This file has already been imported',
 

@@ -7,7 +7,7 @@ export const onboarding = {
   keyFor: '在「{name}」的控制台创建一个密钥，复制粘贴到下面。',
   testHint: '会真的发一次很短的请求来验证，花费通常不到一分钱。',
   testRunning: '正在验证…', testOk: '连接成功，可以开始了。', testFail: '连接失败',
-  testRun: '开始测试', testRetry: '再试一次',
+  testRetry: '再试一次',
   doneTitle: '接上了，接下来做点什么？',
   doneImport: '导入一本 PDF', doneImportDesc: '把手边的书拖进来，边读边问 AI。',
   doneNovel: '写第一本小说', doneNovelDesc: '给一句故事前提，AI 陪你把它写成书。',

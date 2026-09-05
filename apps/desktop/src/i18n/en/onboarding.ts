@@ -9,7 +9,7 @@ export const onboarding: Locale['onboarding'] = {
   keyFor: 'Create a key in the “{name}” console, then paste it below.',
   testHint: 'We send one very short real request to check it. It usually costs less than a cent.',
   testRunning: 'Checking…', testOk: 'Connected. You are all set.', testFail: 'Connection failed',
-  testRun: 'Run the test', testRetry: 'Try again',
+  testRetry: 'Try again',
   doneTitle: 'Connected. What next?',
   doneImport: 'Import a PDF', doneImportDesc: 'Drag in a book you have on hand and ask AI as you read.',
   doneNovel: 'Write your first story', doneNovelDesc: 'Give it one line of premise and AI will write the book with you.',

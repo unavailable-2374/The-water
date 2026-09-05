@@ -1,6 +1,6 @@
 /** 书架（文档 / 小说两个 tab）与回收站。 */
 export const library = {
-  novels: '小说', newNovel: '新建小说', importText: '导入文本',
+  newNovel: '新建小说', importText: '导入文本',
   lastRead: '上次阅读到第 {page} 页',
   importing: '正在导入…', duplicate: '该文件已经导入过了',
 
