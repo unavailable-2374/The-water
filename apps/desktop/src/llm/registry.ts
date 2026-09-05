@@ -1,5 +1,6 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { createProvider } from './factory';
+import { detachAbortAfterHeaders } from './timeout';
 import type { FetchLike, LLMProvider, ProviderConfig } from './types';
 import { getDefaultProvider, getProvider, listProviders } from '@/db/repos/providersRepo';
 import { secrets } from '@/secrets/keychain';
@@ -7,9 +8,11 @@ import { getSetting } from '@/db/repos/settingsRepo';
 
 export type ProviderPurpose = 'chat' | 'writing' | 'planning';
 
-let fetchImpl: FetchLike = tauriFetch as unknown as FetchLike;
+// 见 detachAbortAfterHeaders 的注释：不包一层的话，每次成功的 AI 调用都会弹
+// 一条「The resource id N is invalid」。
+let fetchImpl: FetchLike = detachAbortAfterHeaders(tauriFetch as unknown as FetchLike);
 export function setFetchImpl(f: FetchLike): void {
-  fetchImpl = f;
+  fetchImpl = detachAbortAfterHeaders(f);
 }
 
 const cache = new Map<string, { updatedAt: number; provider: LLMProvider }>();

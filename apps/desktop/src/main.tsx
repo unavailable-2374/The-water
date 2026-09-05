@@ -18,8 +18,21 @@ initLocale();
 // 「导出诊断包」才有内容可带。要赶在任何业务模块可能报错之前装上，幂等。
 installDiagnostics();
 
-window.addEventListener('error', (e) => { console.error(e.error ?? e.message); toast.error(fmt(t.error.runtimeError, { message: e.message })); });
-window.addEventListener('unhandledrejection', (e) => { const r = e.reason; console.error(r); toast.error(fmt(t.error.unhandledError, { message: r instanceof Error ? r.message : String(r) })); });
+/** 只有消息没有堆栈的错误在诊断包里没法定位，这里统一带上来源。 */
+function describeForLog(v: unknown, where: string): string {
+  if (v instanceof Error) return `[${where}] ${v.name}: ${v.message}\n${v.stack ?? '(无堆栈)'}`;
+  return `[${where}] ${String(v)}`;
+}
+
+window.addEventListener('error', (e) => {
+  console.error(describeForLog(e.error ?? e.message, `window.error ${e.filename}:${e.lineno}:${e.colno}`));
+  toast.error(fmt(t.error.runtimeError, { message: e.message }));
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const r = e.reason;
+  console.error(describeForLog(r, 'unhandledrejection'));
+  toast.error(fmt(t.error.unhandledError, { message: r instanceof Error ? r.message : String(r) }));
+});
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(<div className="flex h-full items-center justify-center text-sm text-ink-400 font-serif">{t.app.starting}</div>);

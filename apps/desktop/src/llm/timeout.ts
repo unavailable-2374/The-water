@@ -223,3 +223,34 @@ export async function fetchWithTimeout(
     timer.dispose(false);
   }
 }
+
+/**
+ * 把 abort 的转发在「响应头到达」时切断。
+ *
+ * 为什么需要：`@tauri-apps/plugin-http` 的 fetch 内部给 signal 挂了一个永不移除的
+ * 监听器，abort 时会 `invoke('plugin:http|fetch_cancel', { rid })`，用的是**请求** rid ——
+ * 而那个 rid 在 `fetch_send` 时就已经被消费掉了。于是响应头一到之后的任何 abort，
+ * 都会对一个已释放的资源发取消，Rust 回 `The resource id N is invalid`；
+ * 插件那句是 `void abort()`，没人 catch，最后变成弹给用户的「未处理的错误」。
+ *
+ * 我们的超时器在请求正常结束时也会 dispose→abort，所以**每一次成功的 AI 调用**
+ * 都会弹一次。切断转发即可根治，且不损失取消能力：真正的中途取消走的是
+ * ReadableStream 的 `cancel()`（插件在那里 `dropBody()`），`guardedIteration`
+ * 的 finally 已经通过 `it.return()` 触发它。
+ */
+export function detachAbortAfterHeaders(impl: FetchLike): FetchLike {
+  return async (url, init = {}) => {
+    const outer = init.signal ?? null;
+    const inner = new AbortController();
+    const forward = () => inner.abort();
+    if (outer) {
+      if (outer.aborted) inner.abort();
+      else outer.addEventListener('abort', forward);
+    }
+    try {
+      return await impl(url, { ...init, signal: inner.signal });
+    } finally {
+      outer?.removeEventListener('abort', forward);
+    }
+  };
+}

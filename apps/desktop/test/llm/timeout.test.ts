@@ -3,7 +3,7 @@ import { AnthropicProvider } from '@/llm/anthropic';
 import { OpenAICompatibleProvider } from '@/llm/openaiCompatible';
 import { completeWithRetry } from '@/llm/complete';
 import { RateGate } from '@/llm/retry';
-import { fetchWithTimeout, isTimeoutError, resolveTimeouts } from '@/llm/timeout';
+import { detachAbortAfterHeaders, fetchWithTimeout, isTimeoutError, resolveTimeouts } from '@/llm/timeout';
 import { DEFAULT_FIRST_BYTE_TIMEOUT_MS, DEFAULT_IDLE_TIMEOUT_MS } from '@/llm/config';
 import { LLMError, type FetchLike } from '@/llm/types';
 import { collect, fakeFetch, makeConfig, sseBody } from './helpers';
@@ -179,5 +179,59 @@ describe('fetchWithTimeout（非流式整体超时）', () => {
     const ok: FetchLike = async () => new Response('hi', { status: 200 });
     const res = await fetchWithTimeout(ok, 'https://x/y', {}, 5000);
     expect(await res.text()).toBe('hi');
+  });
+});
+
+describe('detachAbortAfterHeaders', () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it('响应头到达后，外层 abort 不再传给底层 fetch', async () => {
+    let seen: AbortSignal | undefined;
+    const impl = async (_u: string, init: RequestInit = {}) => {
+      seen = init.signal ?? undefined;
+      return new Response('ok');
+    };
+    const outer = new AbortController();
+    const wrapped = detachAbortAfterHeaders(impl as never);
+    await wrapped('http://x', { signal: outer.signal });
+
+    // 这一步在真机上会让 plugin-http 对已释放的请求 rid 发 fetch_cancel，
+    // 抛出「The resource id N is invalid」且没人 catch。
+    outer.abort();
+    await flush();
+    expect(seen).toBeDefined();
+    expect(seen!.aborted).toBe(false);
+  });
+
+  it('响应头到达前的 abort 仍然透传', async () => {
+    let seen: AbortSignal | undefined;
+    const impl = (_u: string, init: RequestInit = {}) =>
+      new Promise<Response>((resolve) => {
+        seen = init.signal ?? undefined;
+        seen!.addEventListener('abort', () => resolve(new Response('aborted')));
+      });
+    const outer = new AbortController();
+    const wrapped = detachAbortAfterHeaders(impl as never);
+    const p = wrapped('http://x', { signal: outer.signal });
+    outer.abort();
+    await p;
+    expect(seen!.aborted).toBe(true);
+  });
+
+  it('外层已经 abort 时立即透传', async () => {
+    let seen: AbortSignal | undefined;
+    const impl = async (_u: string, init: RequestInit = {}) => {
+      seen = init.signal ?? undefined;
+      return new Response('ok');
+    };
+    const outer = new AbortController();
+    outer.abort();
+    await detachAbortAfterHeaders(impl as never)('http://x', { signal: outer.signal });
+    expect(seen!.aborted).toBe(true);
+  });
+
+  it('没有外层 signal 时照常工作', async () => {
+    const wrapped = detachAbortAfterHeaders((async () => new Response('ok')) as never);
+    expect(await (await wrapped('http://x', {})).text()).toBe('ok');
   });
 });
