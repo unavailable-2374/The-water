@@ -1,0 +1,140 @@
+{
+  "label": "Observed implementation verification. TEST / SIMULATED fixtures are not literary-quality evidence.",
+  "recordedAt": "2026-10-10T14:04:47.060561+00:00",
+  "head": "dfd9f5837ef464a0ab2cd90fbf34a12cfaa55190",
+  "existingUncommittedWorkPreserved": true,
+  "sourceSha256": {
+    "packages/shared/src/storyOptions.ts": "929f6036eccbd245b76ed3ba3eca2aaad1259ea9017199b0bf134c70e5f760e2",
+    "packages/shared/src/assistant.ts": "f00c327f3b7c36dd28f21d29ff3d481b31e76da54e20a13dd15a1d52ecf7d94b",
+    "packages/shared/src/index.ts": "6f323eecb1487edc78f6ad145098c52ad9a7d5ddcda39e0011e580f2b785ab45",
+    "apps/desktop/src-tauri/migrations/0013_story_options.sql": "5cd75a4fe7b2eae78dc05bab01b615b254fcc2bd3cc5b0806439c4988b67b565",
+    "apps/desktop/src-tauri/src/lib.rs": "66c7ae3121114b1c4daf5cac4b65e5c770950ae5338dcd1ec26d96b354b5cab7",
+    "apps/desktop/src/db/repos/storyOptionsRepo.ts": "2220c3e204af0d141ef285f4f1d34979235de932f5435d5477b9d1bbbaba0934",
+    "apps/desktop/src/db/repos/planProposalsRepo.ts": "60ef29321281e562b7a3b68327260f004c6b58f301611111d43ffc7591119546",
+    "apps/desktop/src/db/repos/writingRepo.ts": "c91befedda556909fb46194e8195ee8c82dc3bf194a316ec97784505ca321075",
+    "apps/desktop/src/db/backup.ts": "0c54669603439b0449ec18eae3b4f48a12fee398e4b894aeeb92655fe293d859",
+    "apps/desktop/src/novel/storyOptions.ts": "b61542a5807368fc5107719208887cabf6421731e866ddebd0aef989df5c2a92",
+    "apps/desktop/src/novel/storyOptionAdoption.ts": "8f4e92f80b8e9f5fedf65484baa8ab88e98888204de0936b8d68c78d8a1b8f91",
+    "apps/desktop/src/novel/bindWizardOptions.ts": "497deb989fd090a4b3080a1d0a22918dd3b2b2f8af818e372df517d51b797b43",
+    "apps/desktop/src/novel/wizardDraft.ts": "9412340280b8755aefddbffdbfa6b97f2e62a8a98901cd1f7611fa86e754abd4",
+    "apps/desktop/src/novel/service.ts": "68241b2c547d43503b8c4102e78dab0c2b538baf1850dac71ca33b84580f4960",
+    "apps/desktop/src/novel/assistant.ts": "66429cb0c646cba5a048ddaaba672b7f99b3f3fd935bc812dff2cf37edd158ab",
+    "apps/desktop/src/novel/storyIntelligence.ts": "b3de1672ac7be24d624b1c611006273e25ea28462ca51fb1b82881d3bd70361a",
+    "apps/desktop/src/jobs/runner.ts": "85b5b215624b166260538329b7302ba9ed243a628f0a030663c5730de88dedee",
+    "apps/desktop/src/app/bootstrap.ts": "b56c29269b086ca005b593f2133fa563b9afb580013e16d97d02bd84d0a2d074",
+    "apps/desktop/src/assistant/catalog.ts": "b62dcc60a83bfcac64e4e3cfe490e8c477b73361080c7b7795aed6d571054ab0",
+    "apps/desktop/src/assistant/operations.ts": "abdd778230e6ea0f7a3566c6f2f3dcac3e5635baa42e5a3a876d5263f075139a",
+    "apps/desktop/src/assistant/repository.ts": "04e0d4e6e6954e6109f71396641347a3858baeeb3e51c44ae5482ef3c6608112",
+    "apps/desktop/src/assistant/runtime.ts": "9b647e870e5da80d41e684e247e84847017e46c8a6b18e929080c0bd8b1788ca",
+    "apps/desktop/src/assistant/AssistantPanel.tsx": "b2ed1f195cb2966a4bdd7599f97a16d88bbb7c2b6de607cad76d5ff0292135ca",
+    "apps/desktop/src/features/studio/StoryOptionsPanel.tsx": "aa79334c2d81387070e41395d07491543fb297a7f6d3003e8d8d0a5eb316430b",
+    "apps/desktop/src/features/studio/wizard/CreateWizard.tsx": "74718fdb8e22c6eebc1dcd842dd811d7d76d71b78e72452955ade14286b4dc1f",
+    "apps/desktop/src/features/studio/PlanningTab.tsx": "0939c33261638c3012e71355a9b3301849186b835d3da18caae508ea8195b969",
+    "apps/desktop/src/features/studio/ChaptersTab.tsx": "7f14fb72337fc05c619659bf0d7c2ef9dbb3dfadc3641d71d91671fdad306522",
+    "apps/desktop/src/features/studio/StoryWorkspace.tsx": "94ba5884274b907818c094fca804504fbebf3e6aaa921b1a2df802082cd24dd3",
+    "apps/desktop/src/features/studio/PlanReview.tsx": "7a41ff613f07fd47416c9af097d50b35f0461070b577131a8d8360d646c017a6",
+    "apps/desktop/src/i18n/en/storyOptions.ts": "3501328bbe6b4dab9ce50432d69ef6c6a82bec7c1c89c9bb8e60a9bd4b3442f1",
+    "apps/desktop/src/i18n/zh/storyOptions.ts": "f6104c39f69d832c349db6265d19f735aa87d440796b61fe3d92aa757dfb8c4e",
+    "apps/desktop/test/writing/storyOptions.test.ts": "45780f37ca55088f6b21b78d0d6190fe5a88068cef1f41a8bbe8df3d4d143557",
+    "apps/desktop/test/db/storyOptionsMigration.test.ts": "22ac2a6050cbe422bd96c671452420ec18e79d26e2521ebaef8c8eaf5f62cf94",
+    "apps/desktop/test/evaluation/realStoryOptions.test.ts": "48c1b98789090b34bac1fe830c71bcd374b01b298bf5d8e8228b7cb74ae4c65e",
+    "apps/desktop/test/helpers/testDb.ts": "f00c1813ea702a3a14c6ede472e32de12ec744ee622eb1a78da3768e995962cd"
+  },
+  "checks": [
+    {
+      "command": "bun run typecheck",
+      "exitCode": 0,
+      "workspaces": [
+        "llm",
+        "shared",
+        "server",
+        "desktop"
+      ]
+    },
+    {
+      "command": "bun run test",
+      "exitCode": 0,
+      "shared": {
+        "passed": 38
+      },
+      "server": {
+        "passed": 260,
+        "skipped": 2
+      },
+      "desktop": {
+        "passed": 1010,
+        "skipped": 8
+      }
+    },
+    {
+      "command": "bun run --filter desktop build",
+      "exitCode": 0,
+      "alsoRunByTauri": true
+    },
+    {
+      "command": "bun run --filter desktop tauri build --debug --bundles app --no-sign --config TEST-isolated-bundle",
+      "exitCode": 0,
+      "bundleId": "com.thewater.teststoryoptions20261010",
+      "signed": false
+    },
+    {
+      "command": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "exitCode": 0
+    },
+    {
+      "command": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib",
+      "exitCode": 0,
+      "passed": 8
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "nativeUi": {
+    "fixture": "TEST / SIMULATED card data, no model quality claim",
+    "languages": [
+      "zh",
+      "en"
+    ],
+    "checked": [
+      "wizard four steps",
+      "explicit skip after actual provider error",
+      "restart retains draft and batch",
+      "four-card layout",
+      "retain and choose separate",
+      "details keyboard Return and Tab",
+      "narrow window about 960 logical pixels"
+    ],
+    "finalNativeStartup": {
+      "migrationVersion": 13,
+      "newSelectionColumns": [
+        "generated_json",
+        "before_decisions"
+      ],
+      "foreignKeyViolations": 0
+    },
+    "developmentFailure": "Earlier TEST database rejected edited development migration 13; disposable TEST database recreated, no migration checksum bypass."
+  },
+  "realModel": {
+    "record": "story-options-real-20261010-reviewed.json",
+    "pipeline": "passed",
+    "framework": "TEST fiction, one scenario",
+    "inputTokens": 4471,
+    "outputTokens": 21447,
+    "literaryQuality": "Editorial observations only; unresolved age timeline and scene staging flaws. See story-options-20261010.md.",
+    "subsequentSourceChanges": [
+      "include comparison concerns and work logline in planning input",
+      "clear wizard choice after input changes and skip non-fiction on Back",
+      "assistant scope checks",
+      "author-note invalidation",
+      "supersede old decisions and restore them on undo"
+    ],
+    "subsequentChangesValidatedBy": "automated SQLite tests and builds, not represented as part of this real model run"
+  },
+  "buildWarnings": [
+    "large Vite chunks",
+    "existing mixed static/dynamic imports",
+    "unsigned TEST app by explicit debug build configuration"
+  ]
+}

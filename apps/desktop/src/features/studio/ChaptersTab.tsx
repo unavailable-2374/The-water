@@ -1,5 +1,18 @@
+import { StoryOptionsButton } from './StoryOptionsPanel';
+import { registerAssistantEditor } from '@/assistant/editorBridge';
+import { useAssistant } from '@/assistant/runtime';
+import { StreamingCursor } from '@/components/Activity';
+import { jobAwaitingAction } from '@/jobs/presentation';
+import { PlanReview } from './PlanReview';
+import { AsyncNotice } from '@/components/data/AsyncNotice';
+import { JobControls } from './JobsTab';
+import { useSearchParams } from 'react-router';
+import { planStyleCheck } from '@/jobs/planner';
+import { listWritingCards, listPlanProposals, saveWritingCard, type PlanProposal } from '@/db/repos/writingRepo';
+import { ManuscriptEditor } from './ManuscriptEditor';
+import { splitChapter } from '@/db/repos/chapterStructureRepo';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { History, Maximize2, Minimize2, CheckCircle2, RotateCcw, Sparkles, Download, BookOpen, ShieldCheck, GitCompare, Pin, PinOff, Trash2, Eraser, Check, X, Undo2 } from 'lucide-react';
+import { History, Maximize2, Minimize2, CheckCircle2, RotateCcw, Sparkles, Download, BookOpen, ShieldCheck, GitCompare, Pin, PinOff, Trash2, Eraser, Check, X, Undo2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { countZh } from '@the-water/shared';
 import { fmt, t } from '@/i18n';
@@ -8,13 +21,13 @@ import { useAsyncData } from '@/components/data/useAsyncData';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import {
-  deleteVersion, getVersion, listChapters, listPendingRewrites, listVersions, previewPrune, pruneVersions, resolveAllRewrites,
-  resolveRewrite, restoreVersion, saveSessionEdit, sealChapterSessions, sealVersionSession, setChapterStatus, setVersionPinned,
+  beginRewriteSession, deleteVersion, getVersion, createVersion, listChapters, listPendingRewrites, listVersions, previewPrune, pruneVersions, resolveAllRewrites,
+  resolveRewrite, restoreVersion, saveSessionEdit, sealChapterSessions, sealVersionSession, setVersionPinned,
   type Chapter, type ChapterVersion, type PendingRewrite,
 } from '@/db/repos/chaptersRepo';
 import { isProseStep, createJob } from '@/db/repos/jobsRepo';
 import { regenerateChapter, startGeneration, startStyleCheck } from '@/novel/service';
-import { latestReviewForChapter, type ChapterReview } from '@/db/repos/reviewsRepo';
+import { dismissReviewIssue, latestReviewForChapter, type ChapterReview } from '@/db/repos/reviewsRepo';
 import { mergedGenreOf } from '@/novel/genrePacks';
 import { getStyleExtras } from '@/db/repos/storylineRepo';
 import { recordUserEdit } from '@/db/repos/feedbackRepo';
@@ -23,7 +36,7 @@ import type { StyleProfile } from '@the-water/shared';
 import { kick } from '@/jobs/runner';
 import { activeJobsForNovel, blockingJobForNovel, useJobs } from '@/stores/jobsStore';
 import { getSetting, setSetting } from '@/db/repos/settingsRepo';
-import { FORMAT_LABEL, exportNovel, type ExportFormat } from '@/novel/export';
+import { collectExportChapters, FORMAT_LABEL, exportNovel, type ExportFormat } from '@/novel/export';
 import { diffText, sideOf, summarizeTextDiff, type DiffOp } from '@/novel/diff';
 import { AUTOSAVE_DEBOUNCE_MS, DEFAULT_KEEP_VERSIONS, SESSION_IDLE_MS, shouldSealSession } from '@/novel/versionPolicy';
 import { jobStatusLabel } from './JobsTab';
@@ -67,9 +80,17 @@ function zhNum(n: number): string {
 /** 「第三章」这样的中文章号。 */
 const zhChapter = (n: number) => fmt(t.studio.chapterNo, { n: zhNum(n) });
 
-interface ChapterListData { chapters: Chapter[]; pending: PendingRewrite[] }
+interface ChapterListData { chapters: Chapter[]; pending: PendingRewrite[]; proposals: PlanProposal[] }
 
 export function ChaptersTab({ novel }: { novel: Novel }) {
+  const [params, setParams] = useSearchParams();
+  const [focus, setFocus] = useState(false);
+  const [tocCollapsed, setTocCollapsed] = useState(() => localStorage.getItem('water.chapterTocCollapsed') === 'true');
+  const toggleToc = () => {
+    const next = !tocCollapsed;
+    localStorage.setItem('water.chapterTocCollapsed', String(next));
+    setTocCollapsed(next);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const tick = useJobs((s) => s.novelTick[novel.id] ?? 0);
@@ -79,6 +100,10 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
   // 禁用按钮看的是「服务层会不会拒收新任务」，与流式展示用的 active 不是一回事：
   // 失败的任务不该把整章工具栏锁死（服务层本来就肯收）。
   const blocking = blockingJobForNovel(jobs, novel.id);
+  const blockingSteps=useJobs(s=>blocking?s.steps[blocking.id]:undefined);
+  const blockingStep=blockingSteps?.find(s=>s.id===blocking?.progress.currentStepId);
+  const waitingKind=blocking?jobAwaitingAction(blocking,blockingStep):null;
+  const waitingHint=blockingStep?.kind==='commit_chapter' && blocking?.error==='改写稿已审查，等待作者采纳' ? t.studio.workflow.reviewBeforeEditing : waitingKind==='proposal'?t.studio.workflow.reviewBeforeEditing:waitingKind==='memory'?t.studio.workflow.memoryHint:t.studio.workflow.blockerHint;
   const liveText = active ? live[active.id]?.text : undefined;
   const liveStepId = active ? live[active.id]?.stepId : undefined;
   const steps = useJobs((s) => (active ? s.steps[active.id] : undefined));
@@ -89,22 +114,33 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
   }, [steps, liveStepId]);
   useEffect(() => { if (active && !steps) void useJobs.getState().loadSteps(active.id); }, [active?.id, steps]);
 
-  const { data, reload: reloadList } = useAsyncData<ChapterListData>(async () => {
-    const [chapters, pending] = await Promise.all([listChapters(novel.id), listPendingRewrites(novel.id)]);
-    return { chapters, pending };
+  const { data, error: listError, reload: reloadList } = useAsyncData<ChapterListData>(async () => {
+    const [chapters, pending, proposals] = await Promise.all([listChapters(novel.id), listPendingRewrites(novel.id), listPlanProposals(novel.id)]);
+    return { chapters, pending, proposals };
   }, { key: `chapters:${novel.id}:${tick}` });
   const chapters = useMemo(() => data?.chapters ?? [], [data]);
   const pending = useMemo(() => data?.pending ?? [], [data]);
   const reload = useCallback(async () => { reloadList(); }, [reloadList]);
 
   useEffect(() => { if (!selectedId && chapters[0]) setSelectedId(chapters[0].id); }, [chapters, selectedId]);
+  const requestedChapter = params.get('chapter');
+  const requestedChapterNo=params.get('chapterNo');
+  useEffect(() => { const requested=chapters.find(c=>requestedChapter?c.id===requestedChapter:requestedChapterNo && c.chapterNo===Number(requestedChapterNo));if(requested)setSelectedId(requested.id); }, [requestedChapter, requestedChapterNo, chapters]);
   const selected = chapters.find((c) => c.id === selectedId) ?? null;
   const unwritten = chapters.filter((c) => !c.currentVersionId).length;
+  const selectChapter = (id: string) => { setSelectedId(id); setParams(previous => { const next=new URLSearchParams(previous); next.set('chapter',id); return next; },{replace:true}); };
+  if (listError || !data) return <AsyncNotice error={listError} retry={reloadList} />;
 
   return (
-    <div className="grid h-full grid-rows-[minmax(0,1fr)] grid-cols-[280px_1fr] bg-paper-50 dark:bg-paper-950">
-      <aside className="flex flex-col border-r border-paper-300/60 bg-paper-100/60 dark:border-paper-800 dark:bg-paper-900/60">
-        <div className="px-5 pt-5 pb-3">
+    <div className={cn("grid h-full grid-rows-[minmax(0,1fr)] bg-paper-50 dark:bg-paper-950",focus || tocCollapsed ? "grid-cols-1" : "grid-cols-[250px_minmax(0,1fr)]")}>
+      <aside className={cn((focus || tocCollapsed) && "hidden", "flex flex-col border-r border-paper-300/60 bg-paper-100/60 dark:border-paper-800 dark:bg-paper-900/60")}>
+        <div className="flex justify-end px-2 pt-2">
+          <IconButton label={tocCollapsed ? t.studio.chaptersTab.expandToc : t.studio.chaptersTab.collapseToc} aria-expanded={!tocCollapsed} aria-controls="chapter-toc" onClick={toggleToc}>
+            {tocCollapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+          </IconButton>
+        </div>
+        {!tocCollapsed && <>
+        <div className="px-5 pt-2 pb-3">
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="font-serif text-base font-semibold tracking-wide text-ink-900 dark:text-paper-100">{t.studio.chaptersTab.toc}</div>
@@ -116,19 +152,20 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
             <Button size="sm" variant="ai" className="mt-3 w-full" onClick={async () => { try { await startGeneration(novel.id); toast.success(t.studio.chaptersTab.started); } catch (e) { toast.error(errText(e)); } }}><Sparkles size={14} strokeWidth={1.75} aria-hidden="true" />{fmt(t.studio.chaptersTab.writeRest, { n: unwritten })}</Button>
           )}
         </div>
-        <ul aria-label={t.studio.chaptersTab.tocList} className="flex-1 overflow-y-auto px-3 pb-4">
+        <ul id="chapter-toc" aria-label={t.studio.chaptersTab.tocList} className="flex-1 overflow-y-auto px-3 pb-4">
           {chapters.map((c) => {
             const isLive = liveChapterId === c.id;
+            const awaiting=blocking?.status==='awaiting_review' && blockingStep?.chapterId===c.id;
             const status = isLive ? 'generating' : c.status;
             return (
               <li key={c.id}>
-                <button aria-current={selectedId === c.id ? 'true' : undefined} onClick={() => setSelectedId(c.id)} className={cn('mb-0.5 flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left transition', selectedId === c.id ? 'bg-paper-0 shadow-soft dark:bg-paper-800' : 'hover:bg-paper-200/60 dark:hover:bg-paper-800/60')}>
+                <button aria-current={selectedId === c.id ? 'true' : undefined} onClick={() => selectChapter(c.id)} className={cn('mb-0.5 flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left transition', selectedId === c.id ? 'bg-paper-0 shadow-soft dark:bg-paper-800' : 'hover:bg-paper-200/60 dark:hover:bg-paper-800/60')}>
                   <span className="w-7 shrink-0 pt-0.5 font-serif text-sm text-ink-400">{zhNum(c.chapterNo)}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-serif text-sm tracking-wide text-ink-900 dark:text-paper-100">{c.title || zhChapter(c.chapterNo)}</span>
+                    <span className="block truncate font-serif text-sm tracking-wide text-ink-900 dark:text-paper-100">{c.title || t.studio.planning.pendingTitle}</span>
                     <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-400">
-                      <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[status])} aria-hidden="true" />{statusLabel(status)}
-                      <span aria-hidden="true">·</span><span className="font-serif">{fmt(t.studio.chaptersTab.charCount, { n: c.targetChars.toLocaleString() })}</span>
+                      <span className={cn('h-1.5 w-1.5 rounded-full', awaiting?'bg-amber-500':STATUS_DOT[status])} aria-hidden="true" />{awaiting?jobStatusLabel('awaiting_review'):statusLabel(status)}
+                      <span aria-hidden="true">·</span><span className="font-serif">{fmt(t.studio.chaptersTab.targetCount, { n: c.targetChars.toLocaleString() })}</span>
                     </span>
                   </span>
                 </button>
@@ -136,16 +173,27 @@ export function ChaptersTab({ novel }: { novel: Novel }) {
             );
           })}
         </ul>
+        </>}
       </aside>
       <section className="flex min-w-0 flex-col overflow-hidden">
-        {pending.length > 0 && <PendingRewriteBar novel={novel} pending={pending} busy={!!active} onChanged={reload} onPick={setSelectedId} />}
+        {selected && <div className="shrink-0 px-6 py-2"><StoryOptionsButton novel={novel} scope={{ kind: 'chapter', id: selected.id }} onChanged={reload} /></div>}
+        {blocking?.status === 'awaiting_review' && <div className="flex shrink-0 items-center gap-3 border-b border-paper-200 px-6 py-3 text-sm dark:border-paper-800"><span className="min-w-0 flex-1 text-amber-700 dark:text-amber-200">{blocking.error || t.studio.workflow.pendingReview}</span><JobControls job={blocking} /></div>}
+        {data?.proposals.some(p => p.chapterId === selectedId && p.card.kind === 'scene') && <div className="max-h-[50%] shrink-0 overflow-auto p-6"><PlanReview novel={novel} cards={data.proposals.filter(p => p.chapterId === selectedId && p.card.kind === 'scene')} chapters={chapters} onResolved={reload} /></div>}
+        {pending.length > 0 && <PendingRewriteBar novel={novel} pending={pending} busy={!!blocking && blocking.status !== 'awaiting_review'} onChanged={reload} onPick={selectChapter} />}
         <div className="min-h-0 flex-1 overflow-hidden">
-          {selected ? <ChapterEditor key={selected.id} novel={novel} chapter={selected} liveText={liveChapterId === selected.id ? liveText : undefined} busy={!!blocking} busyReason={blocking ? fmt(t.studio.chaptersTab.blockedByJob, { status: jobStatusLabel(blocking.status) }) : ''} onChanged={reload} /> : <EmptyState icon={<BookOpen size={40} strokeWidth={1.25} aria-hidden="true" />} title={t.studio.chaptersTab.pickChapter} description={t.studio.chaptersTab.pickChapterDesc} />}
+          {selected ? <ChapterEditor onExpandToc={tocCollapsed && !focus ? toggleToc : undefined} focus={focus} setFocus={setFocus} key={selected.id} novel={novel} chapter={selected} liveRunning={active?.status === 'running'} liveText={liveChapterId === selected.id ? liveText : undefined} busy={!!blocking} busyReason={blocking?.status === 'awaiting_review' ? waitingHint : blocking ? fmt(t.studio.chaptersTab.blockedByJob, { status: jobStatusLabel(blocking.status) }) : ''} onChanged={reload} /> : <EmptyState icon={<BookOpen size={40} strokeWidth={1.25} aria-hidden="true" />} title={t.studio.chaptersTab.pickChapter} description={t.studio.chaptersTab.pickChapterDesc} />}
         </div>
       </section>
       <ExportDialog novel={novel} chapters={chapters} open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
+}
+
+function ScenePlan({novelId,chapterId,tick}:{novelId:string;chapterId:string;tick:number}) {
+  const [confirming,setConfirming]=useState(false);
+  const {data:scenes,error,reload}=useAsyncData(()=>listWritingCards(novelId,{kind:'scene',chapterId}),{key:`sceneNavigation:${chapterId}:${tick}`});
+  if (error || scenes === undefined) return <AsyncNotice error={error} retry={reload} />;
+  return <div className="p-4 text-sm leading-relaxed text-ink-600 dark:text-paper-200"><h3 className="mb-3 font-semibold">{t.studio.chaptersTab.scenePlan}</h3>{scenes.length === 0 && <p>{t.studio.chaptersTab.noScenes}</p>}{scenes.map(scene=>scene.kind==='scene' && <details key={scene.id} className="my-2" open={!scene.confirmed}><summary className="cursor-pointer">{scene.data.title} · {scene.confirmed ? t.studio.workbench.confirmed:t.studio.workbench.unconfirmed}</summary><p>{scene.data.time} · {scene.data.location}</p>{(['goal','obstacle','turn','outcome'] as const).map(key=><p key={key} className="mt-1">{t.studio.workbench.fields[key]}：{scene.data[key]}</p>)}{!scene.confirmed && <Button size="sm" disabled={confirming} onClick={async()=>{setConfirming(true);try{await saveWritingCard(novelId,{kind:'scene',data:scene.data},{id:scene.id,chapterId,expectedRevision:scene.revision,confirmed:true});reload();}catch(e){toast.error(errText(e));}finally{setConfirming(false);}}}>{t.studio.workbench.save}</Button>}</details>)}</div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -214,22 +262,22 @@ function PendingRewriteBar({ novel, pending, busy, onChanged, onPick }: { novel:
   const list = pending.slice(0, 6).map((p) => fmt(t.studio.chapterNo, { n: p.chapter.chapterNo })).join('、') + (pending.length > 6 ? t.studio.chaptersTab.pendingMore : '');
   return (
     <>
-      <div role="status" className="flex flex-wrap items-center gap-2 border-b border-amber-200/70 bg-amber-50/80 px-8 py-2.5 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100">
+      <div role="status" className="flex flex-wrap items-center gap-2 border-b border-amber-200/70 bg-amber-50/80 px-5 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100">
         <span>{fmt(t.studio.chaptersTab.pendingNotice, { n: pending.length, list })}</span>
         {busy && <span className="text-xs text-amber-700 dark:text-amber-200">{t.studio.chaptersTab.pendingBusy}</span>}
         <div className="ml-auto flex items-center gap-1.5">
-          <Button size="sm" variant="primary" disabled={working} onClick={() => setOpen(true)}><GitCompare size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.reviewOneByOne}</Button>
-          <Button size="sm" disabled={working} onClick={() => bulk('accept')}><Check size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.acceptAll}</Button>
-          <Button size="sm" disabled={working} onClick={() => bulk('discard')}><Undo2 size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.discardAll}</Button>
+          <Button size="sm" variant="primary" disabled={working || !pending.some(p => p.latest)} onClick={() => setOpen(true)}><GitCompare size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.reviewOneByOne}</Button>
+          <Button size="sm" disabled={working || busy || pending.some(p => !p.latest)} onClick={() => bulk('accept')}><Check size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.acceptAll}</Button>
+          <Button size="sm" disabled={working || busy} onClick={() => bulk('discard')}><Undo2 size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.discardAll}</Button>
         </div>
       </div>
-      <RewriteReviewDialog open={open} pending={pending} onClose={() => setOpen(false)} onChanged={onChanged} onPick={onPick} />
+      <RewriteReviewDialog open={open} pending={pending} busy={busy} onClose={() => setOpen(false)} onChanged={onChanged} onPick={onPick} />
     </>
   );
 }
 
 /** 逐章对比旧 / 新，一章一章决定采纳还是丢弃。 */
-function RewriteReviewDialog({ open, pending, onClose, onChanged, onPick }: { open: boolean; pending: PendingRewrite[]; onClose: () => void; onChanged: () => Promise<void>; onPick: (chapterId: string) => void }) {
+function RewriteReviewDialog({ open, pending, busy, onClose, onChanged, onPick }: { open: boolean; pending: PendingRewrite[]; busy: boolean; onClose: () => void; onChanged: () => Promise<void>; onPick: (chapterId: string) => void }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   useEffect(() => {
@@ -281,8 +329,8 @@ function RewriteReviewDialog({ open, pending, onClose, onChanged, onPick }: { op
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={() => { onPick(active.chapter.id); onClose(); }}>{t.studio.chaptersTab.goEdit}</Button>
               <div className="ml-auto flex items-center gap-2">
-                <Button size="sm" disabled={working} onClick={() => resolve('discard')}><X size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.discardOne}</Button>
-                <Button size="sm" variant="primary" disabled={working} onClick={() => resolve('accept')}><Check size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.acceptOne}</Button>
+                <Button size="sm" disabled={working || busy} onClick={() => resolve('discard')}><X size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.discardOne}</Button>
+                <Button size="sm" variant="primary" disabled={working || busy || !active.latest} onClick={() => resolve('accept')}><Check size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.acceptOne}</Button>
               </div>
             </div>
           </div>
@@ -300,7 +348,12 @@ interface ExportMeta { author: string; license: string }
 
 /** 导出对话框：选格式、挑章节范围、补作者与许可，元数据会写进文件里。 */
 function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapters: Chapter[]; open: boolean; onClose: () => void }) {
-  const written = chapters.filter((c) => c.currentVersionId);
+  const [draftExport, setDraftExport] = useState(false);
+  const { data: exportable } = useAsyncData(
+    () => collectExportChapters(novel.id, draftExport),
+    { key: `exportable:${novel.id}:${draftExport}:${chapters.map(c => `${c.currentVersionId}:${c.committedVersionId}`).join(',')}`, enabled: open },
+  );
+  const written = exportable ?? [];
   const first = written[0]?.chapterNo ?? 1;
   const last = written[written.length - 1]?.chapterNo ?? 1;
   const [format, setFormat] = useState<ExportFormat>('txt');
@@ -313,7 +366,7 @@ function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapte
     author: await getSetting('exportAuthor', ''),
     license: await getSetting('exportLicense', t.studio.exportDialog.defaultLicense),
   }), { key: 'exportMeta', enabled: open });
-  // 待采纳的改写版本已经是 current，导出会带上它们；不拦，但要让作者知道。
+  // Only draft export includes current, unaccepted rewrites.
   const { data: pendingCount } = useAsyncData<number>(
     async () => (await listPendingRewrites(novel.id)).length,
     { key: `exportPending:${novel.id}`, enabled: open },
@@ -329,7 +382,7 @@ function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapte
     try {
       await setSetting('exportAuthor', author);
       await setSetting('exportLicense', license);
-      const path = await exportNovel(novel, format, { range: whole ? null : { from, to }, meta: { author, license } });
+      const path = await exportNovel(novel, format, { draft: draftExport, range: whole ? null : { from, to }, meta: { author, license } });
       if (path) { toast.success(fmt(t.studio.exportDialog.exported, { path })); onClose(); }
     } catch (e) { toast.error(errText(e)); } finally { setBusy(false); }
   };
@@ -337,11 +390,12 @@ function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapte
   return (
     <Dialog open={open} onClose={onClose} title={t.studio.exportDialog.title} subtitle={t.studio.exportDialog.subtitle} width="max-w-md">
       <div className="space-y-4">
-        {!!pendingCount && (
+        {draftExport && !!pendingCount && (
           <p role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
             {fmt(t.studio.exportDialog.pendingWarning, { n: pendingCount })}
           </p>
         )}
+<label><input type="checkbox" checked={draftExport} onChange={e => setDraftExport(e.target.checked)} /> {t.studio.workbench.draftExport}</label>
         <Field label={t.studio.exportDialog.format}>
           <Select value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)}>
             {FORMATS.map((f) => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
@@ -369,11 +423,25 @@ function ExportDialog({ novel, chapters, open, onClose }: { novel: Novel; chapte
   );
 }
 
-function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }: { novel: Novel; chapter: Chapter; liveText?: string; busy: boolean; busyReason: string; onChanged: () => Promise<void> }) {
+function ChapterEditor({ novel, chapter, liveText, liveRunning, busy, busyReason, onChanged, focus, setFocus, onExpandToc }: { onExpandToc?: () => void; focus:boolean; setFocus:React.Dispatch<React.SetStateAction<boolean>>; novel: Novel; chapter: Chapter; liveText?: string; liveRunning: boolean; busy: boolean; busyReason: string; onChanged: () => Promise<void> }) {
+  const [evidenceParams] = useSearchParams();
+  const evidenceVersionId = evidenceParams.get('version');
+  const evidenceFrom = Number(evidenceParams.get('from')), evidenceTo = Number(evidenceParams.get('to'));
+  const { data: evidenceVersion } = useAsyncData(() => evidenceVersionId ? getVersion(evidenceVersionId) : Promise.resolve(null), { key: `story-evidence:${evidenceVersionId}`, enabled: !!evidenceVersionId });
   const [text, setText] = useState('');
+  const liveEditorText = useRef(text);
+  liveEditorText.current=text;
   const [dirty, setDirty] = useState(false);
-  const [showVersions, setShowVersions] = useState(false);
-  const [showReview, setShowReview] = useState(false);
+  const [panel, setPanel] = useState<'review' | 'versions' | 'scenes' | null>(null);
+
+  const showVersions = panel === 'versions';
+  const showReview = panel === 'review';
+  useEffect(() => {
+    if (!panel) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setPanel(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [panel]);
   const [lint, setLint] = useState<LintReport | null>(null);
   const [showLint, setShowLint] = useState(false);
   const saveTimer = useRef<number | null>(null);
@@ -385,6 +453,13 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
   const pendingTextRef = useRef<string | null>(null);
   /** 卸载时的收尾要读最新的摘要与定稿状态，闭包里的是第一帧的，所以留个 ref。 */
   const metaRef = useRef<{ summary: string; status: Chapter['status'] }>({ summary: '', status: chapter.status });
+  const recoveryKey=`water.unsaved.${chapter.id}`;
+  const [recovery,setRecovery]=useState<string|null>(()=>localStorage.getItem(recoveryKey));
+  const clearRecovery=(value:string)=>{if(localStorage.getItem(recoveryKey)===value) localStorage.removeItem(recoveryKey);};
+  const [selection, setSelection] = useState({ from: 0, to: 0, head: 0 });
+
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const workingRef = useRef<string | null>(chapter.currentVersionId);
   const [compareId, setCompareId] = useState<string | null>(null);
   const tick = useJobs((s) => s.novelTick[novel.id] ?? 0);
 
@@ -397,16 +472,21 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
     { key: `chapterReview:${chapter.id}:${chapter.currentVersionId ?? ''}:${tick}` },
   );
   const versionKey = `chapterVersion:${chapter.id}:${chapter.currentVersionId ?? ''}:${tick}`;
-  const { data: version, setData: setVersion } = useAsyncData<ChapterVersion | null>(
-    () => (chapter.currentVersionId ? getVersion(chapter.currentVersionId) : Promise.resolve(null)),
+  const { data: loadedVersion, setData: setLoadedVersion } = useAsyncData<{key:string;value:ChapterVersion|null}>(
+    async () => ({key:versionKey,value:chapter.currentVersionId ? await getVersion(chapter.currentVersionId) : null}),
     { key: versionKey },
   );
+  // The data hook intentionally retains its previous value while fetching. Never
+  // mark the new key synchronized using that previous version's prose.
+  const version=loadedVersion?.key===versionKey ? loadedVersion.value : undefined;
+  const setVersion=(updater:(previous:ChapterVersion|null|undefined)=>ChapterVersion|null)=>setLoadedVersion(previous=>({key:versionKey,value:updater(previous?.value)}));
   const { data: versions, reload: reloadVersions } = useAsyncData<ChapterVersion[]>(
     () => listVersions(chapter.id),
     { key: `chapterVersions:${chapter.id}:${tick}`, enabled: showVersions },
   );
 
   metaRef.current = { summary: version?.summary ?? '', status: chapter.status };
+  const reviewCurrent = !!review?.valid && review.chapterVersionId === version?.id && review.contentHash === version?.contentHash && text === version?.content;
 
   // 换章 / 换当前稿时把编辑区重置成该版本的正文。本地保存回填不走这里，
   // 免得把作者在等保存那两秒里敲的字吞掉，所以用 ref 记住「这个 key 已经同步过了」。
@@ -414,6 +494,8 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
   useEffect(() => {
     if (version === undefined || syncedRef.current === versionKey) return;
     syncedRef.current = versionKey;
+    if (pendingTextRef.current !== null) return;
+    workingRef.current = version?.id ?? null;
     setText(version?.content ?? '');
     setDirty(false);
   }, [versionKey, version]);
@@ -443,18 +525,18 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
     if (!session && unsaved === null) return;
     const sessionId = session?.id ?? nanoid();
     const finalText = unsaved ?? session?.text ?? '';
-    void (async () => {
+    saveQueue.current = saveQueue.current.catch(() => undefined).then(async () => {
       try {
         const meta = metaRef.current;
-        if (unsaved !== null) await saveSessionEdit({ chapterId: chapter.id, sessionId, content: unsaved, summary: meta.summary, status: meta.status === 'final' ? 'final' : 'draft' });
+        if (unsaved !== null) { const saved=await saveSessionEdit({ chapterId: chapter.id, sessionId, content: unsaved, expectedWorkingVersionId: workingRef.current, summary: meta.summary, status: 'draft' }); workingRef.current=saved.id; setVersion(()=>saved); clearRecovery(unsaved); }
         await sealVersionSession(sessionId);
         // 学习层：作者从 AI 稿上删掉的东西算一次软负例
         if (session?.aiBase && session.aiBase !== finalText) {
           const learned = await recordUserEdit(novel.id, session.aiBase, finalText);
           if (learned.length) toast.success(fmt(t.studio.chaptersTab.learnedDislikes, { list: learned.slice(0, 5).join('、') }));
         }
-      } catch (e) { console.warn('封版失败', e); }
-    })();
+      } catch (e) { if(unsaved!==null) pendingTextRef.current=unsaved; toast.error(errText(e)); }
+    });
   };
 
   const restartIdleTimer = () => {
@@ -476,11 +558,13 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
   }, [chapter.id]);
 
   const scheduleSave = (val: string) => {
+    if(recovery!==null) return;
+    try {localStorage.setItem(recoveryKey,val);} catch(error) {toast.error(String(error));}
     setText(val); setDirty(true);
     pendingTextRef.current = val;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
-      if (val.trim() === (version?.content ?? '').trim()) { setDirty(false); pendingTextRef.current = null; return; }
+      if (val === (version?.content ?? '')) { setDirty(false); pendingTextRef.current = null; clearRecovery(val); return; }
       let session = sessionRef.current;
       if (!session) {
         session = { id: nanoid(), aiBase: version && AI_SOURCES.has(version.source) ? version.content : null, lastEditAt: Date.now(), text: val };
@@ -488,24 +572,46 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
       }
       session.lastEditAt = Date.now();
       session.text = val;
-      const saved = await saveSessionEdit({ chapterId: chapter.id, sessionId: session.id, content: val, summary: version?.summary ?? '', status: chapter.status === 'final' ? 'final' : 'draft' });
-      pendingTextRef.current = null;
-      setVersion(() => saved);
-      setDirty(false);
-      restartIdleTimer();
-      await onChanged();
+      const sessionId = session.id;
+      saveQueue.current = saveQueue.current.catch(() => undefined).then(async () => {
+        try {
+          const saved = await saveSessionEdit({ chapterId: chapter.id, sessionId, content: val, expectedWorkingVersionId: workingRef.current, status: 'draft' });
+          workingRef.current = saved.id;
+          if (pendingTextRef.current === val) { pendingTextRef.current = null; setDirty(false); clearRecovery(val); }
+          setVersion(() => saved);
+          restartIdleTimer();
+          await onChanged();
+        } catch (e) { toast.error(errText(e)); }
+      });
     }, AUTOSAVE_DEBOUNCE_MS);
   };
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
-    try { await fn(); toast.success(ok); await onChanged(); } catch (e) { toast.error(errText(e)); }
+    try { flushAndSeal(); await saveQueue.current; if(pendingTextRef.current!==null) throw new Error(t.studio.workbench.saveFailed); await fn(); toast.success(ok); await onChanged(); } catch (e) { toast.error(errText(e)); }
   };
   const adjust = (kind: 'expand' | 'trim') => act(async () => {
     // one-off adjust job: reuse adjust_length step by temporarily pushing target
-    const job = await createJob({ novelId: novel.id, type: 'regenerate_chapter', params: { chapterNo: chapter.chapterNo, adjust: kind }, providerId: null, steps: [{ kind: 'adjust_length', chapterId: chapter.id, input: { chapterNo: chapter.chapterNo, force: kind } }] });
+    const job = await createJob({ novelId: novel.id, type: 'regenerate_chapter', params: { chapterNo: chapter.chapterNo, adjust: kind }, providerId: null, steps: [{ kind: 'adjust_length', chapterId: chapter.id, input: { chapterNo: chapter.chapterNo, force: kind } }, ...planStyleCheck(chapter)] });
+    await beginRewriteSession([chapter.id],job.id);
     kick();
     return job;
   }, kind === 'expand' ? t.studio.chaptersTab.expandQueued : t.studio.chaptersTab.trimQueued);
+
+  const assistantFlush = useRef(async () => useAssistant.getState().context);
+  assistantFlush.current = async () => {
+    if(recovery!==null) throw new Error(t.studio.workbench.saveFailed);
+    const captured=liveEditorText.current;
+    flushAndSeal(); await saveQueue.current;
+    if(pendingTextRef.current!==null || captured!==liveEditorText.current) throw new Error(t.studio.workbench.editConflict);
+    const saved=await getVersion(workingRef.current);
+    if((saved?.content ?? '')!==captured) throw new Error(t.studio.workbench.editConflict);
+    return {...useAssistant.getState().context,novelId:novel.id,chapterId:chapter.id,
+      selection:saved && selection.to>selection.from ? {from:selection.from,to:selection.to,versionId:saved.id,contentHash:saved.contentHash}:null};
+  };
+  useEffect(()=>registerAssistantEditor({novelId:novel.id,chapterId:chapter.id,flush:()=>assistantFlush.current()}),[novel.id,chapter.id]);
+  useEffect(()=>{
+    useAssistant.getState().setContext({novelId:novel.id,chapterId:chapter.id,selection:version && selection.to>selection.from?{from:selection.from,to:selection.to,versionId:version.id,contentHash:version.contentHash}:null});
+  },[novel.id,chapter.id,selection.from,selection.to,version?.id,version?.contentHash]);
 
   const displayText = liveText !== undefined && liveText !== '' ? liveText : text;
   const count = countZh(displayText);
@@ -517,10 +623,13 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
     busy ? busyReason : needsVersion && !version ? t.studio.chaptersTab.blockedNoVersion : undefined;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-start gap-3 px-8 pt-5 pb-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-serif text-lg font-semibold tracking-wide text-ink-900 dark:text-paper-100">{zhChapter(chapter.chapterNo)}　{chapter.title}</h2>
+    <div className={cn("flex h-full min-w-0 flex-col", focus && "fixed inset-0 z-40 bg-paper-50 dark:bg-paper-950")}>
+      <div className="flex shrink-0 flex-wrap items-start gap-2 border-b border-paper-200 px-5 py-3 dark:border-paper-800">
+        <div className="min-w-0 basis-full">
+          <div className="flex min-w-0 items-center gap-2">
+            {onExpandToc && <IconButton label={t.studio.chaptersTab.expandToc} aria-expanded={false} onClick={onExpandToc}><PanelLeftOpen size={16} aria-hidden="true" /></IconButton>}
+            <h2 className="min-w-0 truncate font-serif text-lg font-semibold tracking-wide text-ink-900 dark:text-paper-100">{zhChapter(chapter.chapterNo)}　{chapter.title}</h2>
+          </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-400">
             <span
               role="progressbar"
@@ -538,25 +647,31 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
               </button>
             )}
             {review && (
-              <button aria-pressed={showReview} className={cn('rounded-md px-1.5 py-0.5 transition hover:bg-paper-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800', showReview && 'bg-paper-200/70 dark:bg-paper-800', review.verdict === 'revise' ? 'text-cinnabar-700 dark:text-cinnabar-100' : 'text-tea-700 dark:text-tea-200')} onClick={() => setShowReview((v) => !v)} title={t.studio.chaptersTab.reviewTitle}>
-                {fmt(t.studio.chaptersTab.reviewSummary, { score: review.styleScore, verdict: review.verdict === 'pass' ? t.studio.chaptersTab.verdictPass : t.studio.chaptersTab.verdictRevise })}
+              <button aria-pressed={showReview} className={cn('rounded-md px-1.5 py-0.5 transition hover:bg-paper-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800', showReview && 'bg-paper-200/70 dark:bg-paper-800', review.verdict === 'revise' ? 'text-cinnabar-700 dark:text-cinnabar-100' : 'text-tea-700 dark:text-tea-200')} onClick={() => setPanel(p => p === 'review' ? null : 'review')} title={t.studio.chaptersTab.reviewTitle}>
+                {reviewCurrent ? fmt(t.studio.chaptersTab.reviewSummary, { score: review.styleScore, verdict: review.report.story && review.report.story.verdict!=='ready' ? t.studio.storyReview[review.report.story.verdict] : review.verdict === 'pass' ? t.studio.chaptersTab.verdictPass : t.studio.chaptersTab.verdictRevise }) : t.studio.workbench.reviewStale}
                 {review.oocCount ? fmt(t.studio.chaptersTab.reviewOoc, { n: review.oocCount }) : ''}
               </button>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex w-full flex-wrap items-center gap-1">
+          <Button size="sm" onClick={() => useAssistant.getState().setOpen(true)}>{t.assistant.title}</Button>
+          <Button size="sm" aria-pressed={panel === 'scenes'} onClick={() => setPanel(p => p === 'scenes' ? null : 'scenes')}>{t.studio.chaptersTab.scenePlan}</Button>
+          <Button size="sm" onClick={() => setFocus(v => !v)}>{focus ? t.studio.workbench.exitFocus : t.studio.workbench.focus}</Button>
+          <Button size="sm" disabled={busy || selection.from<=0 || selection.from>=text.length} onClick={()=>act(()=>splitChapter(chapter.id,selection.from),t.studio.workbench.structureChanged)}>{t.studio.workbench.splitChapter}</Button>
           <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.expand} aria-label={t.studio.expand} onClick={() => adjust('expand')}><Maximize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
           <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.trim} aria-label={t.studio.trim} onClick={() => adjust('trim')}><Minimize2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
-          <Button size="sm" variant="ghost" className={cn('px-2', isFinal && 'text-tea-700 dark:text-tea-200')} disabled={!version} title={isFinal ? t.studio.chaptersTab.unfinalize : t.studio.finalize} aria-label={isFinal ? t.studio.chaptersTab.unfinalize : t.studio.finalize} onClick={() => act(() => setChapterStatus(chapter.id, isFinal ? 'draft' : 'final', []), isFinal ? t.studio.chaptersTab.unfinalized : t.studio.chaptersTab.finalized)}><CheckCircle2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
-          <Button size="sm" variant="ghost" className={cn('px-2', showVersions && 'bg-paper-200/70 text-ink-900 dark:bg-paper-800')} title={t.studio.versions} aria-label={t.studio.versions} aria-pressed={showVersions} onClick={() => setShowVersions((v) => !v)}><History size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ghost" className={cn('px-2', isFinal && 'text-tea-700 dark:text-tea-200')} disabled={busy || !version || isFinal} title={whyDisabled(true) ?? (isFinal ? t.studio.final : t.studio.finalize)} aria-label={isFinal ? t.studio.final : t.studio.finalize} onClick={() => act(() => startStyleCheck(novel.id, chapter.chapterNo), t.studio.chaptersTab.styleCheckQueued)}><CheckCircle2 size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
+          <Button size="sm" variant="ghost" className={cn('px-2', showVersions && 'bg-paper-200/70 text-ink-900 dark:bg-paper-800')} title={t.studio.versions} aria-label={t.studio.versions} aria-pressed={showVersions} onClick={() => setPanel(p => p === 'versions' ? null : 'versions')}><History size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
           <Button size="sm" variant="ghost" className="px-2" disabled={busy || !version} title={whyDisabled(true) ?? t.studio.chaptersTab.styleCheckTitle} aria-label={t.studio.chaptersTab.styleCheckTitle} onClick={() => act(() => startStyleCheck(novel.id, chapter.chapterNo), t.studio.chaptersTab.styleCheckQueued)}><ShieldCheck size={16} strokeWidth={1.75} aria-hidden="true" /></Button>
           <Button size="sm" variant="ai" className="ml-2" disabled={busy} title={whyDisabled(false)} onClick={() => act(() => regenerateChapter(novel.id, chapter.chapterNo), t.studio.chaptersTab.regenerateQueued)}><Sparkles size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.chaptersTab.regenerate}</Button>
         </div>
       </div>
-      {busy && <div role="status" className="mx-8 mb-2 rounded-xl bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">{busyReason}</div>}
+      {recovery!==null && <div className="mx-8 mb-3 rounded-xl border border-amber-300 p-3"><p>{t.studio.workbench.recovery}</p><pre className="my-2 max-h-36 overflow-auto whitespace-pre-wrap text-sm">{recovery}</pre><Button onClick={()=>act(async()=>{const saved=await createVersion({chapterId:chapter.id,content:recovery,source:'user_edit',expectedWorkingVersionId:workingRef.current});workingRef.current=saved.id;setVersion(()=>saved);setText(recovery);clearRecovery(recovery);setRecovery(null);},t.studio.workbench.working)}>{t.studio.workbench.restoreCandidate}</Button><Button onClick={()=>{clearRecovery(recovery);setRecovery(null);}}>{t.studio.workbench.discard}</Button></div>}
+      {evidenceVersion && evidenceVersion.chapterId === chapter.id && evidenceVersionId !== version?.id && <aside className="mx-5 my-2 rounded border border-amber-400 p-3 text-sm"><p>{t.storyWorkspace.stale}</p><blockquote className="mt-2 whitespace-pre-wrap">{evidenceVersion.content.slice(evidenceFrom,evidenceTo)}</blockquote></aside>}
+      {busy && <div role="status" className="shrink-0 border-b border-amber-200/60 bg-amber-50 px-5 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{busyReason}</div>}
       {chapter.status === 'stale' && chapter.staleReasons.length > 0 && <div role="status" className="mx-8 mb-2 rounded-xl bg-cinnabar-50 px-4 py-2 text-xs leading-relaxed text-cinnabar-700 dark:bg-cinnabar-700/20 dark:text-cinnabar-100">{fmt(t.studio.chaptersTab.staleNotice, { reasons: chapter.staleReasons.join('；') })}</div>}
-      {chapter.goal && <div className="mx-8 mb-3 text-xs leading-relaxed text-ink-400">{fmt(t.studio.chaptersTab.chapterGoal, { goal: chapter.goal })}</div>}
+      {chapter.goal && <details className="shrink-0 border-b border-paper-200 px-5 py-1.5 text-xs text-ink-500 dark:border-paper-800"><summary className="w-fit cursor-pointer">{t.studio.chaptersTab.chapterGoalTitle}</summary><p className="max-h-28 overflow-auto py-2 leading-relaxed">{chapter.goal}</p></details>}
       {showLint && lint && (
         <div className="mx-8 mb-3 max-h-40 overflow-y-auto rounded-xl bg-paper-100 px-4 py-2 text-xs leading-relaxed text-ink-700 dark:bg-paper-800 dark:text-ink-200">
           {lint.issues.length === 0 && <span className="text-ink-400">{t.studio.chaptersTab.lintClean}</span>}
@@ -567,17 +682,18 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
           </ul>
         </div>
       )}
-      <div className="flex min-h-0 flex-1 gap-4 px-8 pb-6">
-        <div className="paper-texture mx-auto flex h-full min-w-0 max-w-3xl flex-1 flex-col rounded-2xl bg-paper-0 shadow-soft dark:bg-paper-900">
+      <div className="relative flex min-h-0 flex-1 px-4 py-3">
+        <div className="paper-texture mx-auto flex h-full min-w-0 max-w-5xl flex-1 flex-col rounded-2xl bg-paper-0 shadow-soft dark:bg-paper-900">
           {liveText !== undefined && liveText !== '' ? (
-            <div aria-live="polite" aria-label={t.studio.chaptersTab.manuscript} className="prose-novel flex-1 overflow-y-auto whitespace-pre-wrap px-14 py-12 text-ink-900 dark:text-paper-100">{liveText}<span className="ml-0.5 inline-block h-[1.1em] w-0.5 animate-pulse bg-tea-500 align-text-bottom" aria-hidden="true" /></div>
+            <div aria-live="polite" aria-label={t.studio.chaptersTab.manuscript} className="prose-novel flex-1 overflow-y-auto whitespace-pre-wrap px-[clamp(20px,4vw,56px)] py-6 text-ink-900 dark:text-paper-100">{liveText}{liveRunning && <StreamingCursor />}</div>
           ) : (
-            <textarea aria-label={t.studio.chaptersTab.manuscript} className="prose-novel flex-1 resize-none border-0 bg-transparent px-14 py-12 text-ink-900 outline-none placeholder:text-ink-300 dark:text-paper-100" value={text} onChange={(e) => scheduleSave(e.target.value)} placeholder={version ? '' : t.studio.chaptersTab.blankPlaceholder} spellCheck={false} />
+            <ManuscriptEditor focusRange={evidenceVersionId === version?.id && text === version?.content && Number.isInteger(evidenceFrom) && Number.isInteger(evidenceTo) ? {from:evidenceFrom,to:evidenceTo}:undefined} readOnly={liveRunning || recovery!==null} label={t.studio.chaptersTab.manuscript} value={text} onChange={scheduleSave} onSelection={setSelection} issues={reviewCurrent ? review?.report.narrative : undefined} />
           )}
         </div>
-        {showReview && review && <ReviewPanel review={review} />}
+        {panel === 'scenes' && <div className="chapter-tool-panel"><div className="flex justify-end p-2"><IconButton label={t.common.close} onClick={() => setPanel(null)}><X size={16} /></IconButton></div><ScenePlan novelId={novel.id} chapterId={chapter.id} tick={tick} /></div>}
+        {showReview && review && <div className="chapter-tool-panel"><div className="flex justify-end p-2"><IconButton label={t.common.close} onClick={() => setPanel(null)}><X size={16} /></IconButton></div><ReviewPanel review={review} /></div>}
         {showVersions && (
-          <aside className="w-72 shrink-0 overflow-y-auto rounded-2xl bg-paper-0 p-4 text-xs shadow-soft dark:bg-paper-900">
+          <div className="chapter-tool-panel"><div className="flex justify-end p-2"><IconButton label={t.common.close} onClick={() => setPanel(null)}><X size={16} /></IconButton></div><aside className="w-72 shrink-0 overflow-y-auto rounded-2xl bg-paper-0 p-4 text-xs shadow-soft dark:bg-paper-900">
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <h3 className="font-serif text-sm font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.versions}</h3>
               <button
@@ -635,7 +751,7 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
                 );
               })}
             </ul>
-          </aside>
+          </aside></div>
         )}
       </div>
       {/* 版本间文本 diff（§2.2 第 2 条） */}
@@ -662,6 +778,8 @@ function ChapterEditor({ novel, chapter, liveText, busy, busyReason, onChanged }
 }
 
 function ReviewPanel({ review }: { review: ChapterReview }) {
+  const [reasons, setReasons] = useState<Record<string,string>>({});
+  const [resolved, setResolved] = useState<string[]>([]);
   const r = review.report;
   const llm = r.llm;
   const con = r.consistency;
@@ -683,12 +801,26 @@ function ReviewPanel({ review }: { review: ChapterReview }) {
     <aside aria-label={t.studio.reviewPanel.title} className="w-72 shrink-0 overflow-y-auto rounded-2xl bg-paper-0 p-4 text-xs leading-relaxed shadow-soft dark:bg-paper-900">
       <h3 className="font-serif text-sm font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.reviewPanel.title}</h3>
       <div className="mt-1 text-ink-400">{new Date(review.createdAt).toLocaleString()}</div>
+      <Sec title={t.studio.lengthReview.title}>
+        {r.lengthReview ? <div className="space-y-2"><strong>{t.studio.lengthReview[r.lengthReview.action]}</strong><p>{r.lengthReview.reason}</p>{r.lengthReview.actions.map((action,index) => { const issue=r.narrative?.find(item=>item.id===action.issueId); return issue ? <div key={index}><strong>{t.studio.lengthReview[action.action]}</strong><blockquote>「{issue.evidence.quote}」</blockquote><p>{issue.basis}</p><p>{issue.suggestion}</p></div> : null; })}</div> : <p>{t.studio.lengthReview.legacy}</p>}
+      </Sec>
+      <Sec title={t.studio.storyReview.title}>
+        {r.story ? <div className="space-y-2">
+          <strong>{t.studio.storyReview[r.story.verdict]}</strong><p>{r.story.readingFocus}</p><p>{r.story.reason}</p>
+          <p className="font-semibold">{t.studio.storyReview.changes}</p>
+          {r.story.changes.map((change,i)=><div key={i}><p>{change.before} → {change.after}</p><blockquote>「{change.evidence.quote}」</blockquote></div>)}
+          <p className="font-semibold">{t.studio.storyReview.expectations}</p>
+          {r.story.expectations.map((expectation,i)=><div key={i}><strong>{expectation.question} · {t.studio.storyReview[expectation.status]}</strong><p>{expectation.response}</p><blockquote>「{expectation.evidence.quote}」</blockquote></div>)}
+          {r.story.nextInterest && <p>{t.studio.storyReview.nextInterest}：{r.story.nextInterest}</p>}
+        </div> : <p>{t.studio.storyReview.legacy}</p>}
+      </Sec>
       <dl className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl bg-paper-100 p-3 dark:bg-paper-800">
-        <dt className="text-ink-500">{t.studio.reviewPanel.styleScore}</dt><dd className={cn('font-serif', review.verdict === 'pass' ? 'text-tea-700 dark:text-tea-200' : 'text-cinnabar-700 dark:text-cinnabar-100')}>{review.styleScore} · {review.verdict === 'pass' ? t.studio.chaptersTab.verdictPass : t.studio.chaptersTab.verdictRevise}</dd>
+        <dt className="text-ink-500">{t.studio.reviewPanel.styleScore}</dt><dd className={cn('font-serif', review.verdict === 'pass' ? 'text-tea-700 dark:text-tea-200' : 'text-cinnabar-700 dark:text-cinnabar-100')}>{review.styleScore} · {review.report.story && review.report.story.verdict!=='ready' ? t.studio.storyReview[review.report.story.verdict] : review.verdict === 'pass' ? t.studio.chaptersTab.verdictPass : t.studio.chaptersTab.verdictRevise}</dd>
         <dt className="text-ink-500">{t.studio.reviewPanel.metricScore}</dt><dd className="font-serif">{r.metricScore}</dd>
         <dt className="text-ink-500">{t.studio.reviewPanel.aiTell}</dt><dd className="font-serif">{r.aiTellScore}</dd>
         <dt className="text-ink-500">{t.studio.reviewPanel.ooc}</dt><dd className="font-serif">{fmt(t.studio.reviewPanel.oocCount, { n: review.oocCount })}</dd>
       </dl>
+      {r.narrative?.map(issue => <section className="my-3 border-t border-paper-300 pt-3" key={issue.id}><strong>{issue.category} · {issue.severity}</strong><blockquote>「{issue.evidence.quote}」</blockquote><p>{issue.evidence.from}–{issue.evidence.to} · {issue.basis}</p><p>{issue.suggestion}</p>{issue.severity === 'block' && !resolved.includes(issue.id) && <><Input aria-label={t.studio.workbench.reason} value={reasons[issue.id] ?? ''} onChange={e => setReasons(v => ({...v,[issue.id]:e.target.value}))}/><Button size="sm" disabled={!reasons[issue.id]?.trim()} onClick={async () => { try { await dismissReviewIssue(review.id,issue.id,reasons[issue.id]!); setResolved(v => [...v,issue.id]); } catch(e) { toast.error(String(e)); } }}>{t.studio.workbench.dismiss}</Button></>}</section>)}
       {r.revisedVersionId && <p className="mt-2 text-tea-700 dark:text-tea-200">{fmt(t.studio.reviewPanel.revised, { n: r.revisionInstructions.length })}</p>}
       {llm && (
         <Sec title={t.studio.reviewPanel.dimensions}>

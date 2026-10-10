@@ -1,9 +1,10 @@
+import { writeAtomic, writeStatement, type AtomicWriter } from '../db';
 import { nanoid } from 'nanoid';
 import {
   StorylineDocSchema, StyleProfileSchema, DerivativeDeclSchema, type Arc, type Beat, type Character, type Setting, type StorylineDoc, type ChapterPlan,
   type CharacterVoice, type SettingLore, type StyleProfile, type DerivativeDecl, emptyStoryline, emptyVoice, emptyLore,
 } from '@the-water/shared';
-import { getDb, now, selectOne } from '../db';
+import { getDb, now, selectOne, type AtomicOperation } from '../db';
 import { parseJson, parseJsonLoose } from '../mappers';
 import { listChapters } from './chaptersRepo';
 
@@ -32,47 +33,47 @@ export async function listBeats(novelId: string): Promise<Beat[]> {
   return rows.map((r) => ({ id: r.id, arcId: r.arc_id, title: r.title, summary: r.summary, chapterNo: r.chapter_no, characterIds: parseJsonLoose(r.character_ids, []), settingIds: parseJsonLoose(r.setting_ids, []), order: r.sort_order }));
 }
 
-export async function upsertCharacter(novelId: string, c: Partial<Character> & { name: string }, sortOrder?: number): Promise<Character> {
+export async function upsertCharacter(novelId: string, c: Partial<Character> & { name: string }, sortOrder?: number, commit: AtomicWriter = writeAtomic): Promise<Character> {
   const id = c.id ?? nanoid();
   const voice: CharacterVoice = { speechSamples: c.speechSamples ?? [], verbalTics: c.verbalTics ?? [], addressBook: c.addressBook ?? {}, redlines: c.redlines ?? [] };
-  await getDb().execute(
+  await writeStatement(commit,
     `INSERT INTO storyline_characters(id, novel_id, name, aliases, role, description, arc, relationships, voice, sort_order, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET name=excluded.name, aliases=excluded.aliases, role=excluded.role, description=excluded.description, arc=excluded.arc, relationships=excluded.relationships, voice=excluded.voice, sort_order=excluded.sort_order, updated_at=excluded.updated_at`,
     [id, novelId, c.name, JSON.stringify(c.aliases ?? []), c.role ?? '', c.description ?? '', c.arc ?? '', JSON.stringify(c.relationships ?? []), JSON.stringify(voice), sortOrder ?? 0, now()],
   );
   return { id, name: c.name, aliases: c.aliases ?? [], role: c.role ?? '', description: c.description ?? '', arc: c.arc ?? '', relationships: c.relationships ?? [], ...voice };
 }
-export async function upsertSetting(novelId: string, s: Partial<Setting> & { name: string }, sortOrder?: number): Promise<Setting> {
+export async function upsertSetting(novelId: string, s: Partial<Setting> & { name: string }, sortOrder?: number, commit: AtomicWriter = writeAtomic): Promise<Setting> {
   const id = s.id ?? nanoid();
   const lore: SettingLore = { triggerKeys: s.triggerKeys ?? [], priority: s.priority ?? 50, constant: s.constant ?? false };
-  await getDb().execute(
+  await writeStatement(commit,
     `INSERT INTO storyline_settings(id, novel_id, name, kind, description, lore, sort_order, updated_at) VALUES (?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, description=excluded.description, lore=excluded.lore, sort_order=excluded.sort_order, updated_at=excluded.updated_at`,
     [id, novelId, s.name, s.kind ?? 'other', s.description ?? '', JSON.stringify(lore), sortOrder ?? 0, now()],
   );
   return { id, name: s.name, kind: s.kind ?? 'other', description: s.description ?? '', ...lore };
 }
-export async function upsertArc(novelId: string, a: Partial<Arc> & { title: string }, sortOrder?: number): Promise<Arc> {
+export async function upsertArc(novelId: string, a: Partial<Arc> & { title: string }, sortOrder?: number, commit: AtomicWriter = writeAtomic): Promise<Arc> {
   const id = a.id ?? nanoid();
-  await getDb().execute(
+  await writeStatement(commit,
     `INSERT INTO storyline_arcs(id, novel_id, title, summary, start_chapter_no, end_chapter_no, sort_order, updated_at) VALUES (?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET title=excluded.title, summary=excluded.summary, start_chapter_no=excluded.start_chapter_no, end_chapter_no=excluded.end_chapter_no, sort_order=excluded.sort_order, updated_at=excluded.updated_at`,
     [id, novelId, a.title, a.summary ?? '', a.startChapterNo ?? 1, a.endChapterNo ?? 1, sortOrder ?? 0, now()],
   );
   return { id, title: a.title, summary: a.summary ?? '', startChapterNo: a.startChapterNo ?? 1, endChapterNo: a.endChapterNo ?? 1 };
 }
-export async function upsertBeat(novelId: string, b: Partial<Beat> & { title: string }, sortOrder?: number): Promise<Beat> {
+export async function upsertBeat(novelId: string, b: Partial<Beat> & { title: string }, sortOrder?: number, commit: AtomicWriter = writeAtomic): Promise<Beat> {
   const id = b.id ?? nanoid();
   const order = sortOrder ?? b.order ?? 0;
-  await getDb().execute(
+  await writeStatement(commit,
     `INSERT INTO storyline_beats(id, novel_id, arc_id, title, summary, chapter_no, character_ids, setting_ids, sort_order, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET arc_id=excluded.arc_id, title=excluded.title, summary=excluded.summary, chapter_no=excluded.chapter_no, character_ids=excluded.character_ids, setting_ids=excluded.setting_ids, sort_order=excluded.sort_order, updated_at=excluded.updated_at`,
     [id, novelId, b.arcId ?? null, b.title, b.summary ?? '', b.chapterNo ?? null, JSON.stringify(b.characterIds ?? []), JSON.stringify(b.settingIds ?? []), order, now()],
   );
   return { id, arcId: b.arcId ?? null, title: b.title, summary: b.summary ?? '', chapterNo: b.chapterNo ?? null, characterIds: b.characterIds ?? [], settingIds: b.settingIds ?? [], order };
 }
-export async function deleteEntity(table: 'characters' | 'settings' | 'arcs' | 'beats', id: string): Promise<void> {
-  await getDb().execute(`DELETE FROM storyline_${table} WHERE id = ?`, [id]);
+export async function deleteEntity(table: 'characters' | 'settings' | 'arcs' | 'beats', id: string, commit: AtomicWriter = writeAtomic): Promise<void> {
+  await writeStatement(commit, `DELETE FROM storyline_${table} WHERE id = ?`, [id]);
 }
 
 /** Style profile + derivative declaration live on the novel row but belong to the storyline document. */
@@ -83,11 +84,11 @@ export async function getStyleExtras(novelId: string): Promise<{ styleProfile: S
     derivative: r?.derivative ? parseJson(DerivativeDeclSchema, r.derivative, null as unknown as DerivativeDecl) : null,
   };
 }
-export async function setStyleProfile(novelId: string, profile: StyleProfile | null): Promise<void> {
-  await getDb().execute('UPDATE novels SET style_profile = ?, updated_at = ? WHERE id = ?', [profile ? JSON.stringify(profile) : null, now(), novelId]);
+export async function setStyleProfile(novelId: string, profile: StyleProfile | null, commit: AtomicWriter = writeAtomic): Promise<void> {
+  await writeStatement(commit, 'UPDATE novels SET style_profile = ?, updated_at = ? WHERE id = ?', [profile ? JSON.stringify(profile) : null, now(), novelId]);
 }
-export async function setDerivative(novelId: string, decl: DerivativeDecl | null): Promise<void> {
-  await getDb().execute('UPDATE novels SET derivative = ?, updated_at = ? WHERE id = ?', [decl ? JSON.stringify(decl) : null, now(), novelId]);
+export async function setDerivative(novelId: string, decl: DerivativeDecl | null, commit: AtomicWriter = writeAtomic): Promise<void> {
+  await writeStatement(commit, 'UPDATE novels SET derivative = ?, updated_at = ? WHERE id = ?', [decl ? JSON.stringify(decl) : null, now(), novelId]);
 }
 
 /** Assemble the editable rows into a StorylineDoc (chapters come from the chapters table). */
@@ -103,18 +104,23 @@ export async function buildStorylineDoc(novelId: string, premise: string, themes
 
 /** Replace all storyline rows from a doc (used for import / fork / generated outline). Chapter rows are handled by chaptersRepo. */
 export async function replaceStorylineRows(novelId: string, doc: StorylineDoc): Promise<void> {
-  const db = getDb();
-  for (const t of ['characters', 'settings', 'arcs', 'beats'] as const) await db.execute(`DELETE FROM storyline_${t} WHERE novel_id = ?`, [novelId]);
-  let i = 0;
-  for (const c of doc.characters) await upsertCharacter(novelId, c, i++);
-  i = 0;
-  for (const s of doc.settings) await upsertSetting(novelId, s, i++);
-  i = 0;
-  for (const a of doc.arcs) await upsertArc(novelId, a, i++);
-  i = 0;
-  for (const b of doc.beats) await upsertBeat(novelId, b, b.order || i++);
-  if (doc.styleProfile) await setStyleProfile(novelId, doc.styleProfile);
-  if (doc.derivative) await setDerivative(novelId, doc.derivative);
+  await getDb().atomic(storylineOperations(novelId, doc));
+}
+/** Shared transaction builder used by import and explicit plan adoption. */
+export function storylineOperations(novelId: string, doc: StorylineDoc): AtomicOperation[] {
+  const t = now(), ops: AtomicOperation[] = [];
+  const add = (table:string, columns:string[], values:unknown[]) => ops.push({ sql:`INSERT INTO ${table}(${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')}) ON CONFLICT(id) DO UPDATE SET ${columns.filter(c=>!['id','novel_id'].includes(c)).map(c=>`${c}=excluded.${c}`).join(',')} WHERE ${table}.novel_id=excluded.novel_id`, params:values,expectedRows:1 });
+  // Keep stable entities in place: delete/reinsert would sever graph references and defeat locks.
+  for (const table of ['characters','settings','arcs','beats'] as const) {
+    const ids = doc[table].map(entity => entity.id);
+    ops.push({sql:`DELETE FROM storyline_${table} WHERE novel_id=?${ids.length ? ` AND id NOT IN (${ids.map(()=>'?').join(',')})` : ''}`,params:[novelId,...ids]});
+  }
+  doc.characters.forEach((c,i)=>add('storyline_characters',['id','novel_id','name','aliases','role','description','arc','relationships','voice','sort_order','updated_at'],[c.id,novelId,c.name,JSON.stringify(c.aliases),c.role,c.description,c.arc,JSON.stringify(c.relationships),JSON.stringify({speechSamples:c.speechSamples,verbalTics:c.verbalTics,addressBook:c.addressBook,redlines:c.redlines}),i,t]));
+  doc.settings.forEach((c,i)=>add('storyline_settings',['id','novel_id','name','kind','description','lore','sort_order','updated_at'],[c.id,novelId,c.name,c.kind,c.description,JSON.stringify({triggerKeys:c.triggerKeys,priority:c.priority,constant:c.constant}),i,t]));
+  doc.arcs.forEach((c,i)=>add('storyline_arcs',['id','novel_id','title','summary','start_chapter_no','end_chapter_no','sort_order','updated_at'],[c.id,novelId,c.title,c.summary,c.startChapterNo,c.endChapterNo,i,t]));
+  doc.beats.forEach(c=>add('storyline_beats',['id','novel_id','arc_id','title','summary','chapter_no','character_ids','setting_ids','sort_order','updated_at'],[c.id,novelId,c.arcId,c.title,c.summary,c.chapterNo,JSON.stringify(c.characterIds),JSON.stringify(c.settingIds),c.order,t]));
+  ops.push({sql:'UPDATE novels SET style_profile=?,derivative=?,updated_at=? WHERE id=?',params:[doc.styleProfile ? JSON.stringify(doc.styleProfile):null,doc.derivative ? JSON.stringify(doc.derivative):null,t,novelId],expectedRows:1});
+  return ops;
 }
 
 export async function createSnapshot(novelId: string, doc: StorylineDoc, reason: SnapshotReason): Promise<StorylineSnapshot> {

@@ -82,6 +82,7 @@ export function promptPreviews(authorNote = ''): PromptPreview[] {
   const bible = sampleBible();
   const outline = OutlineDocSchema.parse({
     title: '（书名）',
+    logline: '（全书主线：人物面对的目标、阻碍与选择）',
     characters: [{ name: '（人物名）', role: '主角' }],
     arcs: [{ title: '（故事弧）', startChapterNo: 1, endChapterNo: 10 }],
     beats: [{ arcIndex: 0, title: '（情节点）', suggestedChapterNo: 3 }],

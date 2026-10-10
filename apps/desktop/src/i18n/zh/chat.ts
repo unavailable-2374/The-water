@@ -2,7 +2,7 @@
 export const chat = {
   placeholder: '想问什么…',
   placeholderHint: '输入问题，Enter 发送，Shift+Enter 换行',
-  send: '发送', stop: '停止', thinking: '正在思考…', noProvider: '尚未配置 AI 供应商',
+  send: '发送', stop: '停止', thinking: '正在思考…', noProvider: '模型服务不可用，请登录云端账号或检查模型设置',
   newConversation: '新对话', conversationList: '对话列表', deleteConversation: '删除这个对话',
   noConversations: '还没有对话，想到什么就问一句',
   emptyTitle: '想到什么，随手问一句',

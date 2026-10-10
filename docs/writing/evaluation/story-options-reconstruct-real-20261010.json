@@ -1,0 +1,476 @@
+{
+  "label": "REAL model responses; TEST fictional framework. Editorial judgments are not objective quality scores.",
+  "date": "2026-10-10T15:35:57.922Z",
+  "originalProse": {
+    "contentHash": "0c6764b3d3d9c48cebf635636d851336be86d2c2b4608aff0ab25a8f9186fee2",
+    "committedAt": null,
+    "id": "oFjBKTblj8Ry5cTfcl1rw",
+    "chapterId": "SM6Y4LPOng6XoZ7gWJPBM",
+    "versionNo": 1,
+    "content": "TEST 原正文：林舟在离岛前夜决定绝不留下，登上末班船，离开海岛。",
+    "charCount": 33,
+    "summary": "",
+    "source": "user_edit",
+    "storylineSnapshotId": null,
+    "jobStepId": null,
+    "model": null,
+    "usage": null,
+    "createdAt": 1791646557928,
+    "state": "pending",
+    "baselineVersionId": null,
+    "pinned": false,
+    "sessionId": null,
+    "updatedAt": 1791646557928
+  },
+  "input": {
+    "title": "TEST 回声邮局",
+    "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+    "requirements": {
+      "genre": "",
+      "style": "",
+      "pov": "第三人称有限",
+      "tense": "过去时",
+      "tone": "",
+      "audience": "",
+      "taboos": [
+        "超自然解释",
+        "时间旅行",
+        "用母亲死亡解决冲突"
+      ],
+      "mustHave": [
+        "母亲健在",
+        "主角主动选择并付出具体代价"
+      ],
+      "language": "简体中文",
+      "extra": "",
+      "docType": "short-story",
+      "genrePackIds": [],
+      "disabledLore": []
+    },
+    "targetChars": 3000,
+    "styleProfile": null
+  },
+  "cards": [
+    {
+      "outline": [
+        "停航前夜，林舟作为海岛最后一名邮递员整理死信柜，发现一封十年前寄给离岛社工的求救信，寄信人竟是仍健在却拒绝谈往事的母亲。他原计划搭末班船离开，永远不再回来。",
+        "他核对邮戳、地址和母亲笔迹，确认信因台风后邮袋滞留与误投被封存。母亲否认需要帮助，只催他上船。林舟在码头与邮局间往返，旧记忆与实物证据不断冲突。",
+        "他从老邮差口中得知，母亲当年曾想把他送离岛，自己却留下。林舟意识到母亲的沉默不是拒绝，而是怕他因愧疚留下。末班船汽笛响起，他必须决定去留。",
+        "林舟主动放弃末班船和 mainland 培训名额，撕掉船票，承担母亲后续医疗与照护开销。他要求母亲至少让他陪去诊所，母亲没有答应解释，但也没有再赶他走。",
+        "停航后岛上只剩他们。母亲仍健在，往事未完全揭开，但林舟留下并开始以行动重建关系。"
+      ],
+      "title": "留下陪她去诊所",
+      "mainline": "林舟在离岛前夜发现母亲十年前的求救信后，放弃末班船与 mainland 培训名额，主动留在岛上陪母亲去诊所，并承担她不肯说出口的照护责任。",
+      "conflict": "林舟必须在“离岛开始新生活”和“留下陪母亲面对旧事”之间选择；母亲拒绝解释，信件迟到原因指向台风后邮袋滞留。",
+      "choiceAndCost": "林舟错过末班船，失去 mainland 邮政培训名额和安家补贴，留在岛上做临时邮务，并背上母亲后续医疗开销。",
+      "growth": "从“把母亲沉默视为对自己的拒绝、只想逃离海岛”转变为“承认沉默也可能是保护，并愿意留下承担照护与追问的代价”。",
+      "turns": [
+        "信件并非近期写成，而是十年前母亲写给离岛社工的求助信，因台风后邮袋滞留、地址误写而被封存在死信柜；林舟整理停航前最后一批邮件时发现，经邮戳、笔迹和母亲反应确认。"
+      ],
+      "ending": "林舟撕掉船票，留在岛上；母亲仍不完整解释，但同意次日让他陪同去诊所。",
+      "aftermath": "他可能长期失去 mainland 发展机会，母子关系也可能只是缓慢解冻；但他可能成为母亲不再独自沉默的第一道出口。",
+      "id": "E61h1FIxdj2TlFoAipKb8"
+    },
+    {
+      "outline": [
+        "停航前夜，林舟在邮局整理退件时发现母亲十年前的求救信，收件人是岛外反家暴站。母亲健在，却拒绝解释，只催他登船。他原本已买好末班船票。",
+        "他核对邮戳和笔迹，得知信因误投给退休灯塔守、守塔人去世后才随遗物退回邮局。信中母亲请求保护年幼的林舟，并承认丈夫长期施暴。林舟的怨恨开始转向羞耻与愤怒。",
+        "母亲发现他读过信后，仍拒绝谈往事，甚至威胁不再见他。林舟必须在登船前决定：把信交社工站换取正式援助，还是沉默离开保全母亲体面。",
+        "他主动留下，放弃父亲房产继承和 mainland 工作机会，把信和证词交给社工站，承受岛民议论。母亲没有感谢，也没有阻止，只要求他别对外说细节。",
+        "停航后，林舟留在岛上陪母亲接受援助。母亲仍健在，往事没有完全和解，但他已用公开代价换她不再独自承受。"
+      ],
+      "title": "留下公开旧案",
+      "mainline": "林舟在离岛前夜读到母亲十年前向反家暴站求救的信后，选择留在岛上公开父亲施暴旧事并放弃房产继承，以换取母亲获得正式援助。",
+      "conflict": "林舟必须在“公开母亲被家暴的旧事以换取正式援助”和“保护母亲尊严并私下承担”之间选择。",
+      "choiceAndCost": "林舟放弃父亲留下的房产继承、失去 mainland 工作，承受岛民议论和母亲可能永不原谅。",
+      "growth": "从“怨恨母亲不解释、只想一走了之”转变为“愿意承担公开家丑的代价，把沉默还给母亲，把行动留给自己”。",
+      "turns": [
+        "信十年前被误投给退休灯塔守，因守塔人去世才随遗物回到邮局；林舟发现母亲当年求救是为了保护他，而非抛弃他。"
+      ],
+      "ending": "他留在岛上，向社工站提交材料，公开父亲暴力史，母亲仍不解释但不再阻止。",
+      "aftermath": "他可能母子关系长期紧张，也可能让母亲第一次获得正式援助；他可能失去房产，却换来岛上其他沉默者开口。",
+      "id": "76R3GXVPsw4YHeirg4jC_"
+    },
+    {
+      "outline": [
+        "停航前夜，林舟发现母亲十年前写给 mainland 姐姐的求救信，请求把年幼的他接走。母亲健在却拒绝谈往事，只反复说“你该走”。他原想留下逼问。",
+        "他核对邮戳、地址和旧信封，确认信因地址误写与姐姐搬家，被压在死信袋十年。母亲当年求救不是要人救自己，而是要把林舟送离海岛。",
+        "林舟在码头与母亲住处之间往返，意识到自己若强行留下，可能重复母亲当年被困的选择。末班船将开，他必须决定是否尊重她的本意。",
+        "他主动放弃继承、岛上公职和当面和解，把积蓄与照护安排交给邻居，选择登船离开。母亲没有解释，也没有挽留，只收下安排。",
+        "黎明前船离岛，林舟带着未解的矛盾离开。母亲仍健在，往事未明，但他把“离开”变成一次承担后果的选择，而非单纯逃跑。"
+      ],
+      "title": "离开也是履行",
+      "mainline": "林舟在离岛前夜发现母亲十年前的求救信后，选择尊重她当年送他离岛的愿望，放弃继承与和解机会，安排照护后独自登船离开。",
+      "conflict": "林舟必须在“尊重母亲当年送他离岛的求救本意而离开”和“留下逼问真相”之间选择。",
+      "choiceAndCost": "林舟放弃母亲房产继承、岛上公职和与母亲当面和解的机会，把照护责任交给邻居并留下全部积蓄。",
+      "growth": "从“把离开视为背叛、必须留下才能证明爱”转变为“承认离开也可能是履行母亲当年的求救，并接受无法和解的代价”。",
+      "turns": [
+        "信写于十年前，母亲请求 mainland 的姐姐把林舟接走，因地址误写和姐姐搬家被压在死信袋；林舟确认母亲求救是为了让他离开，而非求自己获救。"
+      ],
+      "ending": "他在黎明前登船离开，母亲没有送行，但收下了他留下的照护安排和积蓄。",
+      "aftermath": "他可能多年无法与母亲和解，也可能在 mainland 站稳后以另一种方式回馈海岛；母亲可能继续沉默，但照护不再中断。",
+      "id": "lH9jXk9sKevIwJizosdnQ"
+    },
+    {
+      "outline": [
+        "停航前夜，林舟整理最后一批邮件，发现母亲十年前写给教育部门的求救信，请求派教师和药品给岛上孩子。母亲健在却拒绝谈，只催他离岛。",
+        "他核对邮戳与机构回执，确认信因邮路中断和收件部门撤并，被封存在旧邮袋。母亲当年为岛童求救失败，从此沉默，林舟却一直以为她只困于家事。",
+        "末班船将开， mainland 奖学金通知也在手中。林舟必须决定：离开去读城市学校，还是留下接续母亲未完成的公共请求。",
+        "他主动放弃奖学金和离岛机会，留下兼任邮递员与临时教师，把邮局改成课堂和物资点。母亲没有道歉或解释，但开始帮他分拣旧邮件。",
+        "停航后，海岛更孤立，林舟的选择带来沉重日常。母亲仍健在，往事未完全说开，但两人以共同工作维持岛上孩子与老人的联系。"
+      ],
+      "title": "留下接续求救",
+      "mainline": "林舟在离岛前夜发现母亲十年前为岛童求资源的求救信后，放弃 mainland 奖学金和离岛机会，主动留下维持邮路与临时课堂。",
+      "conflict": "林舟必须在“个人前途”和“接续母亲当年为岛童求资源的公共请求”之间选择。",
+      "choiceAndCost": "林舟放弃 mainland 奖学金、城市户口机会和与母亲彻底摊牌的可能，留在停航后的孤岛兼任邮递员与临时教师。",
+      "growth": "从“把海岛视为困住母亲的牢笼、只想逃离”转变为“承认母亲失败过的求救仍值得接续，并愿意用留下承担公共代价”。",
+      "turns": [
+        "信是母亲十年前写给教育部门的求助，因邮路中断和收件机构撤并被封存；她拒绝谈是因为自觉失败，而非有隐秘罪行。"
+      ],
+      "ending": "林舟留下，把邮局改成临时课堂和物资点，母亲仍不解释，但开始帮他整理旧邮件。",
+      "aftermath": "他可能长期困在孤岛、失去个人发展，也可能让停航后的社区获得一线延续；母子关系可能以共同劳动而非坦白缓慢修复。",
+      "id": "jvo5GyKe9nu-9Jc0x3qii"
+    }
+  ],
+  "comparison": {
+    "summary": "四个候选都满足作者明确硬约束：母亲健在、无超自然/时间旅行/母亲死亡、结局由林舟主动选择并付出具体代价推动。全书重构覆盖整部作品，第一章已保存正文在范围内，可被替代；因此四个候选均不需要扩大范围。差异集中在林舟选择留下还是离开、冲突是私人照护/公开旧案/尊重离开/公共接续，以及信件迟到机制和母女矛盾解法的假设。所有候选的迟到机制和成长落地都仍需正文细化，但这些属于 concerns，不是硬约束违规。",
+    "options": [
+      {
+        "optionId": "E61h1FIxdj2TlFoAipKb8",
+        "conflict": "林舟必须在“离岛开始新生活”和“留下陪母亲面对旧事”之间选择；母亲拒绝解释。",
+        "character": "林舟：海岛最后一名邮递员，原计划离岛；母亲：健在，拒绝谈往事，写信给离岛社工求助。",
+        "turns": "信件并非近期写成，而是十年前母亲写给离岛社工的求助信，因台风后邮袋滞留、地址误写而被封存在死信柜；林舟整理停航前最后一批邮件时发现，经邮戳、笔迹和母亲反应确认。",
+        "emotion": "愧疚、被保护感、迟疑、承担照护后的沉重与缓慢解冻。",
+        "ending": "林舟撕掉船票，留在岛上；母亲仍不完整解释，但同意次日让他陪同去诊所。",
+        "tradeoff": "选择留下意味着放弃末班船、mainland 邮政培训名额和安家补贴，留在岛上做临时邮务，并背上母亲后续医疗开销；得到的是陪伴母亲、可能成为她不再独自沉默的第一道出口，以及以行动重建关系的机会。",
+        "concerns": [
+          "信件迟到机制为“台风后邮袋滞留与误投、封存死信柜”，需在正文中补足死信柜为何十年未清、为何停航前才被整理到。",
+          "母亲同意次日陪同去诊所、停航后岛上只剩他们，属于结局约定或后续影响概述；若写成实际场景，会触碰“全篇只发生在离岛前一个夜晚”的边界。",
+          "原正文为林舟登船离开；本候选改为留下，需在重构改写中替换第一章已保存正文的离开事实。",
+          "作者尚未决定信件迟到原因与母女矛盾解法；本候选给出的“母亲沉默是保护”是探索性解法，不是硬约束。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "76R3GXVPsw4YHeirg4jC_",
+        "conflict": "林舟必须在“公开母亲被家暴的旧事以换取正式援助”和“保护母亲尊严并私下承担”之间选择。",
+        "character": "林舟：海岛邮递员，原已买好末班船票；母亲：健在，拒绝解释，曾向反家暴站求救；父亲：被指长期施暴；退休灯塔守：误收信件者。",
+        "turns": "信十年前被误投给退休灯塔守，因守塔人去世才随遗物回到邮局；林舟发现母亲当年求救是为了保护他，而非抛弃他。",
+        "emotion": "怨恨转向羞耻与愤怒、公开家丑的压力、母亲可能永不原谅的紧张、以行动承担后的沉重。",
+        "ending": "他留在岛上，向社工站提交材料，公开父亲暴力史，母亲仍不解释但不再阻止。",
+        "tradeoff": "选择留下公开旧案意味着放弃父亲留下的房产继承、mainland 工作机会，承受岛民议论和母亲可能永不原谅；得到的是母亲获得正式援助的可能，以及让其他沉默者开口的可能。",
+        "concerns": [
+          "信件迟到机制为“误投给退休灯塔守，守塔人去世后随遗物退回邮局”，需补足守塔人为何未及时退回、去世时间与邮局接收时机。",
+          "公开父亲暴力史、向社工站提交材料、停航后接受援助，属于结局或后续影响概述；若展开为具体场景，需注意夜晚边界。",
+          "原正文为林舟登船离开；本候选改为留下公开旧案，需在重构改写中替换第一章已保存正文的离开事实。",
+          "母亲被家暴与林舟怨恨转向羞耻/愤怒，是作者尚未决定的母女矛盾解法之一，属于探索性方案。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "lH9jXk9sKevIwJizosdnQ",
+        "conflict": "林舟必须在“尊重母亲当年送他离岛的求救本意而离开”和“留下逼问真相”之间选择。",
+        "character": "林舟：海岛邮递员，原想留下逼问；母亲：健在，拒绝谈往事，只反复说“你该走”；mainland 姐姐：十年前被母亲写信请求接走林舟。",
+        "turns": "信写于十年前，母亲请求 mainland 的姐姐把林舟接走，因地址误写和姐姐搬家被压在死信袋；林舟确认母亲求救是为了让他离开，而非求自己获救。",
+        "emotion": "被困感、被送走的背叛感、对母亲本意的重新理解、未和解的离别与承担。",
+        "ending": "他在黎明前登船离开，母亲没有送行，但收下了他留下的照护安排和积蓄。",
+        "tradeoff": "选择离开意味着放弃母亲房产继承、岛上公职和与母亲当面和解的机会，把照护责任交给邻居并留下全部积蓄；得到的是尊重母亲当年送他离岛的本意、避免重复母亲被困的选择，以及可能在 mainland 站稳后以另一种方式回馈海岛。",
+        "concerns": [
+          "信件迟到机制为“地址误写与姐姐搬家，被压在死信袋十年”，需补足死信袋为何现在被整理到、邮戳与旧信封如何核验。",
+          "林舟在黎明前登船离开，仍接近“离岛前一个夜晚”的边界；若把黎明后航行写成场景，需控制叙述范围。",
+          "原正文已有林舟登船离开；本候选保留离开，但需把“决定绝不留下”改写为主动承担后果的选择。",
+          "母亲当年求救是为了送走林舟而非自救，是作者尚未决定的母女矛盾解法之一，属于探索性方案。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "jvo5GyKe9nu-9Jc0x3qii",
+        "conflict": "林舟必须在“个人前途”和“接续母亲当年为岛童求资源的公共请求”之间选择。",
+        "character": "林舟：海岛邮递员，手握 mainland 奖学金通知；母亲：健在，拒绝谈往事，只催他离岛，曾为岛童向教育部门求救。",
+        "turns": "信是母亲十年前写给教育部门的求助，因邮路中断和收件机构撤并被封存；她拒绝谈是因为自觉失败，而非有隐秘罪行。",
+        "emotion": "个人前途与公共责任的拉扯、对母亲沉默的重新理解、停航后孤岛的沉重日常、以共同劳动缓慢修复关系。",
+        "ending": "林舟留下，把邮局改成临时课堂和物资点，母亲仍不解释，但开始帮他整理旧邮件。",
+        "tradeoff": "选择留下接续意味着放弃 mainland 奖学金、城市户口机会和与母亲彻底摊牌的可能，留在停航后的孤岛兼任邮递员与临时教师；得到的是维持邮路与临时课堂、让停航后的社区获得延续，以及以共同工作而非坦白缓慢修复母子关系。",
+        "concerns": [
+          "信件迟到机制为“邮路中断和收件部门撤并，被封存在旧邮袋”，需补足机构回执如何保存、旧邮袋为何现在被发现。",
+          "停航后海岛更孤立、林舟留下兼任邮递员与临时教师、把邮局改成课堂和物资点，属于后续影响概述；若展开为长期日常，会超出“离岛前一个夜晚”的场景边界。",
+          "原正文为林舟登船离开；本候选改为留下接续公共请求，需在重构改写中替换第一章已保存正文的离开事实。",
+          "母亲为岛童求救失败后沉默，是作者尚未决定的母女矛盾解法之一，属于探索性方案。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      }
+    ]
+  },
+  "selectedByTestAuthor": "E61h1FIxdj2TlFoAipKb8",
+  "plan": {
+    "id": "HpTvUmS4c-1kNcPzK29m5",
+    "label": "留下陪她去诊所",
+    "title": "TEST 回声邮局",
+    "cards": [],
+    "retiredCards": [],
+    "before": {
+      "version": 1,
+      "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+      "themes": [],
+      "characters": [],
+      "settings": [],
+      "arcs": [],
+      "beats": [],
+      "chapters": [
+        {
+          "chapterNo": 1,
+          "title": "TEST original opening",
+          "goal": "TEST depart from island",
+          "beatIds": [],
+          "povCharacterId": null,
+          "targetChars": 3000,
+          "endHook": "TEST departure"
+        }
+      ],
+      "styleProfile": null,
+      "derivative": null
+    },
+    "after": {
+      "version": 1,
+      "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+      "themes": [
+        "沉默与保护",
+        "主动选择与代价",
+        "以行动重建关系"
+      ],
+      "characters": [
+        {
+          "id": "char_linzhou_001",
+          "name": "林舟",
+          "aliases": [],
+          "role": "主角",
+          "description": "海岛最后一名邮递员，原计划搭末班船离岛并接受大陆邮政培训；发现母亲旧信后，从逃离转向留下承担照护。",
+          "arc": "从只想逃离海岛，转变为承认沉默也可能是保护，并愿意留下承担照护与追问的代价。",
+          "relationships": [],
+          "speechSamples": [],
+          "verbalTics": [],
+          "addressBook": {},
+          "redlines": []
+        },
+        {
+          "id": "char_mother_001",
+          "name": "母亲",
+          "aliases": [],
+          "role": "核心人物",
+          "description": "仍然健在，拒绝谈起往事；十年前曾写信给离岛社工求助，但信因台风后邮袋滞留与误投被封存。她的沉默可被探索为保护，但非硬约束。",
+          "arc": "始终健在，拒绝完整解释往事；从否认需要帮助、催促儿子上船，到不再赶他走并同意次日让他陪同去诊所。",
+          "relationships": [],
+          "speechSamples": [],
+          "verbalTics": [],
+          "addressBook": {},
+          "redlines": []
+        },
+        {
+          "id": "char_oldpostman_001",
+          "name": "老邮差",
+          "aliases": [],
+          "role": "信息提供者",
+          "description": "熟悉旧邮路与母亲往事，向林舟透露母亲当年曾想把他送离岛而自己留下。",
+          "arc": "作为旧事线索提供者，帮助林舟理解母亲当年曾想把他送离岛而自己留下。",
+          "relationships": [],
+          "speechSamples": [],
+          "verbalTics": [],
+          "addressBook": {},
+          "redlines": []
+        }
+      ],
+      "settings": [
+        {
+          "id": "setting_postoffice_001",
+          "name": "海岛邮局",
+          "kind": "location",
+          "description": "停航前最后一批邮件待整理，也是林舟工作与决定去留的起点。",
+          "triggerKeys": [],
+          "priority": 1,
+          "constant": false
+        },
+        {
+          "id": "setting_deadlettercabinet_001",
+          "name": "死信柜",
+          "kind": "location",
+          "description": "因台风后邮袋滞留与误投而封存旧信；停航前清仓时才被林舟整理到。需在正文补足十年未清的原因。",
+          "triggerKeys": [],
+          "priority": 2,
+          "constant": false
+        },
+        {
+          "id": "setting_pier_001",
+          "name": "码头",
+          "kind": "location",
+          "description": "末班船离岛处，汽笛成为林舟必须做出选择的压力点。",
+          "triggerKeys": [],
+          "priority": 3,
+          "constant": false
+        },
+        {
+          "id": "setting_motherhome_001",
+          "name": "母亲住处",
+          "kind": "location",
+          "description": "母亲拒绝解释往事与催促林舟上船的空间；不越出离岛前一夜的时间边界。",
+          "triggerKeys": [],
+          "priority": 4,
+          "constant": false
+        }
+      ],
+      "arcs": [
+        {
+          "id": "arc_leave_or_stay_001",
+          "title": "留下陪她去诊所",
+          "summary": "林舟在停航前夜发现母亲十年前的求救信，核验信件迟到机制，在旧记忆与实物证据冲突中理解母亲沉默的探索性含义，最终放弃末班船与大陆培训名额，撕掉船票留下。母亲仍不完整解释，但同意次日让他陪同去诊所。",
+          "startChapterNo": 1,
+          "endChapterNo": 1
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat_discover_letter_001",
+          "arcId": "arc_leave_or_stay_001",
+          "title": "死信柜里的求救信",
+          "summary": "停航前夜，林舟作为海岛最后一名邮递员整理死信柜，发现一封十年前寄给离岛社工的求救信，寄信人竟是仍健在却拒绝谈往事的母亲。他原计划搭末班船离开，永远不再回来。",
+          "chapterNo": 1,
+          "characterIds": [
+            "char_linzhou_001",
+            "char_mother_001"
+          ],
+          "settingIds": [
+            "setting_postoffice_001",
+            "setting_deadlettercabinet_001"
+          ],
+          "order": 1
+        },
+        {
+          "id": "beat_verify_letter_001",
+          "arcId": "arc_leave_or_stay_001",
+          "title": "邮戳、笔迹与否认",
+          "summary": "林舟核对邮戳、地址和母亲笔迹，确认信因台风后邮袋滞留与误投被封存；死信柜十年未清与停航前清仓的因果需在正文补足。母亲否认需要帮助，只催他上船。林舟在码头与邮局间往返，旧记忆与实物证据不断冲突。",
+          "chapterNo": 1,
+          "characterIds": [
+            "char_linzhou_001",
+            "char_mother_001"
+          ],
+          "settingIds": [
+            "setting_postoffice_001",
+            "setting_deadlettercabinet_001",
+            "setting_pier_001",
+            "setting_motherhome_001"
+          ],
+          "order": 2
+        },
+        {
+          "id": "beat_oldpostman_reveal_001",
+          "arcId": "arc_leave_or_stay_001",
+          "title": "老邮差说出旧事",
+          "summary": "林舟从老邮差口中得知，母亲当年曾想把他送离岛，自己却留下。林舟意识到母亲的沉默可能不是拒绝，而是怕他因愧疚留下；此理解为探索性解法，不是作者已定硬约束。末班船汽笛响起，他必须决定去留。",
+          "chapterNo": 1,
+          "characterIds": [
+            "char_linzhou_001",
+            "char_oldpostman_001",
+            "char_mother_001"
+          ],
+          "settingIds": [
+            "setting_postoffice_001",
+            "setting_pier_001"
+          ],
+          "order": 3
+        },
+        {
+          "id": "beat_whistle_choice_001",
+          "arcId": "arc_leave_or_stay_001",
+          "title": "汽笛下的选择与代价",
+          "summary": "林舟主动放弃末班船和大陆培训名额，撕掉船票，承担母亲后续医疗与照护开销。他要求母亲至少让他陪去诊所，母亲没有答应解释，但也没有再赶他走。",
+          "chapterNo": 1,
+          "characterIds": [
+            "char_linzhou_001",
+            "char_mother_001"
+          ],
+          "settingIds": [
+            "setting_pier_001",
+            "setting_motherhome_001"
+          ],
+          "order": 4
+        },
+        {
+          "id": "beat_tear_ticket_001",
+          "arcId": "arc_leave_or_stay_001",
+          "title": "停航后的概述",
+          "summary": "停航后岛上只剩他们。母亲仍健在，往事未完全揭开，但林舟留下并开始以行动重建关系；母亲同意次日让他陪同去诊所。该段作为结局约定与后续影响概述，不写成实际场景，不越出离岛前一个夜晚的边界。",
+          "chapterNo": 1,
+          "characterIds": [
+            "char_linzhou_001",
+            "char_mother_001"
+          ],
+          "settingIds": [
+            "setting_motherhome_001"
+          ],
+          "order": 5
+        }
+      ],
+      "chapters": [
+        {
+          "chapterNo": 1,
+          "title": "TEST original opening",
+          "goal": "TEST depart from island",
+          "beatIds": [],
+          "povCharacterId": null,
+          "targetChars": 3000,
+          "endHook": "TEST departure"
+        }
+      ],
+      "styleProfile": null,
+      "derivative": null
+    },
+    "meta": {
+      "storyOptionSelectionId": "ODmQQMu0cm4aYo25wkhtz",
+      "downstreamImpact": [
+        "chapter:SM6Y4LPOng6XoZ7gWJPBM 的已保存正文中林舟登船离开的事实与选定大纲冲突；下一步需在重构改写中替换第一章离开事实，改为撕票留下，并保留停航前夜时间边界。",
+        "下一步需按新弧与主要情节点重新生成逐章计划；本步不输出 chapters、场景卡或正文。",
+        "现有关系推进为空；下一步需规划林舟与母亲、老邮差的关系推进，但不得改动锁定实体或范围外已发生事实。",
+        "信件迟到机制需在正文补足：死信柜为何十年未清、为何停航前才被整理到；母亲同意次日陪同去诊所与停航后岛上只剩他们应作为结局约定或后续影响概述，不写成实际场景。",
+        "母亲沉默是保护的解读为探索性解法，不是作者已定硬约束；后续章节规划可保留该方向，但不得将其写成不可推翻的设定。"
+      ],
+      "logline": "停航前夜，海岛最后一名邮递员林舟在死信柜发现母亲十年前的求救信后，放弃末班船与大陆培训名额，主动留下陪母亲去诊所并承担照护责任。",
+      "outlineDone": true,
+      "tableDone": false,
+      "storyOptionStage": "outline"
+    },
+    "baseHash": "e7a6dd2c4f6aef5d86b54e961b379a07e46c407bf81dba76afb252322fef7862"
+  },
+  "status": "passed",
+  "usage": [
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 1837,
+      "output_tokens": 7759
+    },
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 3831,
+      "output_tokens": 8646
+    },
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 2951,
+      "output_tokens": 8048
+    }
+  ],
+  "selections": [
+    {
+      "option_id": "E61h1FIxdj2TlFoAipKb8",
+      "state": "accepted",
+      "error": null,
+      "generated_json": "{\"after\":{\"version\":1,\"themes\":[\"沉默与保护\",\"主动选择与代价\",\"以行动重建关系\"],\"characters\":[{\"id\":\"char_linzhou_001\",\"name\":\"林舟\",\"aliases\":[],\"role\":\"主角\",\"description\":\"海岛最后一名邮递员，原计划搭末班船离岛并接受大陆邮政培训；发现母亲旧信后，从逃离转向留下承担照护。\",\"arc\":\"从只想逃离海岛，转变为承认沉默也可能是保护，并愿意留下承担照护与追问的代价。\",\"relationships\":[],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[]},{\"id\":\"char_mother_001\",\"name\":\"母亲\",\"aliases\":[],\"role\":\"核心人物\",\"description\":\"仍然健在，拒绝谈起往事；十年前曾写信给离岛社工求助，但信因台风后邮袋滞留与误投被封存。她的沉默可被探索为保护，但非硬约束。\",\"arc\":\"始终健在，拒绝完整解释往事；从否认需要帮助、催促儿子上船，到不再赶他走并同意次日让他陪同去诊所。\",\"relationships\":[],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[]},{\"id\":\"char_oldpostman_001\",\"name\":\"老邮差\",\"aliases\":[],\"role\":\"信息提供者\",\"description\":\"熟悉旧邮路与母亲往事，向林舟透露母亲当年曾想把他送离岛而自己留下。\",\"arc\":\"作为旧事线索提供者，帮助林舟理解母亲当年曾想把他送离岛而自己留下。\",\"relationships\":[],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[]}],\"settings\":[{\"id\":\"setting_postoffice_001\",\"name\":\"海岛邮局\",\"kind\":\"location\",\"description\":\"停航前最后一批邮件待整理，也是林舟工作与决定去留的起点。\",\"triggerKeys\":[],\"priority\":1,\"constant\":false},{\"id\":\"setting_deadlettercabinet_001\",\"name\":\"死信柜\",\"kind\":\"location\",\"description\":\"因台风后邮袋滞留与误投而封存旧信；停航前清仓时才被林舟整理到。需在正文补足十年未清的原因。\",\"triggerKeys\":[],\"priority\":2,\"constant\":false},{\"id\":\"setting_pier_001\",\"name\":\"码头\",\"kind\":\"location\",\"description\":\"末班船离岛处，汽笛成为林舟必须做出选择的压力点。\",\"triggerKeys\":[],\"priority\":3,\"constant\":false},{\"id\":\"setting_motherhome_001\",\"name\":\"母亲住处\",\"kind\":\"location\",\"description\":\"母亲拒绝解释往事与催促林舟上船的空间；不越出离岛前一夜的时间边界。\",\"triggerKeys\":[],\"priority\":4,\"constant\":false}],\"arcs\":[{\"id\":\"arc_leave_or_stay_001\",\"title\":\"留下陪她去诊所\",\"summary\":\"林舟在停航前夜发现母亲十年前的求救信，核验信件迟到机制，在旧记忆与实物证据冲突中理解母亲沉默的探索性含义，最终放弃末班船与大陆培训名额，撕掉船票留下。母亲仍不完整解释，但同意次日让他陪同去诊所。\",\"startChapterNo\":1,\"endChapterNo\":1}],\"beats\":[{\"id\":\"beat_discover_letter_001\",\"arcId\":\"arc_leave_or_stay_001\",\"title\":\"死信柜里的求救信\",\"summary\":\"停航前夜，林舟作为海岛最后一名邮递员整理死信柜，发现一封十年前寄给离岛社工的求救信，寄信人竟是仍健在却拒绝谈往事的母亲。他原计划搭末班船离开，永远不再回来。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou_001\",\"char_mother_001\"],\"settingIds\":[\"setting_postoffice_001\",\"setting_deadlettercabinet_001\"],\"order\":1},{\"id\":\"beat_verify_letter_001\",\"arcId\":\"arc_leave_or_stay_001\",\"title\":\"邮戳、笔迹与否认\",\"summary\":\"林舟核对邮戳、地址和母亲笔迹，确认信因台风后邮袋滞留与误投被封存；死信柜十年未清与停航前清仓的因果需在正文补足。母亲否认需要帮助，只催他上船。林舟在码头与邮局间往返，旧记忆与实物证据不断冲突。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou_001\",\"char_mother_001\"],\"settingIds\":[\"setting_postoffice_001\",\"setting_deadlettercabinet_001\",\"setting_pier_001\",\"setting_motherhome_001\"],\"order\":2},{\"id\":\"beat_oldpostman_reveal_001\",\"arcId\":\"arc_leave_or_stay_001\",\"title\":\"老邮差说出旧事\",\"summary\":\"林舟从老邮差口中得知，母亲当年曾想把他送离岛，自己却留下。林舟意识到母亲的沉默可能不是拒绝，而是怕他因愧疚留下；此理解为探索性解法，不是作者已定硬约束。末班船汽笛响起，他必须决定去留。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou_001\",\"char_oldpostman_001\",\"char_mother_001\"],\"settingIds\":[\"setting_postoffice_001\",\"setting_pier_001\"],\"order\":3},{\"id\":\"beat_whistle_choice_001\",\"arcId\":\"arc_leave_or_stay_001\",\"title\":\"汽笛下的选择与代价\",\"summary\":\"林舟主动放弃末班船和大陆培训名额，撕掉船票，承担母亲后续医疗与照护开销。他要求母亲至少让他陪去诊所，母亲没有答应解释，但也没有再赶他走。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou_001\",\"char_mother_001\"],\"settingIds\":[\"setting_pier_001\",\"setting_motherhome_001\"],\"order\":4},{\"id\":\"beat_tear_ticket_001\",\"arcId\":\"arc_leave_or_stay_001\",\"title\":\"停航后的概述\",\"summary\":\"停航后岛上只剩他们。母亲仍健在，往事未完全揭开，但林舟留下并开始以行动重建关系；母亲同意次日让他陪同去诊所。该段作为结局约定与后续影响概述，不写成实际场景，不越出离岛前一个夜晚的边界。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou_001\",\"char_mother_001\"],\"settingIds\":[\"setting_motherhome_001\"],\"order\":5}]},\"title\":\"TEST 回声邮局\",\"logline\":\"停航前夜，海岛最后一名邮递员林舟在死信柜发现母亲十年前的求救信后，放弃末班船与大陆培训名额，主动留下陪母亲去诊所并承担照护责任。\",\"cards\":[],\"downstreamImpact\":[\"chapter:SM6Y4LPOng6XoZ7gWJPBM 的已保存正文中林舟登船离开的事实与选定大纲冲突；下一步需在重构改写中替换第一章离开事实，改为撕票留下，并保留停航前夜时间边界。\",\"下一步需按新弧与主要情节点重新生成逐章计划；本步不输出 chapters、场景卡或正文。\",\"现有关系推进为空；下一步需规划林舟与母亲、老邮差的关系推进，但不得改动锁定实体或范围外已发生事实。\",\"信件迟到机制需在正文补足：死信柜为何十年未清、为何停航前才被整理到；母亲同意次日陪同去诊所与停航后岛上只剩他们应作为结局约定或后续影响概述，不写成实际场景。\",\"母亲沉默是保护的解读为探索性解法，不是作者已定硬约束；后续章节规划可保留该方向，但不得将其写成不可推翻的设定。\"],\"requiresWiderScope\":false}"
+    }
+  ]
+}

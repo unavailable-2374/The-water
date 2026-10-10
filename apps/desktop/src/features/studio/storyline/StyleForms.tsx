@@ -99,7 +99,7 @@ function StyleProfileEditor({ novel, profile, hasText, busy, onExtract, onSaved 
       await saveStyleProfile(novel.id, next);
       onSaved();
     },
-    { key: `style-${novel.id}` },
+    { key: `style-${novel.id}`, novelId:novel.id },
   );
   const p = form.profile;
   const setP = (patch: Partial<StyleProfile>, mode: 'debounce' | 'now' = 'debounce') => update({ profile: { ...p, ...patch } }, mode);
@@ -200,7 +200,7 @@ function DerivativeEditor({ novel, decl, onSaved }: { novel: Novel; decl: Deriva
       await saveDerivative(novel.id, { ...rest, mustKeep: splitLines(mustKeepText), allowedChanges: splitLines(allowedText) });
       onSaved();
     },
-    { key: `derivative-${novel.id}` },
+    { key: `derivative-${novel.id}`, novelId:novel.id },
   );
   return (
     <div className="space-y-3" onBlur={flush}>

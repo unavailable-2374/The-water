@@ -1,3 +1,7 @@
+import { nanoid } from 'nanoid';
+import { requirePlanAccepted, proposeDocumentPlan } from '@/db/repos/planProposalsRepo';
+import { setStepInput } from '@/db/repos/jobsRepo';
+import { AwaitingReviewError } from '../awaitingReview';
 /**
  * extract_style（拆书，docs/writing/README.md §5.1）：
  *   metrics 本地统计（不用模型）→ LLM 分批归纳 voice/exemplars/negatives/人物言行/规矩 → 合并 → 写入
@@ -5,8 +9,8 @@
  */
 import { emptyStyleProfile, targetsFromMetrics, type Setting } from '@the-water/shared';
 import { getNovel } from '@/db/repos/novelsRepo';
-import { listCurrentVersions } from '@/db/repos/chaptersRepo';
-import { buildStorylineDoc, createSnapshot, setStyleProfile, upsertCharacter, upsertSetting } from '@/db/repos/storylineRepo';
+import { listStyleExtractionSources } from '@/novel/styleExtractionSources';
+import { buildStorylineDoc } from '@/db/repos/storylineRepo';
 import { requestJson } from '@/llm/json';
 import { applyExtractToProfile, mergeStyleExtracts, styleExtractPrompt, type StyleExtractResult } from '@/llm/prompts/styleExtract';
 import { constraintsFromTargets } from '@/llm/prompts/style';
@@ -27,17 +31,24 @@ export function sampleChapterNos(total: number, max: number = EXTRACT_STYLE.samp
   return [...picked].sort((a, b) => a - b);
 }
 
+/** Sample the eligible list, whose original chapter numbers may have gaps. */
+export function sampleStyleSources<T>(rows: readonly T[]): T[] {
+  const positions = sampleChapterNos(rows.length);
+  return rows.filter((_row, index) => positions.includes(index + 1));
+}
+
 export const extractStyleStep: StepHandler = async (ctx) => {
+  if (await requirePlanAccepted(ctx.step.input.planProposalId)) return {outputRef:String(ctx.step.input.planProposalId)};
   const novel = await getNovel(ctx.job.novelId);
   if (!novel) throw new Error('小说不存在');
-  const rows = (await listCurrentVersions(novel.id)).filter((r) => r.version && r.version.content.trim().length > 200);
+  const rows = await listStyleExtractionSources(novel.id);
   if (rows.length === 0) throw new Error('还没有可供拆书的正文');
   const doc = await buildStorylineDoc(novel.id, novel.premise, novel.meta.themes);
   const base = doc.styleProfile ?? emptyStyleProfile({ id: `extracted_${novel.id}`, name: `《${novel.origin?.sourceTitle ?? novel.title}》原著文风` });
 
   ctx.setMessage('正在统计原著的句长、段落与标点习惯');
-  const nos = sampleChapterNos(rows.length);
-  const sampled = rows.filter((r) => nos.includes(r.chapter.chapterNo));
+  const sampled = sampleStyleSources(rows);
+  const nos = sampled.map(row => row.chapter.chapterNo);
   const metrics = computeStyleMetrics(sampled.map((r) => r.version!.content));
   const fidelity = doc.derivative?.styleFidelity ?? 0.85;
   const targets = targetsFromMetrics(metrics, fidelity);
@@ -70,7 +81,8 @@ export const extractStyleStep: StepHandler = async (ctx) => {
   const merged = mergeStyleExtracts(results);
   let profile = applyExtractToProfile({ ...base, metrics, targets }, merged, nos);
   if (profile.injection.humanReadableConstraints.length === 0) profile = { ...profile, injection: { ...profile.injection, humanReadableConstraints: constraintsFromTargets(profile) } };
-  await setStyleProfile(novel.id, profile);
+  const after = structuredClone(doc);
+  after.styleProfile = profile;
 
   // characters: fill empty voice fields only (user edits win)
   const byName = new Map(doc.characters.map((c) => [c.name, c] as const));
@@ -78,24 +90,23 @@ export const extractStyleStep: StepHandler = async (ctx) => {
     const target = byName.get(c.name) ?? doc.characters.find((x) => x.aliases.includes(c.name));
     if (!target) continue;
     const idx = doc.characters.indexOf(target);
-    await upsertCharacter(novel.id, {
+    after.characters[idx] = {
       ...target,
       speechSamples: target.speechSamples.length ? target.speechSamples : c.speechSamples,
       verbalTics: target.verbalTics.length ? target.verbalTics : c.verbalTics,
       addressBook: Object.keys(target.addressBook).length ? target.addressBook : c.addressBook,
       redlines: target.redlines.length ? target.redlines : c.redlines,
-    }, idx);
+    };
   }
   // lore: add rule-like settings not yet present
   const existingNames = new Set(doc.settings.map((s) => s.name));
-  let order = doc.settings.length;
   for (const l of merged.lore) {
     if (existingNames.has(l.name)) continue;
     const setting: Partial<Setting> & { name: string } = { name: l.name, kind: l.kind, description: l.content, triggerKeys: l.triggerKeys.length ? l.triggerKeys : [l.name], priority: l.kind === 'rule' ? 70 : 50, constant: false };
-    await upsertSetting(novel.id, setting, order++);
+    after.settings.push({id:nanoid(),name:setting.name,kind:setting.kind ?? 'rule',description:setting.description ?? '',triggerKeys:setting.triggerKeys ?? [],priority:setting.priority ?? 50,constant:false});
   }
-  const after = await buildStorylineDoc(novel.id, novel.premise, novel.meta.themes);
-  const snap = await createSnapshot(novel.id, after, 'generated');
+  const id = await proposeDocumentPlan(novel.id,after,'拆书资料 / Extracted materials',{},undefined,[],[],ctx.commit);
+  await setStepInput(ctx.step.id,{...ctx.step.input,planProposalId:id});
   emitJobEvent({ type: 'novel:storylineUpdated', novelId: novel.id });
-  return { outputRef: snap.id };
+  throw new AwaitingReviewError('拆书资料等待核对，采纳后才更新人物与设定');
 };

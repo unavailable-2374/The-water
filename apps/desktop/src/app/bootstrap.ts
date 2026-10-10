@@ -1,3 +1,5 @@
+import { startAssistantRuntime } from '@/assistant/runtime';
+import { recoverStoryOptions } from '@/db/repos/storyOptionsRepo';
 import { nanoid } from 'nanoid';
 import { setDb } from '@/db/db';
 import { openTauriDb } from '@/db/tauriDb';
@@ -38,6 +40,8 @@ async function ensureClientId(): Promise<void> {
 export async function bootstrap(): Promise<void> {
   const db = await openTauriDb();
   setDb(db);
+  await recoverStoryOptions();
+  await (await import('@/novel/outlineReview')).recoverOutlineReviews();
   await ensureClientId();
   await seedProvidersFromEnv();
   await useSettings.getState().load();
@@ -46,6 +50,7 @@ export async function bootstrap(): Promise<void> {
   // 先把云端账号读出来，社区覆盖层才知道该跟谁重置。
   await useAccount.getState().refresh();
   watchAccountForCommunity();
+  await startAssistantRuntime();
   await startJobRunner();
   await useJobs.getState().loadAll();
   // 回收站过期清理（30 天）+ 孤儿 PDF 清理；后台跑，失败只记日志，不阻断启动。

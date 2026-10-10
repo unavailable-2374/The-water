@@ -2,13 +2,28 @@
  * `t` 的运行时行为：切语言之后，**之前就拿到手的引用**也要跟着变。
  * 这正是「模块顶层把文案拷进常量表」那种写法会踩的坑，所以专门测一遍。
  */
-import { afterEach, describe, expect, it } from 'vitest';
-import { availableLocales, currentLocale, fmt, setLocale, t } from '@/i18n';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { availableLocales, currentLocale, fmt, initLocale, setLocale, t } from '@/i18n';
 import { LOCALES } from '@/i18n/types';
 import { zh } from '@/i18n/zh';
 import { en } from '@/i18n/en';
 
-afterEach(() => { setLocale('zh-CN'); });
+afterEach(() => { vi.unstubAllGlobals(); setLocale('zh-CN'); });
+
+describe('TEST startup language preferences', () => {
+  it('starts in Chinese without a saved choice even on an English system', () => {
+    vi.stubGlobal('navigator', { languages: ['en-US'] });
+    vi.stubGlobal('localStorage', { getItem: () => null });
+    expect(initLocale()).toBe('zh-CN');
+    expect(t.common.save).toBe(zh.common.save);
+  });
+  it('keeps an explicitly saved English choice', () => {
+    vi.stubGlobal('navigator', { languages: ['zh-CN'] });
+    vi.stubGlobal('localStorage', { getItem: () => 'en-US' });
+    expect(initLocale()).toBe('en-US');
+    expect(t.common.save).toBe(en.common.save);
+  });
+});
 
 describe('t', () => {
   it('默认是简体中文', () => {

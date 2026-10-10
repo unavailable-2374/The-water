@@ -29,15 +29,22 @@ export function clamp(n: number, lo: number, hi: number): number {
 
 export interface PlanChapterCountOptions {
   perChapter?: number;
+  docType?: string;
   min?: number;
   max?: number;
 }
 
 export function planChapterCount(targetChars: number, opts: PlanChapterCountOptions = {}): number {
   const per = opts.perChapter && opts.perChapter > 0 ? opts.perChapter : DEFAULT_CHARS_PER_CHAPTER;
-  const min = opts.min ?? MIN_CHAPTERS;
+  const min = opts.min ?? (opts.docType==='short-story' ? 1 : MIN_CHAPTERS);
   const max = opts.max ?? MAX_CHAPTERS;
   return clamp(Math.round(targetChars / per), min, max);
+}
+
+/** Accepted story structure determines chapter count; word division is only a starting estimate. */
+export function chapterCountForStory(doc: { arcs: readonly {endChapterNo:number}[]; chapters: readonly {chapterNo:number;title:string;goal:string}[] }, targetChars: number, docType?: string): number {
+  const structural = Math.max(0,...doc.arcs.map(a=>a.endChapterNo),...doc.chapters.filter(c=>c.title.trim() && c.goal.trim()).map(c=>c.chapterNo));
+  return structural ? clamp(structural,1,MAX_CHAPTERS) : planChapterCount(targetChars,{docType});
 }
 
 /**

@@ -100,7 +100,7 @@ describe('状态标签表', () => {
     // 多一个状态：把词典的 key 联合赋回类型联合时报「不能赋给」。
     const extraJobStatus: JobStatus = undefined as unknown as keyof typeof zh.jobs.status;
     const extraNovelStatus: NovelStatus = undefined as unknown as keyof typeof zh.novelStatus;
-    expect(Object.keys(jobStatus).length).toBe(8);
+    expect(Object.keys(jobStatus).length).toBe(9);
     // 规划任务是 UI 上多出来的一种「类型」，靠 params.stage 区分，不在 JobType 里。
     expect(Object.keys(jobType)).toContain('planning');
     expect(Object.keys(novelStatus).length).toBe(5);

@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-10-08T22:53:21.461580+00:00",
+  "scope": "REAL backend call from native TEST WebView; TEST input; interface verification only",
+  "task": {
+    "id": "01a11db8-58e8-7000-80d8-1b0c113ff208",
+    "status": "completed",
+    "provider": "lunaroute",
+    "model": "deepseek-4.1-flash",
+    "usage": {
+      "inputTokens": 67,
+      "outputTokens": 56
+    },
+    "created_at": 1791499983079,
+    "events": [
+      {
+        "type": "delta",
+        "text": "隔离后端连接正常"
+      },
+      {
+        "type": "delta",
+        "text": "。"
+      },
+      {
+        "type": "usage",
+        "inputTokens": 67,
+        "outputTokens": 56
+      },
+      {
+        "type": "done",
+        "finishReason": "stop"
+      }
+    ]
+  },
+  "keychain": {
+    "service": "com.thewater.finalacceptance20261008",
+    "observed": "login and restart completed; no authorization dialog observed in this repeat",
+    "cleanup": "Native TEST Sign out completed; no authorization dialog observed; ready for subsequent rebuild without retaining TEST login token"
+  },
+  "transport": "No late resource-ID error observed after completed request and 15-second transport timeout elapsed"
+}

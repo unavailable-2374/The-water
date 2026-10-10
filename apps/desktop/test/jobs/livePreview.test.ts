@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { PROSE_STEP_KINDS, isProseStep, type StepKind } from '@/db/repos/jobsRepo';
 
 const ALL: StepKind[] = [
-  'outline', 'chapter_table', 'write_chapter', 'adjust_length',
+  'scene_plan', 'write_scenes', 'commit_chapter', 'outline', 'chapter_table', 'write_chapter', 'adjust_length',
   'summarize', 'rewrite_chapter', 'name_replace', 'style_check', 'extract_style',
 ];
 
 describe('章节编辑器的流式预览只认正文步骤', () => {
   it('只有写章 / 改写 / 调长 / 风格审校算正文', () => {
-    expect([...PROSE_STEP_KINDS]).toEqual(['write_chapter', 'rewrite_chapter', 'adjust_length', 'style_check']);
+    expect([...PROSE_STEP_KINDS]).toEqual(['write_scenes', 'write_chapter', 'rewrite_chapter', 'adjust_length', 'style_check']);
   });
 
   it('输出 JSON 的步骤一律不算', () => {

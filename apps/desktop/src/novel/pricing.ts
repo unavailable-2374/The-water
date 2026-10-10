@@ -9,6 +9,7 @@
  * 模型名用「前缀匹配」：写 deepseek-chat 就能同时命中 deepseek-chat-0324 这类带日期后缀的
  * 变体，避免每出一个快照版本就要补一行。
  */
+import type { StepPurpose } from '@/jobs/purposes';
 import type { ProviderKind, Usage } from '@/llm/types';
 import { DEFAULT_CJK_TOKEN_RATIO } from '@/llm/tokens';
 import { ASK_RATIO } from '@/novel/wordBudget';
@@ -121,7 +122,7 @@ export function formatCny(amount: number): string {
 }
 
 export function addUsage(a: Usage, b: Usage): Usage {
-  return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens };
+  return { inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens,...(a.incomplete||b.incomplete?{incomplete:true as const}:{}) };
 }
 
 export const emptyUsage = (): Usage => ({ inputTokens: 0, outputTokens: 0 });
@@ -141,6 +142,8 @@ export type ChapterWorkMode = 'write' | 'rewrite' | 'revise' | 'name_replace';
 export interface ChapterEstimateInput {
   targetChars: number;
   mode: ChapterWorkMode;
+  sceneCount?:number;
+  maxRevisions?:number;
   /** 已知的上下文字符数；不传按 targetChars × CONTEXT_CHARS_RATIO 估。 */
   contextChars?: number;
   /** 每个汉字大约多少 token。 */
@@ -156,6 +159,10 @@ export interface ChapterEstimateInput {
 export interface ChapterEstimate {
   /** 走强模型（写作 / 改写 / 扩写 / 定点修订）的部分。 */
   writing: Usage;
+  byPurpose?:Partial<Record<StepPurpose,Usage>>;
+  calls?:Partial<Record<StepPurpose,number>>;
+  minimumCalls?:number;
+  maximumCalls?:number;
   /** 走便宜模型（总结、风格审校、设定校对）的部分。 */
   auxiliary: Usage;
 }
@@ -168,41 +175,33 @@ const tok = (chars: number, ratio: number) => Math.max(0, Math.round(chars * rat
  * 其余几步（扩写、审校、总结）也算进去。
  */
 export function estimateChapter(input: ChapterEstimateInput): ChapterEstimate {
-  const ratio = input.ratio ?? DEFAULT_CJK_TOKEN_RATIO;
-  const target = Math.max(0, Math.round(input.targetChars));
-  if (input.mode === 'name_replace' || target === 0) return { writing: emptyUsage(), auxiliary: emptyUsage() };
-
-  const contextChars = input.contextChars ?? Math.round(target * CONTEXT_CHARS_RATIO);
-  const oldTextChars = input.mode === 'write' ? 0 : target;
-  const writeIn = tok(contextChars + oldTextChars, ratio) + PROMPT_OVERHEAD_TOKENS;
-  const writeOut = tok(target * ASK_RATIO, ratio);
-  const writing: Usage = { inputTokens: writeIn, outputTokens: writeOut };
-
-  // adjust_length：整章重发一遍 + 重出一遍，按「一半的章节要调一次」摊。
-  if (input.adjustLength !== false) {
-    writing.inputTokens += Math.round((tok(target, ratio) + PROMPT_OVERHEAD_TOKENS) * 0.5);
-    writing.outputTokens += Math.round(writeOut * 0.5);
-  }
-
-  const auxiliary = emptyUsage();
-  if (input.summarize !== false) {
-    // 总结：正文进、几百字的 JSON 出。
-    auxiliary.inputTokens += tok(target, ratio) + PROMPT_OVERHEAD_TOKENS;
-    auxiliary.outputTokens += tok(600, ratio);
-  }
-  if (input.styleCheck) {
-    // 风格审校 + 设定校对：正文各进一遍，出评分与问题清单。
-    auxiliary.inputTokens += (tok(target, ratio) + PROMPT_OVERHEAD_TOKENS) * 2;
-    auxiliary.outputTokens += tok(1200, ratio);
-  }
-  return { writing, auxiliary };
+  const ratio=input.ratio ?? DEFAULT_CJK_TOKEN_RATIO,target=Math.max(0,Math.round(input.targetChars));
+  const scenes=input.mode==='write' ? Math.max(1,input.sceneCount ?? Math.ceil(target/1500)):1;
+  const revisions=Math.max(0,input.maxRevisions ?? 2), local=input.mode==='name_replace';
+  const context=input.contextChars ?? target*CONTEXT_CHARS_RATIO;
+  const inText=tok(context+target,ratio)+PROMPT_OVERHEAD_TOKENS,outText=tok(target*ASK_RATIO,ratio);
+  const baseWriting=local ? 0:scenes+(scenes>1 ? 1:0)+(input.adjustLength===false ? 0:1);
+  const reviewCalls=2+(input.styleCheck ? 1:0), rounds=revisions+1;
+  const calls:Partial<Record<StepPurpose,number>>={writing:baseWriting+revisions,planning:input.mode==='write' ? 1:0,consistency:2*rounds,styleReview:input.styleCheck ? rounds:0,summarize:input.summarize===false ? 0:1};
+  const byPurpose:Partial<Record<StepPurpose,Usage>>={
+    writing:{inputTokens:inText*(baseWriting+revisions)-(input.mode==='write' ? tok(target,ratio):0),outputTokens:outText*(baseWriting+revisions)},
+    planning:{inputTokens:inText*(calls.planning ?? 0),outputTokens:tok(700,ratio)*(calls.planning ?? 0)},
+    consistency:{inputTokens:inText*2*rounds,outputTokens:tok(1600,ratio)*rounds},
+    styleReview:{inputTokens:inText*(calls.styleReview ?? 0),outputTokens:tok(800,ratio)*(calls.styleReview ?? 0)},
+    summarize:{inputTokens:inText*(calls.summarize ?? 0),outputTokens:tok(1400,ratio)*(calls.summarize ?? 0)},
+  };
+  return {writing:byPurpose.writing!,auxiliary:Object.entries(byPurpose).filter(([p])=>p!=='writing').reduce((sum,[,u])=>addUsage(sum,u),emptyUsage()),byPurpose,calls,minimumCalls:(local?0:scenes+(scenes>1?1:0))+(calls.planning ?? 0)+reviewCalls+(calls.summarize ?? 0),maximumCalls:Object.values(calls).reduce((a,b)=>a+b,0)};
 }
 
 export function sumEstimates(items: readonly ChapterEstimate[]): ChapterEstimate {
-  return items.reduce<ChapterEstimate>(
-    (acc, e) => ({ writing: addUsage(acc.writing, e.writing), auxiliary: addUsage(acc.auxiliary, e.auxiliary) }),
-    { writing: emptyUsage(), auxiliary: emptyUsage() },
-  );
+  const result:ChapterEstimate={writing:emptyUsage(),auxiliary:emptyUsage(),byPurpose:{},calls:{},minimumCalls:0,maximumCalls:0};
+  for(const e of items) {
+    result.writing=addUsage(result.writing,e.writing);result.auxiliary=addUsage(result.auxiliary,e.auxiliary);
+    result.minimumCalls!+=e.minimumCalls ?? 0;result.maximumCalls!+=e.maximumCalls ?? 0;
+    for(const [p,u] of Object.entries(e.byPurpose ?? {}) as Array<[StepPurpose,Usage]>) result.byPurpose![p]=addUsage(result.byPurpose![p] ?? emptyUsage(),u);
+    for(const [p,n] of Object.entries(e.calls ?? {}) as Array<[StepPurpose,number]>) result.calls![p]=(result.calls![p] ?? 0)+n;
+  }
+  return result;
 }
 
 export interface EstimateCostInput {
@@ -216,37 +215,39 @@ export interface CostEstimate { costCny: number; usage: Usage; priced: boolean }
 
 export function estimateCost({ estimate, writingPrice, auxiliaryPrice, usdToCny = DEFAULT_USD_TO_CNY }: EstimateCostInput): CostEstimate {
   const costCny = costOfUsage(estimate.writing, writingPrice, usdToCny) + costOfUsage(estimate.auxiliary, auxiliaryPrice, usdToCny);
-  return { costCny, usage: addUsage(estimate.writing, estimate.auxiliary), priced: !!writingPrice || !!auxiliaryPrice };
+  return { costCny, usage: addUsage(estimate.writing, estimate.auxiliary), priced: (estimate.writing.inputTokens+estimate.writing.outputTokens===0 || !!writingPrice) && (estimate.auxiliary.inputTokens+estimate.auxiliary.outputTokens===0 || !!auxiliaryPrice) };
 }
 
 /**
  * 改写计划的 token 估算——用来替换 `RewritePlanDialog.tsx` 里的 `targetChars * 2`。
- * name_replace 是本地字符串替换，不调模型，所以为 0。
+ * name_replace 的替换是本地操作；后续审查、提取和可能的修订仍调用模型。
  */
 export function estimateRewrite(
   items: ReadonlyArray<{ targetChars: number; mode: ChapterWorkMode }>,
-  opts: { styleCheck?: boolean; ratio?: number } = {},
+  opts: { styleCheck?: boolean; ratio?: number;maxRevisions?:number } = {},
 ): ChapterEstimate {
-  return sumEstimates(items.map((it) => estimateChapter({ targetChars: it.targetChars, mode: it.mode, styleCheck: opts.styleCheck, ratio: opts.ratio })));
+  return sumEstimates(items.map((it) => estimateChapter({ targetChars: it.targetChars, mode: it.mode, styleCheck: opts.styleCheck, ratio: opts.ratio,maxRevisions:opts.maxRevisions })));
 }
 
 /** 整本书（或一批章节）的写作估算。 */
 export function estimateGeneration(
-  chapters: ReadonlyArray<{ targetChars: number }>,
-  opts: { styleCheck?: boolean; ratio?: number } = {},
+  chapters: ReadonlyArray<{ targetChars: number;sceneCount?:number }>,
+  opts: { styleCheck?: boolean; ratio?: number;maxRevisions?:number } = {},
 ): ChapterEstimate {
-  return sumEstimates(chapters.map((c) => estimateChapter({ targetChars: c.targetChars, mode: 'write', styleCheck: opts.styleCheck, ratio: opts.ratio })));
+  return sumEstimates(chapters.map((c) => estimateChapter({ targetChars: c.targetChars, mode: 'write',sceneCount:c.sceneCount, styleCheck: opts.styleCheck, ratio: opts.ratio,maxRevisions:opts.maxRevisions })));
 }
 
 /** 规划阶段（大纲 + 章节表）的估算：按章数走，输出是结构化 JSON。 */
 export function estimatePlanning(chapterCount: number, ratio: number = DEFAULT_CJK_TOKEN_RATIO): Usage {
-  const batches = Math.max(1, Math.ceil(chapterCount / 12));
+  const detailed=Math.max(1,chapterCount), volumes=Math.max(1,Math.ceil(chapterCount/40));
+  const batches=Math.ceil(detailed/30);
   return {
-    // 大纲一轮 + 章节表每批都要把大纲带上。
-    inputTokens: PROMPT_OVERHEAD_TOKENS * (1 + batches) + tok(1500, ratio) * batches,
-    outputTokens: tok(2500, ratio) + tok(180, ratio) * chapterCount,
+    // 大纲生成 + 独立大纲审查 + 章节表；启发式估算，实际用量另行记账。
+    inputTokens: PROMPT_OVERHEAD_TOKENS * (2 + batches) + tok(7000, ratio) + tok(1500, ratio) * batches,
+    outputTokens: tok(2500+250*volumes+1500+5000, ratio) + tok(180, ratio) * detailed,
   };
 }
+export const planningCallCount = (chapterCount: number): number => 2 + Math.ceil(Math.max(1,chapterCount)/30);
 
 // ---------------------------------------------------------------------------
 // 预算上限

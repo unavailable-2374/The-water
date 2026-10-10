@@ -9,12 +9,14 @@ export const app = {
 
 export const nav = {
   groupRead: '阅读', groupWrite: '写作', groupDiscover: '发现',
-  library: '书架', studio: '我的故事', public: '公共书房', settings: '设置', chat: '随手问 AI', notifications: '通知',
+  library: '书架', studio: '我的故事', public: '公共书房', settings: '设置', chat: '创作助手', notifications: '通知',
   /** 侧栏本身的无障碍名字。 */
   sidebar: '主导航',
 } as const;
 
 export const common = {
+  processing: '正在处理…',
+  elapsedTime: '已用时 {seconds} 秒',
   save: '保存', cancel: '取消', delete: '删除', confirm: '确认', close: '关闭', edit: '编辑', add: '添加', back: '返回',
   loading: '加载中…', empty: '暂无内容', retry: '重试', copy: '复制', copied: '已复制', search: '搜索', yes: '是', no: '否',
   unknownError: '发生未知错误', confirmDelete: '确定要删除吗？此操作不可撤销。',
@@ -43,7 +45,8 @@ export const error = {
  */
 export const jobs = {
   status: {
-    queued: '排队中', running: 'AI 正在写作', pausing: '正在暂停', paused: '已暂停',
+      awaiting_review: '等待作者处理',
+    queued: '排队中', running: 'AI 正在处理', pausing: '正在暂停', paused: '已暂停',
     cancelling: '正在停下', cancelled: '已取消', failed: '遇到问题', completed: '已完成',
   },
   type: {

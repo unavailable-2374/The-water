@@ -1,12 +1,12 @@
 /**
  * 一致性审查（按职能拆分的独立审查通道，docs/writing/README.md §3.1）：
  * 只查"事实层"——数值/战力/等级、时间线先后、称呼与辈分、设定规则——不评文风、不评人物是否出戏
- * （那两件事在 styleReview）。低温、只输出 JSON、不改写。
+ * （那两件事在 styleReview）。只输出 JSON、不改写。
  *
  * 与 styleReview 的分工是按职能而不是按题材：一个通道服务所有题材，题材差异只是喂进来的数据不同。
  */
 import { z } from 'zod';
-import type { Character } from '@the-water/shared';
+import { anchorEvidence, type Character } from '@the-water/shared';
 import type { PromptSpec } from '@/llm/types';
 import { JSON_ONLY_RULE, bullets, joinSections, section, sys, user } from './base';
 import { UNTRUSTED_GUARD_RULE, wrapUntrusted } from './untrusted';
@@ -31,7 +31,8 @@ export const ConsistencyResultSchema = z.object({
   })).max(20).default([]),
   /** 与设定规则（题材层或作品层）冲突。 */
   loreConflicts: z.array(conflict()).max(20).default([]),
-  verdict: z.enum(['pass', 'revise']).catch('pass'),
+  // A missing or invalid judgment is a failed review, never an implicit pass.
+  verdict: z.enum(['pass', 'revise']),
 });
 export type ConsistencyResult = z.infer<typeof ConsistencyResultSchema>;
 
@@ -77,12 +78,13 @@ export function consistencyReviewPrompt(input: ConsistencyReviewInput): PromptSp
     .map((c) => `· ${c.name}${c.aliases.length ? `（${c.aliases.join('、')}）` : ''}：${Object.entries(c.addressBook).map(([k, v]) => `${k}→${v}`).join('，')}`);
 
   const rules = [
-    '1. 每条冲突都必须逐字引用正文原句放进 quote，并在 against 写清它违反了哪一条；找不到对应条目就不要报。',
+    '1. 每条冲突都必须逐字引用正文连续原文放进 quote，且须在当前正文唯一出现；重复短句请连同相邻原文一起引用以唯一定位，并在 against 写清它违反了哪一条；找不到对应条目就不要报。',
     '2. numericConflicts 只看可核对的量：修为/等级/数量/金额/距离/年龄；模糊描写不算冲突。',
     '3. timelineConflicts 看事件先后、时长、以及人物同一时刻是否出现在两个地方。',
     '4. addressErrors 只在给出了称呼表时判断；表里没写的称呼不算错。',
-    '5. loreConflicts 对照设定规则，题材层与本书设定同等有效；本书设定与题材层冲突时以本书为准，不要报。',
+    '5. loreConflicts 对照设定规则，题材层仅为条件性创作指导，不能单独证明本书事实冲突；以本书已确认规则为准，未采用的题材惯例不要报。',
     '6. 任何一类有条目时 verdict 为 revise，否则 pass。',
+    '7. 一条依据只比对一次。事实有歧义且找不到明确矛盾时不报；不要反复推测同一行的各种解释。需要补充资料的疑点交给作者，不能把猜测当冲突。',
   ].join('\n');
 
   const text = joinSections([
@@ -90,13 +92,20 @@ export function consistencyReviewPrompt(input: ConsistencyReviewInput): PromptSp
     section('已确立事实', bullets(input.facts.slice(0, 30))),
     section('时间线（最近）', bullets(input.timeline.slice(-15))),
     section('称呼表', addressLines.join('\n')),
-    section('本类型重点', bullets(input.qcReminders.slice(0, 10))),
+    section('本类型重点', bullets(input.qcReminders)),
     wrapUntrusted(`第${input.chapterNo}章正文`, input.chapterText),
     section('任务', `请只做设定校对，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', CONSISTENCY_JSON_SHAPE),
   ]);
 
-  return { messages: [sys(system), user(text)], maxTokens: 2500, temperature: 0.1, schema: ConsistencyResultSchema, label: `校对第${input.chapterNo}章设定` };
+  const schema=ConsistencyResultSchema.superRefine((value,check)=>{
+    for (const key of ['numericConflicts','timelineConflicts','addressErrors','loreConflicts'] as const)
+      value[key].forEach((issue,index)=>{
+        try { anchorEvidence(input.chapterText,{from:-1,to:-1,quote:issue.quote}); }
+        catch { check.addIssue({code:z.ZodIssueCode.custom,path:[key,index,'quote'],message:'quote 必须是当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文，不得编造或删除已证实的冲突'}); }
+      });
+  });
+  return { messages: [sys(system), user(text)], maxTokens: 2500, temperature: 0.6, schema, label: `校对第${input.chapterNo}章设定` };
 }
 
 export function consistencyIssueCount(r: ConsistencyResult): number {

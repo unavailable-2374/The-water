@@ -18,12 +18,12 @@ interface Props { open: boolean; initial: ProviderConfig | null; onClose: () => 
 interface FormState extends RuntimeFields {
   /** '' 表示自定义（非预设）供应商。 */
   presetId: string;
-  name: string; kind: ProviderKind; baseUrl: string; model: string; contextWindow: number; maxOutputTokens: number; jsonMode: JsonMode; temperature: number;
+  name: string; kind: ProviderKind; baseUrl: string; model: string; contextWindow: number; maxOutputTokens: number; reasoningTokens:number; reasoningEffort: NonNullable<ProviderConfig['reasoningEffort']> | ''; jsonMode: JsonMode; temperature: number;
   apiKey: string; useEnv: boolean; envVar: string; headersText: string;
 }
 
 const blank = (): FormState => ({
-  presetId: '', name: '', kind: 'openai_compatible', baseUrl: '', model: '', contextWindow: 128000, maxOutputTokens: 8192,
+  presetId: '', name: '', kind: 'openai_compatible', baseUrl: '', model: '', contextWindow: 128000, maxOutputTokens: 8192, reasoningTokens:0, reasoningEffort: '',
   jsonMode: 'json_object', temperature: 0.8, apiKey: '', useEnv: false, envVar: '', headersText: '', ...RUNTIME_DEFAULTS,
 });
 
@@ -46,7 +46,7 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
       setF({
         presetId: findPresetForModel(initial.model)?.id ?? '',
         name: initial.name, kind: initial.kind, baseUrl: initial.baseUrl, model: initial.model, contextWindow: initial.contextWindow,
-        maxOutputTokens: initial.maxOutputTokens, jsonMode: initial.jsonMode, temperature: initial.temperature, apiKey: '',
+        maxOutputTokens: initial.maxOutputTokens, reasoningTokens:initial.reasoningTokens ?? 0, reasoningEffort: initial.reasoningEffort ?? '', jsonMode: initial.jsonMode, temperature: initial.temperature, apiKey: '',
         useEnv: initial.secretRef.startsWith('env:'), envVar: initial.secretRef.startsWith('env:') ? initial.secretRef.slice(4) : '',
         headersText: formatHeaders(initial.extraHeaders), ...runtimeOf(initial),
       });
@@ -90,7 +90,7 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
       // 四个运行时字段按目标形态写；providersRepo 的类型补齐后这个断言可以去掉。
       const base = {
         name: f.name.trim(), kind: f.kind, baseUrl: f.baseUrl.trim(), model: f.model.trim(), contextWindow: f.contextWindow,
-        maxOutputTokens: f.maxOutputTokens, jsonMode: f.jsonMode, temperature: f.temperature, extraHeaders: headers, secretRef,
+        maxOutputTokens: f.maxOutputTokens, reasoningTokens:f.reasoningTokens, reasoningEffort: f.reasoningEffort || undefined, jsonMode: f.jsonMode, temperature: f.temperature, extraHeaders: headers, secretRef,
         firstByteTimeoutMs: f.firstByteTimeoutMs, idleTimeoutMs: f.idleTimeoutMs, proxyUrl: f.proxyUrl.trim(), concurrency: f.concurrency,
       } satisfies ProviderInput;
       if (initial) await updateProvider(id, base);
@@ -154,6 +154,8 @@ export function ProviderForm({ open, initial, onClose, onSaved }: Props) {
           <Field label={t.settings.maxOutput} hint={locked ? t.settings.autoByModel : undefined}>
             <Input type="number" value={f.maxOutputTokens} readOnly={locked} disabled={locked} onChange={(e) => set('maxOutputTokens', Number(e.target.value))} />
           </Field>
+          <Field label={t.settings.reasoningBudget} hint={t.settings.reasoningBudgetHint}><Input type="number" min="0" max={f.maxOutputTokens} value={f.reasoningTokens} onChange={e=>set('reasoningTokens',Math.max(0,Number(e.target.value)))} /></Field>
+          <Field label={t.settings.reasoningEffort} hint={t.settings.reasoningEffortHint}><Select value={f.reasoningEffort} onChange={e => set('reasoningEffort', e.target.value as FormState['reasoningEffort'])}><option value="">{t.settings.reasoningDefault}</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></Select></Field>
           <Field label={t.settings.temperature}><Input type="number" step="0.1" min="0" max="2" value={f.temperature} onChange={(e) => set('temperature', Number(e.target.value))} /></Field>
         </div>
         <label className="flex items-center gap-2.5 text-sm text-ink-800 dark:text-paper-100">

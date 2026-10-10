@@ -108,7 +108,7 @@ export function AuthorPage() {
           <Avatar seed={user.handle || user.id} name={user.displayName} size="xl" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-serif text-2xl font-semibold tracking-wide">{user.displayName}</h1>
+              <h1 className="font-sans text-2xl font-semibold tracking-tight">{user.displayName}</h1>
               <LevelBadge level={user.level} />
               {user.viewer?.blockedBy && <Badge tone="neutral">{t.community.blockedByNotice}</Badge>}
             </div>

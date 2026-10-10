@@ -30,6 +30,7 @@ import { socialRoutes } from './modules/social/routes';
 import { userRoutes } from './modules/users/routes';
 import { versionRoutes } from './modules/versions/routes';
 import { webRoutes } from './web/routes';
+import { writingRoutes } from './modules/writing/routes';
 
 export const SERVICE_NAME = 'the-water-server';
 export const SERVICE_VERSION = '0.1.0';
@@ -38,8 +39,9 @@ export const DEFAULT_ORIGINS = ['tauri://localhost', 'http://tauri.localhost', '
 
 export const BODY_LIMITS = {
   default: 256 * 1024,
-  versions: 1_536 * 1024,
+  versions: 18 * 1024 * 1024,
   blobs: 4 * 1024 * 1024,
+  writing: 2 * 1024 * 1024,
 } as const;
 
 const tooLarge = () => {
@@ -47,6 +49,7 @@ const tooLarge = () => {
 };
 
 function bodyLimitFor(path: string): number {
+  if (path === '/api/v1/writing/tasks') return BODY_LIMITS.writing;
   if (path === '/api/v1/blobs') return BODY_LIMITS.blobs;
   if (/^\/api\/v1\/novels\/[^/]+\/versions\/?$/.test(path)) return BODY_LIMITS.versions;
   return BODY_LIMITS.default;
@@ -173,6 +176,8 @@ export function createApp(deps: AppDeps) {
   api.route('/', incentiveRoutes(deps));
   api.route('/', notificationRoutes(deps));
   api.route('/', adminRoutes(deps));
+  api.route('/', writingRoutes(deps));
+  api.get('/capabilities', c => c.json({ bundleVersions: [1, 2], storyGraphVersion: 1, creationMaterials: { version: 1, blockBytes: 262144, totalBytes: 16777216 } }));
   app.route('/api/v1', api);
 
   app.route('/', webRoutes(deps));

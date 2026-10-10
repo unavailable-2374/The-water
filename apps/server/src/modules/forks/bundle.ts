@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { LIMITS, type NovelBundleV1 } from '@the-water/shared';
+import { LIMITS, type NovelBundle, type NovelBundleV1 } from '@the-water/shared';
 import type { AppDeps } from '../../context';
 import { blobs, versionChapters } from '../../db/schema';
 import { ApiError, forbidden, notFound } from '../../lib/errors';
@@ -13,7 +13,9 @@ import { findFork } from './service';
  * 导出 NovelBundleV1。带 forkId 时必须是当前用户的 fork 且指向该小说（fork 记录即授权，
  * 即使作者后来关闭了二创也可拉取）。超过 BUNDLE_MAX_CHARS 返回 413，客户端应改用分页拉章节。
  */
-export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer: Viewer, forkId: string | undefined): NovelBundleV1 {
+export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer: Viewer, forkId: string | undefined): NovelBundleV1;
+export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer: Viewer, forkId: string | undefined, bundleVersion: number): NovelBundle;
+export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer: Viewer, forkId: string | undefined, bundleVersion = 1): NovelBundle {
   const novel = loadViewableNovel(deps, novelId, viewer);
   let fork: { id: string } | null = null;
   let version = resolveVersion(deps, novel, vid, viewer);
@@ -44,7 +46,7 @@ export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer:
     .all();
 
   const author = authorOf(deps, novel.authorId);
-  return {
+  const bundle: NovelBundleV1 = {
     bundleVersion: 1,
     exportedAt: iso(deps.clock.now()),
     server: { baseUrl: deps.env.publicBaseUrl },
@@ -81,4 +83,9 @@ export function buildBundle(deps: AppDeps, novelId: string, vid: string, viewer:
     // 导出成文件后也不会丢。
     attribution: buildAttribution(deps, novel, version.versionNumber, viewer),
   };
+  if (bundleVersion === 2 && version.creationMaterials) {
+    if (!fork && !(viewer && (viewer.id === novel.authorId || viewer.role === 'admin')) && (!novel.allowDerivatives || novel.license === 'all-rights-reserved')) throw forbidden('Creation materials require derivative authorization');
+    return { ...bundle, bundleVersion: 2, creationMaterials: version.creationMaterials };
+  }
+  return bundle;
 }

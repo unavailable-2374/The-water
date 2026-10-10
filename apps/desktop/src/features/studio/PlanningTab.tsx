@@ -1,22 +1,33 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { inspectCurrentOutline } from '@/novel/outlineReview';
+import { StoryOptionsButton } from './StoryOptionsPanel';
+import { generateStoryOptionPlan } from '@/novel/storyOptions';
+import { ActivityStatus } from '@/components/Activity';
+import { canSupplementPlan } from '@/jobs/planningAdmission';
+import { AsyncNotice } from '@/components/data/AsyncNotice';
+import { PlanReview } from './PlanReview';
+import { listDocumentPlans, type DocumentPlanProposal } from '@/db/repos/planProposalsRepo';
+import { isJobWorking, isJobTransitioning, jobActivityMessage } from '@/jobs/presentation';
+import { docTypeGuide } from '@/novel/docTypes';
+import { loadStyleCheckConfig } from '@/novel/config';
+import { listWritingCards } from '@/db/repos/writingRepo';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Sparkles, Play, RefreshCw, CheckCircle2, Circle, ShieldAlert } from 'lucide-react';
 import { fmt, t } from '@/i18n';
-import { Badge, Button, Card, SectionTitle, Spinner, confirm, cn } from '@/components/ui';
+import { Badge, Button, Card, SectionTitle, Spinner, cn } from '@/components/ui';
 import { useAsyncData } from '@/components/data/useAsyncData';
 import { toast } from '@/components/Toast';
 import type { Novel } from '@/db/repos/novelsRepo';
 import { listChapters, type Chapter } from '@/db/repos/chaptersRepo';
 import { listArcs, listBeats, listCharacters, listSettings } from '@/db/repos/storylineRepo';
-import { BudgetExceededError } from '@/db/repos/usageRepo';
 import { latestReviewByChapter, type ChapterReview } from '@/db/repos/reviewsRepo';
 import {
-  ConfirmRequiredError, getNovelProviders, setNovelProviders, startChapterTable, startGeneration, startOutline, startStyleCheck, wantsStyleCheck,
+  getNovelProviders, setNovelProviders, startChapterTable, startGeneration, startOutline, startStyleCheck, wantsStyleCheck,
 } from '@/novel/service';
-import { estimateGeneration, estimatePlanning } from '@/novel/pricing';
+import { estimateGeneration, estimatePlanning, planningCallCount } from '@/novel/pricing';
 import { planChapterCount } from '@/novel/wordBudget';
-import { useJobs } from '@/stores/jobsStore';
-import { pauseJob } from '@/jobs/runner';
+import { useJobs, blockingJobForNovel } from '@/stores/jobsStore';
+import { JobControls } from './JobsTab';
 import type { StepProviderMap } from '@/jobs/purposes';
 import { CostEstimateLine, previewCostForNovel, UsageCards, type CostPreview } from './UsagePanel';
 import { ModelPurposePicker } from './ModelPicker';
@@ -31,28 +42,38 @@ interface PlanData {
   beats: Beat[];
   chapters: Chapter[];
   reviews: Map<string, ChapterReview>;
+  proposals: DocumentPlanProposal[];
 }
 
-const EMPTY_PLAN: PlanData = { chars: [], settings: [], arcs: [], beats: [], chapters: [], reviews: new Map() };
+const EMPTY_PLAN: PlanData = { chars: [], settings: [], arcs: [], beats: [], chapters: [], reviews: new Map(), proposals: [] };
 
 /**
  * 规划流程：大纲 → （审阅）→ 章节表 → （审阅）→ 开工。
- * 大纲与章节表现在都是后台任务（§2.1 第 1 条），所以这一页只负责发起、
- * 显示进度、以及在重排前替用户把「已有章节会被替换」讲清楚。
+ * 发起、进度和候选审阅在同一页；只有作者采纳后才解锁下一步。
  */
 export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () => Promise<void> }) {
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
+  const directionStarted = useRef<string | null>(null);
+  useEffect(() => {
+    const id = params.get('direction');
+    if (!id || directionStarted.current === id) return;
+    directionStarted.current = id;
+    void generateStoryOptionPlan(novel.id, id).then(onChanged).catch(e => toast.error(String(e)));
+  }, [novel.id, params]);
+  const taskLock = useRef(false);
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const showReview = () => reviewRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
   const allJobs = useJobs((s) => s.jobs);
-  const live = useJobs((s) => s.live);
   // 这本书当前在跑的任务（规划任务与写作任务共用这块进度显示）。
   const activeJob = useMemo(
-    () => Object.values(allJobs).filter((j) => j.novelId === novel.id && ['queued', 'running', 'pausing'].includes(j.status)).sort((a, b) => b.createdAt - a.createdAt)[0] ?? null,
+    () => blockingJobForNovel(allJobs, novel.id),
     [allJobs, novel.id],
   );
   const stepsByJob = useJobs((s) => s.steps);
+  const latestJob = useMemo(() => Object.values(allJobs).filter(j => j.novelId === novel.id).sort((a,b) => b.createdAt-a.createdAt)[0], [allJobs,novel.id]);
   const activeKind = useMemo(() => {
     const steps = activeJob ? stepsByJob[activeJob.id] : undefined;
     return steps?.find((s) => s.id === activeJob?.progress.currentStepId)?.kind ?? null;
@@ -60,11 +81,11 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
   useEffect(() => { if (activeJob) void useJobs.getState().loadSteps(activeJob.id); }, [activeJob?.id, activeJob?.progress.done]);
 
   const tick = useJobs((s) => s.novelTick[novel.id] ?? 0);
-  const { data: plan } = useAsyncData<PlanData>(async () => {
-    const [chars, settings, arcs, beats, chapters, reviews] = await Promise.all([
-      listCharacters(novel.id), listSettings(novel.id), listArcs(novel.id), listBeats(novel.id), listChapters(novel.id), latestReviewByChapter(novel.id),
+  const { data: plan, error: planError, reload: reloadPlan } = useAsyncData<PlanData>(async () => {
+    const [chars, settings, arcs, beats, chapters, reviews, proposals] = await Promise.all([
+      listCharacters(novel.id), listSettings(novel.id), listArcs(novel.id), listBeats(novel.id), listChapters(novel.id), latestReviewByChapter(novel.id), listDocumentPlans(novel.id),
     ]);
-    return { chars, settings, arcs, beats, chapters, reviews };
+    return { chars, settings, arcs, beats, chapters, reviews, proposals };
   }, { key: `plan:${novel.id}:${novel.meta.outlineDone}:${novel.meta.tableDone}:${tick}` });
   const { chars, settings, arcs, beats, chapters, reviews } = plan ?? EMPTY_PLAN;
 
@@ -76,12 +97,13 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
   const costKey = `${novel.id}:${novel.targetChars}:${chapters.length}:${JSON.stringify(providerIds ?? {})}`;
   const { data: genCost } = useAsyncData<CostPreview>(async () => {
     const styleCheck = await wantsStyleCheck(novel.id);
-    const list = chapters.length ? chapters : Array.from({ length: planChapterCount(novel.targetChars) }, () => ({ targetChars: Math.round(novel.targetChars / planChapterCount(novel.targetChars)) }));
-    return previewCostForNovel(novel.id, estimateGeneration(list, { styleCheck }));
+    const list = chapters.length ? chapters : Array.from({ length: planChapterCount(novel.targetChars,{docType:novel.requirements.docType}) }, () => ({ targetChars: Math.round(novel.targetChars / planChapterCount(novel.targetChars,{docType:novel.requirements.docType})) }));
+    return previewCostForNovel(novel.id, estimateGeneration(await Promise.all(list.map(async c=>({...c,sceneCount:'id' in c ? Math.max(1,(await listWritingCards(novel.id,{kind:'scene',chapterId:String(c.id),confirmed:true})).length):undefined}))), { styleCheck,maxRevisions:(await loadStyleCheckConfig()).maxRevisions }));
   }, { key: `genCost:${costKey}` });
   const { data: planCost } = useAsyncData<CostPreview>(async () => {
-    const planning = estimatePlanning(planChapterCount(novel.targetChars));
-    return previewCostForNovel(novel.id, { writing: { inputTokens: 0, outputTokens: 0 }, auxiliary: planning });
+    const planning = estimatePlanning(planChapterCount(novel.targetChars,{docType:novel.requirements.docType}));
+    const calls = planningCallCount(planChapterCount(novel.targetChars,{docType:novel.requirements.docType}));
+    return previewCostForNovel(novel.id, { writing: { inputTokens: 0, outputTokens: 0 }, auxiliary: planning,byPurpose:{planning},calls:{planning:calls},minimumCalls:calls,maximumCalls:calls });
   }, { key: `planCost:${costKey}` });
 
   const saveProviders = async (next: StepProviderMap) => {
@@ -89,63 +111,59 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
     await setNovelProviders(novel.id, next);
   };
 
-  const start = async (label: string, fn: () => Promise<string>) => {
+  const start = async (label: string, fn: () => Promise<string>): Promise<boolean> => {
+    if (taskLock.current) return false;
+    taskLock.current = true;
     setBusy(true);
     try {
       await fn();
       toast.success(label);
       await onChanged();
+      return true;
     } catch (e) {
-      if (e instanceof BudgetExceededError) {
-        const go = await confirm({ title: t.studio.planning.budgetTitle, description: fmt(t.studio.planning.budgetDesc, { message: e.message }), confirmText: t.studio.planning.budgetConfirm, tone: 'danger' });
-        if (go) { setBusy(false); return start(label, fn); }
-      } else {
-        toast.error(errMsg(e));
-      }
+      toast.error(errMsg(e));
+      return false;
     } finally {
       setBusy(false);
+      taskLock.current = false;
     }
   };
 
   const doOutline = () => start(t.studio.planning.outlineStarted, () => startOutline(novel.id));
-  const doTable = () => start(t.studio.planning.tableStarted, async () => {
-    try {
-      return await startChapterTable(novel.id);
-    } catch (e) {
-      if (!(e instanceof ConfirmRequiredError)) throw e;
-      // 重排会删掉已有章节，先确认；确认后 chapter_table 步骤会自动落一份故事线快照。
-      const ok = await confirm({ title: t.studio.planning.replaceTitle, description: fmt(t.studio.planning.replaceDesc, { message: e.message }), confirmText: t.studio.planning.replaceConfirm, tone: 'danger' });
-      if (!ok) throw new Error(t.studio.planning.cancelled);
-      return startChapterTable(novel.id, { confirmReplaceChapters: true });
-    }
-  });
+  const doTable = () => start(t.studio.planning.tableStarted,()=>startChapterTable(novel.id,{fillMissing:chapters.some(c=>!c.title.trim() || !c.goal.trim())}));
   // §2.3 第 3 条：跑满修订轮数仍未达标的章节在这里标出来，可以单章重审。
   const failed = chapters.filter((c) => reviews.get(c.id)?.verdict === 'revise');
   const recheck = (chapterNo: number) => start(fmt(t.studio.planning.recheckQueued, { n: chapterNo }), () => startStyleCheck(novel.id, chapterNo));
 
   const doStart = async () => {
-    await start(t.studio.chaptersTab.started, () => startGeneration(novel.id));
-    nav(`/studio/${novel.id}/chapters`);
+    if (await start(t.studio.chaptersTab.started, () => startGeneration(novel.id))) nav(`/studio/${novel.id}/chapters`);
   };
 
-  // auto mode from the wizard: outline → table, then let the user review
+  // The wizard starts only the outline; confirmed stages still require author review.
   useEffect(() => {
-    if (params.get('auto') === '1' && !novel.meta.outlineDone && !busy && !activeJob) {
+    if (params.get('auto') === '1' && plan && !plan.proposals.length && !novel.meta.outlineDone && !busy && !activeJob) {
       setParams({});
       void doOutline();
     }
-  }, [params]);
+  }, [params, plan, novel.meta.outlineDone, busy, activeJob?.id]);
 
   const totalTarget = chapters.reduce((s, c) => s + c.targetChars, 0);
   const outlineDone = novel.meta.outlineDone;
   const tableDone = novel.meta.tableDone;
-  const running = !!activeJob || busy;
-  const liveText = activeJob ? live[activeJob.id]?.text ?? '' : '';
+  const proposals = plan?.proposals ?? [];
+  const waitingOutline = proposals.some(p => !p.meta.outlineReviewOnly && p.meta.outlineDone === true && p.meta.tableDone !== true);
+  const waitingTable = proposals.some(p => p.meta.tableDone === true);
+  const running = !!activeJob || busy || proposals.length > 0;
+  const missingPlan = chapters.some(c => !c.title.trim() || !c.goal.trim());
+  const tableBlocked = busy || proposals.length > 0 || (!!activeJob && !((missingPlan || novel.meta.storyOptionStage === 'outline' && outlineDone && !tableDone) && canSupplementPlan(Object.values(allJobs).filter(j => j.novelId === novel.id))));
+  if (planError || !plan) return <AsyncNotice error={planError} retry={reloadPlan} />;
 
   return (
     <div className="grid h-full grid-rows-[minmax(0,1fr)] grid-cols-[1fr_340px] bg-paper-50 dark:bg-paper-950">
       <div className="overflow-y-auto">
         <div className="mx-auto max-w-3xl px-8 py-8">
+          <div className="mb-5 flex flex-wrap gap-2"><StoryOptionsButton novel={novel} scope={{ kind: 'work', id: novel.id }} onChanged={onChanged} />{docTypeGuide(novel.requirements.docType).fiction && <Button disabled={busy || !arcs.length} onClick={() => void start(t.outlineReview.title, async () => { try { return await inspectCurrentOutline(novel.id); } finally { reloadPlan(); } })}>{t.outlineReview.inspectCurrent}</Button>}</div>
+          {proposals.length > 0 && <div ref={reviewRef} className="mb-8"><PlanReview novel={novel} documents={proposals} chapters={chapters} onResolved={onChanged} /></div>}
           <section className="mb-8">
             <SectionTitle>{t.studio.planning.premise}</SectionTitle>
             <Card className="paper-texture">
@@ -234,7 +252,7 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
                               <Button size="sm" variant="ghost" className="px-1.5" disabled={running} onClick={() => void recheck(c.chapterNo)}>{t.studio.planning.recheck}</Button>
                             </span>
                           )}
-                          <span className="ml-auto shrink-0 font-serif text-xs text-ink-500">{fmt(t.studio.chaptersTab.charCount, { n: c.targetChars.toLocaleString() })}</span>
+                          <span className="ml-auto shrink-0 font-serif text-xs text-ink-500">{fmt(t.studio.chaptersTab.targetCount, { n: c.targetChars.toLocaleString() })}</span>
                         </div>
                         {c.goal && <p className="mt-0.5 text-xs leading-relaxed text-ink-500">{c.goal}</p>}
                       </div>
@@ -247,20 +265,23 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
         </div>
       </div>
 
-      <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-l border-paper-300/60 bg-paper-100/60 p-5 dark:border-paper-800 dark:bg-paper-900/60">
+      {/* Scroll the sidebar as a whole; shrinking cards lets actions overflow into the next card. */}
+      <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-l border-paper-300/60 bg-paper-100/60 p-5 [&>*]:shrink-0 dark:border-paper-800 dark:bg-paper-900/60">
         <Card className="flex min-h-0 flex-col">
-          <h2 className="font-serif text-base font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.planning.notepad}</h2>
+          <h2 className="font-sans text-base font-semibold tracking-tight text-ink-800 dark:text-paper-100">{t.studio.planning.notepad}</h2>
           <p className="mt-0.5 text-xs text-ink-400">{t.studio.planning.notepadHint}</p>
+          <p className="mt-3 text-xs leading-relaxed text-tea-700 dark:text-tea-200">{proposals.length ? t.studio.workflow.reviewHere : !outlineDone ? t.studio.workflow.nextOutline : !tableDone ? t.studio.workflow.nextTable : t.studio.workflow.nextWrite}</p>
+          {latestJob?.status === 'failed' && <div className="mt-3 space-y-2 rounded-xl bg-cinnabar-50 p-3 dark:bg-cinnabar-950"><p role="alert" className="text-xs text-cinnabar-700 dark:text-cinnabar-100">{latestJob.error}</p><JobControls job={latestJob} /></div>}
           <ol className="mt-5 space-y-5">
-            <Step done={outlineDone} running={activeKind === 'outline'} title={t.studio.planning.stepOutline} hint={t.studio.planning.stepOutlineHint}
-              action={outlineDone
-                ? <Button size="sm" variant="ghost" disabled={running} onClick={doOutline}><RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.redoOutline}</Button>
+            <Step done={outlineDone && !waitingOutline} waiting={waitingOutline} running={activeJob?.status === 'running' && activeKind === 'outline'} title={t.studio.planning.stepOutline} hint={t.studio.planning.stepOutlineHint}
+              action={waitingOutline ? <Button size="sm" onClick={showReview}>{t.studio.workflow.reviewAction}</Button> : outlineDone
+                ? docTypeGuide(novel.requirements.docType).fiction ? <StoryOptionsButton novel={novel} scope={{ kind: 'work', id: novel.id }} label={t.studio.planning.redoOutline} onChanged={onChanged} /> : <Button size="sm" variant="ghost" disabled={running} onClick={doOutline}><RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.redoOutline}</Button>
                 : <><Button variant="ai" className="w-full" disabled={running} onClick={doOutline}><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.doOutline}</Button><CostEstimateLine preview={planCost ?? null} prefix={t.studio.planning.planCostPrefix} /></>} />
-            <Step done={tableDone} running={activeKind === 'chapter_table'} title={t.studio.planning.stepTable} hint={t.studio.planning.stepTableHint}
-              action={!outlineDone ? null : tableDone
-                ? <Button size="sm" variant="ghost" disabled={running} onClick={doTable}><RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.redoTable}</Button>
-                : <Button variant="ai" className="w-full" disabled={running} onClick={doTable}><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.doTable}</Button>} />
-            <Step done={false} running={activeKind === 'write_chapter'} title={t.studio.planning.stepWrite} hint={t.studio.planning.stepWriteHint}
+            <Step done={tableDone && !waitingTable} waiting={waitingTable} running={activeJob?.status === 'running' && activeKind === 'chapter_table'} title={t.studio.planning.stepTable} hint={t.studio.planning.stepTableHint}
+              action={waitingTable ? <Button size="sm" onClick={showReview}>{t.studio.workflow.reviewAction}</Button> : !outlineDone ? null : tableDone
+                ? <Button size="sm" variant="ghost" disabled={tableBlocked} onClick={doTable}><RefreshCw size={14} strokeWidth={1.75} aria-hidden="true" />{missingPlan ? t.studio.planning.completeTable : t.studio.planning.redoTable}</Button>
+                : <Button variant="ai" className="w-full" disabled={tableBlocked} onClick={doTable}><Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.doTable}</Button>} />
+            <Step done={false} running={activeJob?.status === 'running' && activeKind === 'write_chapter'} title={t.studio.planning.stepWrite} hint={t.studio.planning.stepWriteHint}
               action={tableDone
                 ? <><Button variant="ai" className="w-full" disabled={running} onClick={doStart}><Play size={16} strokeWidth={1.75} aria-hidden="true" />{t.studio.planning.doStart}</Button><CostEstimateLine preview={genCost ?? null} prefix={t.studio.planning.genCostPrefix} /></>
                 : null} />
@@ -268,18 +289,16 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
           {activeJob && (
             <div className="mt-5 flex min-h-0 flex-col">
               <div className="mb-2 flex items-center gap-2 text-xs text-tea-700 dark:text-tea-200" role="status" aria-live="polite">
-                <Spinner className="h-3 w-3" />{activeJob.progress.message || t.studio.planning.preparing}
-                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => pauseJob(activeJob.id)}>{t.studio.planning.stop}</Button>
+                {isJobWorking(activeJob.status) || isJobTransitioning(activeJob.status) ? <ActivityStatus label={jobActivityMessage(activeJob)} elapsed startedAt={stepsByJob[activeJob.id]?.find(s => s.id === activeJob.progress.currentStepId)?.startedAt ?? activeJob.startedAt} /> : <span>{jobActivityMessage(activeJob)}</span>}
+                <JobControls job={activeJob} compact />
               </div>
-              <div aria-label={t.studio.planning.liveOutput} className="paper-texture max-h-56 min-h-24 flex-1 overflow-auto whitespace-pre-wrap rounded-2xl bg-paper-100 p-4 font-serif text-xs leading-relaxed text-ink-600 dark:bg-paper-800 dark:text-ink-300">
-                {liveText}<span className="ml-0.5 inline-block h-3 w-0.5 animate-pulse bg-tea-500 align-middle" aria-hidden="true" />
-              </div>
+              {isJobWorking(activeJob.status) && <p className="text-xs leading-relaxed text-ink-500">{t.studio.workflow.generatedHere}</p>}
             </div>
           )}
         </Card>
 
         <Card>
-          <h2 className="font-serif text-base font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.planning.models}</h2>
+          <h2 className="font-sans text-base font-semibold tracking-tight text-ink-800 dark:text-paper-100">{t.studio.planning.models}</h2>
           <p className="mt-0.5 mb-4 text-xs text-ink-400">{t.studio.planning.modelsHint}</p>
           <ModelPurposePicker value={providerIds ?? {}} onChange={saveProviders} />
         </Card>
@@ -293,20 +312,20 @@ export function PlanningTab({ novel, onChanged }: { novel: Novel; onChanged: () 
 function Group({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm tracking-wide text-ink-600 dark:text-ink-300">{title}<span className="ml-1.5 text-xs text-ink-400">{count}</span></h3>
+      <h3 className="mb-2 font-sans text-sm tracking-tight text-ink-600 dark:text-ink-300">{title}<span className="ml-1.5 text-xs text-ink-400">{count}</span></h3>
       {children}
     </div>
   );
 }
 
-function Step({ done, running, title, hint, action }: { done: boolean; running: boolean; title: string; hint: string; action: ReactNode }) {
+function Step({ done, running, waiting, title, hint, action }: { done: boolean; running: boolean; waiting?: boolean; title: string; hint: string; action: ReactNode }) {
   return (
     <li className="flex items-start gap-3">
       <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
         {running ? <Spinner className="h-4 w-4" /> : done ? <CheckCircle2 size={18} strokeWidth={1.75} className="text-tea-600" /> : <Circle size={18} strokeWidth={1.5} className="text-paper-400" />}
       </span>
       <div className="min-w-0 flex-1">
-        <div className={cn('font-serif text-sm tracking-wide', done ? 'text-ink-500' : 'text-ink-900 dark:text-paper-100')}>{title}</div>
+        <div className={cn('font-serif text-sm tracking-wide', done ? 'text-ink-500' : 'text-ink-900 dark:text-paper-100')}>{title}{waiting && <Badge tone="amber" className="ml-2">{t.studio.workflow.pendingReview}</Badge>}</div>
         <div className="text-xs text-ink-400">{hint}</div>
         {action && <div className="mt-2 space-y-1.5">{action}</div>}
       </div>

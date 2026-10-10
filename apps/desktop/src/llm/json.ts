@@ -1,7 +1,8 @@
+import {sumUsage} from '@/llm/types';
 import { z } from 'zod';
 import type { ChatMessage, CompletionRequest, LLMProvider, ProviderCaps, PromptSpec, Usage } from './types';
 import { LLMError } from './types';
-import { complete, completeWithRetry, type CompleteWithRetryOptions, type DeltaHandler } from './complete';
+import { complete, completeWithRetry, growOutputBudget, type CompleteWithRetryOptions, type DeltaHandler } from './complete';
 import type { RateGate } from './retry';
 import { DEFAULT_JSON_REPAIR_ROUNDS } from './config';
 import { estimateTokens } from './tokens';
@@ -217,41 +218,60 @@ export async function requestJson<T>(
 
   const baseReq: CompletionRequest = {
     messages,
-    maxTokens: spec.maxTokens,
+    maxTokens: Math.min(spec.maxTokens,provider.caps.maxOutputTokens-(provider.caps.reasoningTokens ?? 0)),
     temperature: spec.temperature,
     json: { name: 'result', schema: jsonSchema },
     signal: opts.signal,
   };
+  if(baseReq.maxTokens<=0) throw new LLMError('bad_request','推理预留必须小于最大输出预算');
 
-  const run = (req: CompletionRequest) =>
-    opts.retry === false
+  const run = async (req: CompletionRequest) => {
+    try { return await (opts.retry === false
       ? complete(provider, req, opts.onDelta)
-      : completeWithRetry(provider, req, { ...opts.retryOptions, signal: opts.signal, onDelta: opts.onDelta, gate: opts.gate });
+      : completeWithRetry(provider, req, { ...opts.retryOptions, signal: opts.signal, onDelta: opts.onDelta, gate: opts.gate })); }
+    catch(error) { if(error instanceof LLMError) {error.usage=sumUsage(usage,error.usage ?? {inputTokens:0,outputTokens:0});error.providerId=provider.id;} throw error; }
+  };
 
   const rounds = Math.max(0, Math.trunc(opts.repairRounds ?? DEFAULT_JSON_REPAIR_ROUNDS));
   const usage: Usage = { inputTokens: 0, outputTokens: 0 };
 
-  let result = await run(baseReq);
+  let result = await run({ ...baseReq });
+  let attempts=1;
+  let emptyExhaustions=result.finishReason==='length' && !result.text.trim() ? 1 : 0;
+  if(result.usage.incomplete) usage.incomplete=true;
   usage.inputTokens += result.usage.inputTokens;
   usage.outputTokens += result.usage.outputTokens;
-  let outcome = tryParse(result.text, spec.schema);
+  let outcome:ParseOutcome<T> = result.finishReason==='length' ? {ok:false,error:'输出预算耗尽，JSON 未完整返回'}:tryParse(result.text, spec.schema);
 
   for (let round = 0; !outcome.ok && round < rounds; round++) {
-    const repairMessages: ChatMessage[] = [
+    const truncated=result.finishReason==='length';
+    if (truncated) {
+      if (emptyExhaustions >= 2) {
+        outcome={ok:false,error:'模型连续两次耗尽预算但未返回任何 JSON；请检查模型推理与输出格式配置，已停止继续扩大预算'};
+        break;
+      }
+      const next=growOutputBudget(provider,{messages,maxTokens:baseReq.maxTokens});
+      if(next<=baseReq.maxTokens) break;
+      baseReq.maxTokens=next;
+    }
+    const repairMessages: ChatMessage[] = truncated ? messages : [
       ...messages,
       { role: 'assistant', content: result.text },
       { role: 'user', content: `上面的 JSON 无法通过校验，错误：${outcome.error}。请只输出修正后的完整 JSON，不要解释。` },
     ];
-    result = await run({ ...baseReq, messages: repairMessages, temperature: 0 });
-    usage.inputTokens += result.usage.inputTokens;
+    attempts++;
+    // Exhaustion is a budget retry, not a malformed-JSON repair: preserve sampling.
+    result = await run({ ...baseReq, messages: repairMessages, temperature: truncated ? baseReq.temperature : 0 });
+    emptyExhaustions=result.finishReason==='length' && !result.text.trim() ? emptyExhaustions+1 : 0;
+    if(result.usage.incomplete) usage.incomplete=true;
+  usage.inputTokens += result.usage.inputTokens;
     usage.outputTokens += result.usage.outputTokens;
-    outcome = tryParse(result.text, spec.schema);
+    outcome = result.finishReason==='length' ? {ok:false,error:'输出预算耗尽，JSON 未完整返回；请增加最大输出或推理预留'}:tryParse(result.text, spec.schema);
   }
 
   if (outcome.ok) return { value: outcome.value, raw: result.text, usage };
 
-  const attempts = rounds + 1;
   throw new LLMError('bad_request', `${spec.label}: 模型输出的 JSON ${attempts} 次校验失败：${outcome.error}`, {
-    raw: result.text,
+    raw: result.text, usage, providerId:provider.id,
   });
 }

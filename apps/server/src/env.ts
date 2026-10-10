@@ -1,6 +1,18 @@
+import { resolve } from 'node:path';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
+  WRITING_HARNESS_ENABLED: z.enum(['0', '1']).default('0'),
+  LUNAROUTE_API_KEY: z.string().default(''),
+  WRITING_MODEL: z.string().min(1).default('deepseek-4.1-flash'),
+  WRITING_HARNESS_STORAGE: z.string().default(''),
+  WRITING_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(2),
+  WRITING_MEMORY_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(90),
+  WRITING_RETENTION_HOURS: z.coerce.number().int().min(1).max(720).default(24),
+  WRITING_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1024).max(262144).default(262144),
+  WRITING_REASONING_TOKENS: z.coerce.number().int().min(0).max(262143).default(32000),
+  WRITING_REASONING_EFFORT: z.enum(['low', 'medium', 'high']).default('low'),
+  WRITING_JSON_MODE: z.enum(['json_object', 'json_schema']).default('json_schema'),
   PORT: z.coerce.number().int().min(1).max(65535).default(8787),
   DATABASE_URL: z.string().min(1).default('./data/dev.sqlite'),
   TRUST_PROXY: z.enum(['0', '1']).default('0'),
@@ -41,6 +53,17 @@ const EnvSchema = z.object({
 });
 
 export type Env = {
+  writingHarnessEnabled: boolean;
+  lunarouteApiKey: string;
+  writingModel: string;
+  writingHarnessStorage: string;
+  writingConcurrency: number;
+  writingRetentionHours: number;
+  writingMemoryRetentionDays: number;
+  writingMaxOutputTokens: number;
+  writingReasoningTokens: number;
+  writingReasoningEffort: 'low' | 'medium' | 'high';
+  writingJsonMode: 'json_object' | 'json_schema';
   port: number;
   databaseUrl: string;
   trustProxy: boolean;
@@ -76,7 +99,25 @@ function splitList(s: string): string[] {
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   const raw = EnvSchema.parse(source);
+  if (raw.WRITING_HARNESS_ENABLED === '1' && !raw.LUNAROUTE_API_KEY.trim()) throw new Error('WRITING_HARNESS_ENABLED=1 requires LUNAROUTE_API_KEY on the server');
+  if (raw.WRITING_HARNESS_ENABLED === '1' && raw.WRITING_HARNESS_STORAGE &&
+      raw.WRITING_HARNESS_STORAGE !== raw.DATABASE_URL &&
+      (raw.WRITING_HARNESS_STORAGE === ':memory:' || raw.DATABASE_URL === ':memory:' ||
+       resolve(raw.WRITING_HARNESS_STORAGE) !== resolve(raw.DATABASE_URL)))
+    throw new Error('Pi harness uses DATABASE_URL; separate WRITING_HARNESS_STORAGE is no longer supported');
+  if (raw.WRITING_REASONING_TOKENS >= raw.WRITING_MAX_OUTPUT_TOKENS) throw new Error('WRITING_REASONING_TOKENS must be smaller than WRITING_MAX_OUTPUT_TOKENS');
   return {
+    writingHarnessEnabled: raw.WRITING_HARNESS_ENABLED === '1',
+    lunarouteApiKey: raw.LUNAROUTE_API_KEY,
+    writingModel: raw.WRITING_MODEL,
+    writingHarnessStorage: raw.WRITING_HARNESS_STORAGE || raw.DATABASE_URL,
+    writingConcurrency: raw.WRITING_CONCURRENCY,
+    writingRetentionHours: raw.WRITING_RETENTION_HOURS,
+    writingMemoryRetentionDays: raw.WRITING_MEMORY_RETENTION_DAYS,
+    writingMaxOutputTokens: raw.WRITING_MAX_OUTPUT_TOKENS,
+    writingReasoningTokens: raw.WRITING_REASONING_TOKENS,
+    writingReasoningEffort: raw.WRITING_REASONING_EFFORT,
+    writingJsonMode: raw.WRITING_JSON_MODE,
     port: raw.PORT,
     databaseUrl: raw.DATABASE_URL,
     trustProxy: raw.TRUST_PROXY === '1',

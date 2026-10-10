@@ -1,3 +1,7 @@
+import { docTypeGuide } from './docTypes';
+import { nanoid } from 'nanoid';
+import { writeAtomic, type AtomicOperation } from '@/db/db';
+import { wizardBindingOperations } from './bindWizardOptions';
 /**
  * Studio service：建任务 + 少量同步操作。
  *
@@ -5,12 +9,10 @@
  * （`jobs/steps/outlineStep.ts` / `chapterTableStep.ts`），这里只负责建任务、
  * 按用途冻结模型选择（§2.1 第 2 条）以及开工前的预算检查（§2.1 第 3 条）。
  */
-import { emptyDerivative, splitChapters, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
-import { emptyBible } from '@the-water/shared';
+import { emptyDerivative, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
 import { createNovel, getNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
 import { buildStorylineDoc, createSnapshot, getStyleExtras, setDerivative, setStyleProfile } from '@/db/repos/storylineRepo';
-import { beginRewriteSession, createVersion, listChapters, markStaleFrom, resolveAllRewrites, resolveRewrite, upsertChapterPlan } from '@/db/repos/chaptersRepo';
-import { saveBible } from '@/db/repos/bibleRepo';
+import { beginRewriteSession, listChapters, markStaleFrom, resolveAllRewrites, resolveRewrite } from '@/db/repos/chaptersRepo';
 import { BLOCKING_JOB_STATUSES, createJob, listJobs, type Job } from '@/db/repos/jobsRepo';
 import { getSetting, setSetting } from '@/db/repos/settingsRepo';
 import { assertBudget } from '@/db/repos/usageRepo';
@@ -22,26 +24,36 @@ import { profileFromFreeText } from '@/novel/stylePresets';
 import { isEmptyGenre, mergedGenreOf } from '@/novel/genrePacks';
 import { kick } from '@/jobs/runner';
 import { emitJobEvent } from '@/jobs/events';
+import { listStyleExtractionSources } from './styleExtractionSources';
+import { canSupplementPlan } from '@/jobs/planningAdmission';
 
 export { storylineToOutline };
 
 export interface WizardInput { title: string; premise: string; requirements: NovelRequirements; targetChars: number; styleProfile?: StyleProfile | null }
 
-export async function createNovelFromWizard(input: WizardInput): Promise<Novel> {
-  const novel = await createNovel({ title: input.title || '未命名小说', premise: input.premise, requirements: input.requirements, targetChars: input.targetChars, status: 'draft' });
+export async function createNovelFromWizard(input: WizardInput, options?: { draftId: string; selectionId?: string | null; providerIds?: StepProviderMap }): Promise<Novel> {
+  const id = nanoid(), operations: AtomicOperation[] = [], collect = async (ops: AtomicOperation[]) => { operations.push(...ops); };
+  await createNovel({ id, title: input.title || '未命名小说', premise: input.premise, requirements: input.requirements, targetChars: input.targetChars, status: 'draft', commit: collect });
   const profile = input.styleProfile ?? profileFromFreeText(input.requirements.style);
-  if (profile) await setStyleProfile(novel.id, profile);
-  return novel;
+  if (profile) await setStyleProfile(id, profile, collect);
+  if (options) {
+    operations.push(...await wizardBindingOperations(options.draftId, id, input, options.selectionId));
+    await setSetting(novelProviderKey(id), options.providerIds ?? {}, collect);
+    await setSetting('studio:createWizardDraft', null, collect);
+  }
+  await writeAtomic(operations);
+  return (await getNovel(id))!;
 }
 
 /**
  * Whether generated chapters should go through style_check: a derivative, a selected genre pack
- * （L1 自带禁忌词、靶区间与设定规则，够 style_check 干活了），or a profile with targets/voice.
+ * （L1 提供题材审稿指导与软靶区间；本书事实与规则仍须独立确认），or a profile with targets/voice.
  */
 export async function wantsStyleCheck(novelId: string): Promise<boolean> {
   const { styleProfile, derivative } = await getStyleExtras(novelId);
   if (derivative) return true;
   const novel = await getNovel(novelId);
+  if (novel && docTypeGuide(novel.requirements.docType).fiction) return true;
   if (novel && !isEmptyGenre(mergedGenreOf(novel.requirements))) return true;
   if (!styleProfile) return false;
   const hasVoice = Object.values(styleProfile.voice).some((v) => typeof v === 'object' && v !== null && 'text' in v && (v as { text: string }).text.trim().length > 0);
@@ -111,6 +123,8 @@ export interface PlanningOptions extends StartOptions {
   chapterTable?: boolean;
   /** 用户已确认「重排会删掉已有章节」。 */
   confirmReplaceChapters?: boolean;
+  /** Complete empty plan slots while preserving existing chapter plans. */
+  fillMissing?: boolean;
 }
 
 /**
@@ -118,15 +132,16 @@ export interface PlanningOptions extends StartOptions {
  * 崩溃后能接着跑，失败还能单步重试。
  */
 export async function startPlanning(novelId: string, opts: PlanningOptions = {}): Promise<string> {
-  await ensureNoActiveJob(novelId);
-  const wantTable = opts.chapterTable !== false;
-  if (wantTable && !opts.confirmReplaceChapters) {
-    const existing = await listChapters(novelId);
-    if (existing.length > 0) throw new ConfirmRequiredError(existing.length);
+  const active = await listJobs({ novelId, statuses: [...BLOCKING_JOB_STATUSES] });
+  const novel = await getNovel(novelId);
+  const replanAfterOutline = opts.outline === false && novel?.meta.storyOptionStage === 'outline' && novel.meta.outlineDone === true && novel.meta.tableDone === false;
+  if (active.length && !((opts.fillMissing || replanAfterOutline) && opts.outline === false && canSupplementPlan(active))) {
+    throw new Error('该小说已有进行中的任务，请先暂停写作再补齐计划，或完成当前任务');
   }
+
   const steps = planPlanning({ outline: opts.outline, chapterTable: opts.chapterTable });
   if (steps.length === 0) throw new Error('没有需要执行的规划步骤');
-  const job = await submitJob({ novelId, type: 'generate_novel', params: { stage: 'plan' }, steps }, opts);
+  const job = await submitJob({ novelId, type: 'generate_novel', params: { stage: 'plan', fillMissing: opts.fillMissing ?? false, replanAfterOutline }, steps }, opts);
   await updateNovel(novelId, { status: 'planning' });
   kick();
   return job.id;
@@ -147,7 +162,7 @@ export function isPlanningJob(job: Pick<Job, 'params'>): boolean {
 export async function startGeneration(novelId: string, opts: { only?: number[]; force?: boolean } & StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
   const chapters = await listChapters(novelId);
-  const steps = planGenerate(chapters, { force: opts.force, only: opts.only ? new Set(opts.only) : undefined, styleCheck: await wantsStyleCheck(novelId) });
+  const steps = planGenerate(chapters, { force: opts.force, only: opts.only ? new Set(opts.only) : undefined, styleCheck: await wantsStyleCheck(novelId), fiction: docTypeGuide((await getNovel(novelId))!.requirements.docType).fiction });
   if (steps.length === 0) throw new Error('没有需要生成的章节');
   const job = await submitJob({ novelId, type: 'generate_novel', params: { only: opts.only ?? null }, steps }, opts);
   await updateNovel(novelId, { status: 'generating' });
@@ -162,7 +177,7 @@ export async function regenerateChapter(novelId: string, chapterNo: number, opts
   if (!target) throw new Error('章节不存在');
   const following = opts.cascade ? chapters.filter((c) => c.chapterNo > chapterNo && c.currentVersionId) : [];
   if (!opts.cascade) await markStaleFrom(novelId, chapterNo + 1, '上游章节已重新生成');
-  const job = await submitJob({ novelId, type: 'regenerate_chapter', params: { chapterNo, cascade: !!opts.cascade }, steps: planRegenerate(target, following, { styleCheck: await wantsStyleCheck(novelId) }) }, opts);
+  const job = await submitJob({ novelId, type: 'regenerate_chapter', params: { chapterNo, cascade: !!opts.cascade }, steps: planRegenerate(target, following, { styleCheck: await wantsStyleCheck(novelId), fiction: docTypeGuide((await getNovel(novelId))!.requirements.docType).fiction }) }, opts);
   kick();
   return job.id;
 }
@@ -171,7 +186,7 @@ export async function startRewrite(novelId: string, items: RewriteItemInput[], s
   await ensureNoActiveJob(novelId);
   const novel = await getNovel(novelId);
   if (!novel) throw new Error('小说不存在');
-  const steps = planRewrite(items, { styleCheck: await wantsStyleCheck(novelId) });
+  const steps = planRewrite(items, { styleCheck: await wantsStyleCheck(novelId), fiction: docTypeGuide((await getNovel(novelId))!.requirements.docType).fiction });
   if (steps.length === 0) throw new Error('没有选中任何章节');
   // 改写前先把现在的故事线存一版：reason 用 pre_rewrite（与 §2.1 章节表重建路径同义
   // ——破坏性操作之前的自动存档），改写产出的版本引用的就是它。§2.2 第 4 条。
@@ -197,6 +212,8 @@ export const undoRewrite = (novelId: string): Promise<number> => resolveAllRewri
 /** 拆书：从现有正文提取文风档案 + 人物言行规格 + 规矩（后台任务）。 */
 export async function startStyleExtraction(novelId: string, opts: StartOptions = {}): Promise<string> {
   await ensureNoActiveJob(novelId);
+  if (!(await listStyleExtractionSources(novelId)).length)
+    throw new Error('文风提取至少需要一章超过 200 字的正文；短篇正文仍可正常编辑。');
   const job = await submitJob({ novelId, type: 'extract_style', params: {}, steps: [{ kind: 'extract_style', chapterId: null, input: {} }] }, opts);
   kick();
   return job.id;
@@ -227,14 +244,6 @@ export { emptyDerivative };
 
 /** Import a plain-text novel (split by 第X章) as imported chapter versions; storyline can be inferred later. */
 export async function importTextNovel(input: { title: string; text: string; requirements: NovelRequirements }): Promise<Novel> {
-  const parts = splitChapters(input.text);
-  const total = parts.reduce((s, p) => s + p.content.length, 0);
-  const novel = await createNovel({ title: input.title, premise: '', requirements: input.requirements, targetChars: total, status: 'writing' });
-  let n = 1;
-  for (const p of parts) {
-    const ch = await upsertChapterPlan(novel.id, { chapterNo: n++, title: p.title, targetChars: p.content.length });
-    await createVersion({ chapterId: ch.id, content: p.content, source: 'imported', status: 'final' });
-  }
-  await saveBible(novel.id, 0, emptyBible());
-  return novel;
+  const { importTextContent } = await import('./importText');
+  return importTextContent(input);
 }

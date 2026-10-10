@@ -3,7 +3,6 @@ import type { ChatMessage } from '@/llm/types';
 import {
   ChapterTableSchema,
   OutlineDocSchema,
-  RewriteInstructionsSchema,
   SummarizeResultSchema,
   defaultRequirements,
   type OutlineDoc,
@@ -89,14 +88,15 @@ describe('outlinePrompt', () => {
   it('carries schema, numbers and structural rules', () => {
     expect(spec.label).toBe('生成大纲');
     expect(spec.maxTokens).toBe(8000);
-    expect(spec.schema).toBe(OutlineDocSchema);
+    expect(spec.schema!.safeParse({title:"TEST incomplete fiction plan",logline:"TEST"}).success).toBe(false);
     const s = systemOf(spec.messages);
     expect(s).toContain('绝对禁止出现：血腥描写、政治隐喻');
     expect(s).not.toContain(FORMAT_RULES);
     const u = userOf(spec.messages);
     expect(u).toContain('【故事框架】\n钟表匠收到亡妻来信。');
-    expect(u).toContain('约 120000 字，共 40 章');
-    expect(u).toContain('覆盖第 1 章到第 40 章');
+    expect(u).toContain('篇幅参考约 120000 字、约 40 章');
+    expect(u).toContain('覆盖你实际规划的全书章节');
+    expect(u).toContain('可以增加或减少');
     expect(u).toContain('3–8 位主要人物');
     expect(u).toContain('每章 1–3 个');
     expect(u).toContain('suggestedChapterNo');
@@ -106,6 +106,7 @@ describe('outlinePrompt', () => {
 
 describe('chapterTablePrompt', () => {
   const outline: OutlineDoc = OutlineDocSchema.parse({
+    logline: 'TEST mainline',
     title: '钟停',
     characters: [{ name: '沈默', role: '主角' }],
     arcs: [{ title: '来信', startChapterNo: 1, endChapterNo: 40 }],
@@ -125,13 +126,20 @@ describe('chapterTablePrompt', () => {
 
   it('states the hard constraints with the exact numbers', () => {
     expect(spec.label).toBe('生成章节表');
-    expect(spec.schema).toBe(ChapterTableSchema);
-    expect(spec.maxTokens).toBe(8000);
+    // TEST: prior-batch entries cannot stand in for a complete current batch.
+    expect(spec.schema?.safeParse({ chapters: previous }).success).toBe(false);
+    const current = Array.from({length:10},(_,i)=>({...previous[0]!,chapterNo:31+i,title:`TEST ${31+i}`}));
+    expect(spec.schema?.safeParse({chapters:current}).success).toBe(true);
+    expect(spec.schema?.safeParse({chapters:current.slice(0,9)}).success).toBe(false);
+    expect(spec.schema?.safeParse(previous).success).toBe(false);
+    expect(spec.schema?.safeParse({ chapters: [{ chapterNo: -1 }] }).success).toBe(false);
+    expect(spec.maxTokens).toBe(12000);
     const u = userOf(spec.messages);
     expect(u).toContain('恰好输出第 31 章到第 40 章，共 10 条');
     expect(u).toContain('全书共 40 章');
-    expect(u).toContain('之和必须等于 30000');
-    expect(u).toContain('2000–4500 之间');
+    expect(u).toContain('篇幅参考约 30000 字');
+    expect(u).toContain('不要求字数总和相等');
+    expect(u).toContain('不要求字数总和相等');
     expect(systemOf(spec.messages)).toContain('绝对禁止出现：血腥描写');
   });
   it('only lists beats for this range (or undecided) and the last 3 previous entries', () => {
@@ -160,7 +168,7 @@ describe('writeChapterPrompt', () => {
     expect(spec.schema).toBeUndefined();
     expect(spec.maxTokens).toBe(maxTokensForChapter(3000, caps));
     const s = systemOf(spec.messages);
-    expect(s).toContain('本章目标约 3240 字（严格），不得少于 2700 字，不要为了凑字数而重复');
+    expect(s).toContain('本章参考约 3000 字');
     expect(s).toContain('绝对禁止出现：血腥描写、政治隐喻');
     expect(s).toContain(FORMAT_RULES);
     const u = userOf(spec.messages);
@@ -174,7 +182,7 @@ describe('writeChapterPrompt', () => {
     expect(u).toContain('【本章前半部分】\n前半正文……');
     expect(u).toContain('续写');
     expect(u).toContain('不要重复前文');
-    expect(systemOf(spec.messages)).toContain('本次只写后半部分，约 3240 字（严格），不得少于 2700 字');
+    expect(systemOf(spec.messages)).toContain('本次只写后半部分，参考约 3000 字');
     expect(spec.maxTokens).toBe(maxTokensForChapter(3000, caps));
   });
   it('first half: stops before the hook', () => {
@@ -227,7 +235,7 @@ describe('lengthAdjustPrompt', () => {
   it('trim', () => {
     const spec = lengthAdjustPrompt({ ...base, actual: 4000, target: 3000, mode: 'trim' });
     expect(spec.label).toBe('精简第5章');
-    expect(userOf(spec.messages)).toContain('当前 4000 字，目标 3000 字，需精简约 1000 字');
+    expect(userOf(spec.messages)).toContain('当前 4000 字，作者要求精简，参考约 3000 字、减少约 1000 字');
   });
 });
 
@@ -241,7 +249,9 @@ describe('rewritePlanPrompt', () => {
   });
   it('carries the diff, per-chapter items and the schema', () => {
     expect(spec.label).toBe('生成改写说明');
-    expect(spec.schema).toBe(RewriteInstructionsSchema);
+    expect(spec.schema?.safeParse({ chapters: [{ chapterNo: 2, instructions: ["TEST 本章需要改变：选择后果"] }] }).success).toBe(true);
+    expect(spec.schema?.safeParse([]).success).toBe(false);
+    expect(spec.schema?.safeParse({ chapters: [{ chapterNo: -1 }] }).success).toBe(false);
     const u = userOf(spec.messages);
     expect(u).toContain('【故事线改动】\n人物「林晚」改为未死，仅失踪。');
     expect(u).toContain('第2章（局部修订）');
@@ -259,7 +269,7 @@ describe('rewriteChapterPrompt', () => {
     expect(spec.label).toBe('改写第4章');
     expect(spec.maxTokens).toBe(maxTokensForChapter(3000, caps));
     expect(systemOf(spec.messages)).toContain('尽量保留原文中仍然成立的段落，只改动必要之处');
-    expect(systemOf(spec.messages)).toContain('本章目标约 3240 字');
+    expect(systemOf(spec.messages)).toContain('本章参考约 3000 字');
     const u = userOf(spec.messages);
     expect(u).toContain('【旧版本正文】\n旧正文');
     expect(u).toContain('【改写要求】\n- 本章需要改变：林晚活着\n- 删掉葬礼');

@@ -18,11 +18,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "1.1.0",
+    "@earendil-works/pi-ai": "1.1.0",
+    "@earendil-works/pi-coding-agent": "1.1.0",
     "@resvg/resvg-js": "^2.6.2",
+    "@the-water/llm": "workspace:*",
     "@the-water/shared": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.5",
     "nodemailer": "^10.0.0",
+    "typebox": "1.3.27",
     "zod": "^4.5.4"
   },
   "devDependencies": {

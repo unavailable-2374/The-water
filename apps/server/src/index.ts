@@ -11,6 +11,7 @@ import { HOUR, systemClock } from './lib/time';
 import { gcRateLimits } from './middleware/rate-limit';
 import { gcSessions } from './modules/auth/service';
 import { gcBlobs, gcDrafts } from './modules/versions/service';
+import { WritingHarness } from './modules/writing/harness';
 
 const env = loadEnv();
 const { db } = createDb(env.databaseUrl);
@@ -25,6 +26,11 @@ const deps: AppDeps = {
   rateLimits: {},
 };
 const app = createApp(deps);
+if (env.writingHarnessEnabled) {
+  deps.writingHarness = new WritingHarness(deps);
+  await deps.writingHarness.ready();
+  deps.writingHarness.start();
+}
 
 function runGc(): void {
   try {
@@ -49,13 +55,18 @@ function runGc(): void {
 }
 runGc();
 const gcTimer = setInterval(runGc, HOUR);
+const writingGcTimer = setInterval(() => {
+  deps.writingHarness?.gc().catch(() => console.error('[writing-gc] failed; retained records for retry'));
+}, 60000);
 
-const server = Bun.serve({ port: env.port, fetch: app.fetch, maxRequestBodySize: 8 * 1024 * 1024 });
+const server = Bun.serve({ port: env.port, fetch: app.fetch, maxRequestBodySize: 18 * 1024 * 1024 });
 console.log(`The-Water 公共区服务已启动：http://localhost:${server.port}  (DB: ${env.databaseUrl})`);
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(sig, () => {
+  process.on(sig, async () => {
     clearInterval(gcTimer);
+    clearInterval(writingGcTimer);
+    await deps.writingHarness?.close();
     server.stop();
     process.exit(0);
   });

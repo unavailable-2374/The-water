@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { OpenAICompatibleProvider, isStrictJsonSchema, resolveChatCompletionsUrl } from '@/llm/openaiCompatible';
 import { LLMError } from '@/llm/types';
 import { collect, fakeFetch, makeConfig, sseBody, sseResponse } from './helpers';
+import { useTestDb } from '../helpers/testDb';
+import { createProvider, updateProvider, getProvider } from '@/db/repos/providersRepo';
 
 function chunk(content: string | null, finish: string | null = null) {
   return { id: 'c', object: 'chat.completion.chunk', choices: [{ index: 0, delta: content === null ? {} : { content }, finish_reason: finish }] };
@@ -45,6 +47,27 @@ describe('isStrictJsonSchema', () => {
 });
 
 describe('OpenAICompatibleProvider', () => {
+  it('rejects an EOF or DONE without an explicit finish reason', async () => {
+    for (const tail of ['', 'data: [DONE]\n\n']) {
+      const { fetch } = fakeFetch([sseResponse([sseBody([{ data: chunk('TEST partial') }]) + tail])]);
+      await expect(collect(new OpenAICompatibleProvider(makeConfig(), 'TEST-key', fetch).stream({ messages: [], maxTokens: 20 }))).rejects.toMatchObject({ kind: 'network', message: 'Model stream ended without a finish reason' });
+    }
+  });
+  it('TEST provider effort survives database reload, can be cleared, and rejects invalid values', async () => {
+    const db = useTestDb();
+    const provider = await createProvider({ ...makeConfig(), reasoningEffort: 'low' });
+    expect((await getProvider(provider.id))?.reasoningEffort).toBe('low');
+    await updateProvider(provider.id, { reasoningEffort: undefined });
+    expect((await getProvider(provider.id))?.reasoningEffort).toBeUndefined();
+    await expect(updateProvider(provider.id, { reasoningEffort: 'unsupported' as 'low' })).rejects.toThrow();
+    expect((await getProvider(provider.id))?.reasoningEffort).toBeUndefined();
+    db.raw.close();
+  });
+  it('TEST explicitly sends supported reasoning effort without silently changing vendor defaults', () => {
+    const fetch = fakeFetch([]).fetch;
+    expect(new OpenAICompatibleProvider(makeConfig({ reasoningEffort: 'low' }), 'TEST-key', fetch).buildBody({ messages: [], maxTokens: 2500 })).toMatchObject({ reasoning_effort: 'low', max_tokens: 2500 });
+    expect(new OpenAICompatibleProvider(makeConfig(), 'TEST-key', fetch).buildBody({ messages: [], maxTokens: 2500 })).not.toHaveProperty('reasoning_effort');
+  });
   it('streams deltas, ignores reasoning_content, emits usage then a single done', async () => {
     const { fetch, calls } = fakeFetch([okStream()]);
     const p = new OpenAICompatibleProvider(makeConfig({ extraHeaders: { 'X-Custom': '1' } }), 'sk-test', fetch);

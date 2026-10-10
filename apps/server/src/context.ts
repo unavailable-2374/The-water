@@ -23,6 +23,7 @@ export type RateLimitName =
   | 'web';
 
 export interface AppDeps {
+  writingHarness?: import('./modules/writing/harness').WritingHarness;
   db: Db;
   env: Env;
   clock: Clock;

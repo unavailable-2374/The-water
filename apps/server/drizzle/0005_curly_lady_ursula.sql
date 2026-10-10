@@ -1,0 +1,1 @@
+ALTER TABLE `novel_versions` ADD `creation_materials` text;

@@ -39,4 +39,3 @@ export function secrets(): SecretStore {
 export function providerSecretRef(providerId: string): string {
   return `provider:${providerId}`;
 }
-export const ACCOUNT_TOKEN_REF = 'account:token';

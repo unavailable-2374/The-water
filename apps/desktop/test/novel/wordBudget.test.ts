@@ -9,16 +9,27 @@ import {
   redistributeRemaining,
   shouldSplitChapter,
   MIN_CHAPTER_TARGET,
+  chapterCountForStory,
 } from '@/novel/wordBudget';
 
 describe('planChapterCount', () => {
-  it('rounds target / 3000 and clamps to [3, 150]', () => {
+  it('TEST accepted story arcs may expand or shrink the initial word-based estimate',()=>{
+    expect(chapterCountForStory({arcs:[{endChapterNo:24}],chapters:[]},90000)).toBe(24);
+    expect(chapterCountForStory({arcs:[{endChapterNo:42}],chapters:[]},90000)).toBe(42);
+    expect(chapterCountForStory({arcs:[{endChapterNo:24}],chapters:[{chapterNo:30,title:'TEST existing',goal:'TEST goal'}]},90000)).toBe(30);
+  });
+  it('rounds target / 3000 and clamps to [3, 500]', () => {
     expect(planChapterCount(10_000)).toBe(3);
     expect(planChapterCount(1_000)).toBe(3);
     expect(planChapterCount(90_000)).toBe(30);
     expect(planChapterCount(91_000)).toBe(30);
     expect(planChapterCount(300_000)).toBe(100);
-    expect(planChapterCount(1_000_000)).toBe(150);
+    expect(planChapterCount(1_000_000)).toBe(333);
+  });
+  it('supports a complete single-chapter short story without changing long-novel defaults',()=>{
+    expect(planChapterCount(3000,{docType:'short-story'})).toBe(1);
+    expect(planChapterCount(6000,{docType:'short-story'})).toBe(2);
+    expect(planChapterCount(3000)).toBe(3);
   });
   it('honours options', () => {
     expect(planChapterCount(10_000, { perChapter: 2000 })).toBe(5);
@@ -104,7 +115,8 @@ describe('ratios & tokens', () => {
     expect(minAcceptable(3000)).toBe(2700);
   });
   it('maxTokensForChapter is capped by provider output limit', () => {
-    expect(maxTokensForChapter(3000, { maxOutputTokens: 8192 })).toBe(5200);
+    expect(maxTokensForChapter(3000, { maxOutputTokens: 8192 })).toBe(8192);
+    expect(maxTokensForChapter(3000, { maxOutputTokens: 16000 })).toBe(10000);
     expect(maxTokensForChapter(6000, { maxOutputTokens: 8192 })).toBe(8192);
   });
   it('shouldSplitChapter above 4500', () => {

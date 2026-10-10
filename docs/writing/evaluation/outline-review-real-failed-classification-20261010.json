@@ -1,0 +1,517 @@
+{
+  "label": "REAL model judgments on TEST fictional outlines. Not an objective quality score.",
+  "date": "2026-10-10T16:19:53.469Z",
+  "cases": [
+    {
+      "kind": "contradiction",
+      "premise": "TEST 虚构重生故事：林川在2022年死亡后回到2019年。只有记忆回到过去，任何物件和电子数据不能跨时间线。目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+      "outline": {
+        "version": 1,
+        "premise": "TEST 虚构重生故事：林川在2022年死亡后回到2019年。只有记忆回到过去，任何物件和电子数据不能跨时间线。目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+        "themes": [],
+        "characters": [],
+        "settings": [
+          {
+            "id": "8ghIbjvBeNI5gDLbpSril",
+            "name": "TEST 核心条件",
+            "kind": "other",
+            "triggerKeys": [],
+            "priority": 0,
+            "constant": false,
+            "description": "TEST 林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+          }
+        ],
+        "arcs": [
+          {
+            "id": "vZJgdPBhrcm1kXEBW24Hh",
+            "title": "TEST 取证与揭露",
+            "summary": "TEST 2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。",
+            "startChapterNo": 1,
+            "endChapterNo": 3
+          }
+        ],
+        "beats": [],
+        "chapters": [],
+        "styleProfile": null,
+        "derivative": null
+      },
+      "review": {
+        "premise": {
+          "documentKind": "short-story",
+          "stage": "创作总纲",
+          "primaryExperience": "重生悬疑：林川在2022年死亡后回到2019年，以记忆揭露陷害。",
+          "audience": "成年读者",
+          "lengthAndReadingForm": "短篇小说，目标约6000字，第三人称有限，过去时，简体中文。",
+          "uncertainties": [
+            "反派与配角的独立意图未提供。",
+            "主题、支线与关系线未提供。",
+            "1-3章的具体功能与阶段性回报未提供。"
+          ]
+        },
+        "summary": "当前大纲存在核心时间线矛盾：2019年无法取得2021年才收集的文件，导致高潮与前提规则冲突。人物、主题、章节分配等信息不足。未验证文学语言、对白与氛围。",
+        "checks": [
+          {
+            "dimension": "reader_promise",
+            "status": "needs_information",
+            "assessment": "承诺是重生悬疑并在2019年以有效取得的财务文件揭露陷害，但弧线直接取出2021年文件获胜，悬疑取证承诺被跳过。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          },
+          {
+            "dimension": "causality",
+            "status": "needs_information",
+            "assessment": "因果链断裂：2019年醒来后打开储物柜，取出2021年才收集并藏好的文件，违反“物件不能跨时间线”的前提。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          },
+          {
+            "dimension": "character",
+            "status": "needs_information",
+            "assessment": "林川目标明确为揭露陷害，但反派与配角的独立意图、林川的选择代价和认知/误解未提供。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "目标是在2019年揭露陷害"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "accumulation",
+            "status": "needs_information",
+            "assessment": "弧线从2019年醒来到董事会获胜，没有中段能力、关系、认识或责任累积。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          },
+          {
+            "dimension": "pacing",
+            "status": "needs_information",
+            "assessment": "短篇三章内直接完成揭露，取证过程被省略，胜利没有前置情绪。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "没有其他取证过程"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "world_rules",
+            "status": "needs_information",
+            "assessment": "世界规则明确只有记忆可跨时间线，物件和电子数据不能；弧线却让2019年取出2021年才存在的文件。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          },
+          {
+            "dimension": "information",
+            "status": "needs_information",
+            "assessment": "重生记忆可让林川知道未来信息，但2019年储物柜中不可能已有2021年才收集的文件；信息获知与实物取得被混同。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "2019年尚未收集"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ]
+          },
+          {
+            "dimension": "integration",
+            "status": "needs_information",
+            "assessment": "主题、支线和关系线未提供，无法判断它们是否通过选择与后果互相支持。",
+            "evidence": []
+          },
+          {
+            "dimension": "ending",
+            "status": "needs_information",
+            "assessment": "结局以董事会揭露并获胜收束，但高潮证据违反时间线规则，核心承诺“有效取得财务文件”未兑现。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "高潮必须以有效取得的财务文件为基础"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ]
+          },
+          {
+            "dimension": "writeability",
+            "status": "needs_information",
+            "assessment": "当前弧线可写但核心取证步骤不可写：2019年无法取得2021年才收集的文件。",
+            "evidence": [
+              {
+                "location": "settings 描述",
+                "excerpt": "2019年尚未收集"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          },
+          {
+            "dimension": "genre",
+            "status": "needs_information",
+            "assessment": "重生悬疑需要真相时间线、必要线索与排除替代解释，但弧线直接取出文件获胜，没有取证过程。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "没有其他取证过程"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "form",
+            "status": "needs_information",
+            "assessment": "短篇体量可容纳单一揭露，但当前总纲未说明章节分配与阶段性回报。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ]
+          }
+        ],
+        "causalChains": [
+          {
+            "location": "premise",
+            "priorConditions": "只有记忆回到过去，任何物件和电子数据不能跨时间线。目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+            "action": "林川2022年死亡后，只有记忆回到2019年，目标是在2019年揭露陷害。",
+            "change": "他获得未来信息，但按规则不能携带物件或电子数据。",
+            "consequence": "高潮必须以2019年有效取得的财务文件为基础。"
+          },
+          {
+            "location": "arcs 摘要",
+            "priorConditions": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。",
+            "action": "2019年林川醒来后立即打开储物柜，取出2021年才收集和藏进去的财务文件。",
+            "change": "文件被直接用于董事会揭露反派并获胜。",
+            "consequence": "违反只有记忆跨时间线的规则，核心转折与结局不成立。"
+          }
+        ],
+        "timeline": [
+          {
+            "event": "林川在2021年首次收集并藏好文件。",
+            "happensAt": "2021年",
+            "characterLearnsAt": "未提供",
+            "readerLearnsAt": "未提供",
+            "materialOriginAndTransfer": "文件在2021年才首次收集并藏好；2019年尚未收集。"
+          },
+          {
+            "event": "林川在2022年死亡。",
+            "happensAt": "2022年",
+            "characterLearnsAt": "未提供",
+            "readerLearnsAt": "未提供",
+            "materialOriginAndTransfer": "未提供"
+          },
+          {
+            "event": "林川醒来，打开储物柜取出2021年才收集和藏进去的财务文件，并在董事会揭露反派获胜。",
+            "happensAt": "2019年",
+            "characterLearnsAt": "未提供",
+            "readerLearnsAt": "未提供",
+            "materialOriginAndTransfer": "文件被写成已在储物柜中，但按规则物件不能跨时间线，且2019年尚未收集。"
+          }
+        ],
+        "findings": [
+          {
+            "dimension": "reader_promise",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "premise 与 arcs 摘要",
+            "problem": "承诺是重生悬疑并在2019年以有效取得的财务文件揭露陷害，但弧线直接取出2021年文件获胜，悬疑取证承诺被跳过。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "读者期待的解谜与取证落空，核心承诺无法兑现。",
+            "suggestion": "让记忆只提供线索，在2019年重新取得或制作有效财务文件。"
+          },
+          {
+            "dimension": "causality",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "premise、settings 描述与 arcs 摘要",
+            "problem": "因果链断裂：2019年醒来后打开储物柜，取出2021年才收集并藏好的文件，违反“物件不能跨时间线”的前提。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "核心转折与高潮不成立。",
+            "suggestion": "删除跨时间线取物，改为2019年可执行的取证因果链。"
+          },
+          {
+            "dimension": "character",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "premise 与 arcs 摘要",
+            "problem": "林川目标明确为揭露陷害，但反派与配角的独立意图、林川的选择代价和认知/误解未提供。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "目标是在2019年揭露陷害"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "人物选择如何改变局面无法判断。",
+            "suggestion": "补充反派动机、林川恐惧/误解及每次取证选择的代价。"
+          },
+          {
+            "dimension": "accumulation",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "arcs 摘要",
+            "problem": "弧线从2019年醒来到董事会获胜，没有中段能力、关系、认识或责任累积。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "高潮缺少前置积累与情绪。",
+            "suggestion": "安排2019年重新获取文件的过程，使证据、关系和风险逐步累积。"
+          },
+          {
+            "dimension": "pacing",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "arcs 摘要",
+            "problem": "短篇三章内直接完成揭露，取证过程被省略，胜利没有前置情绪。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "没有其他取证过程"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "节奏可能过快，高潮张力不足。",
+            "suggestion": "将篇幅分配给关键取证与阻碍，而非直接获胜。"
+          },
+          {
+            "dimension": "world_rules",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "premise、settings 描述与 arcs 摘要",
+            "problem": "世界规则明确只有记忆可跨时间线，物件和电子数据不能；弧线却让2019年取出2021年才存在的文件。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "规则被破坏，为何不用更简单办法的问题也无法成立。",
+            "suggestion": "让文件在2019年重新形成或取得，并说明制度/资源限制。"
+          },
+          {
+            "dimension": "information",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "premise、settings 描述与 arcs 摘要",
+            "problem": "重生记忆可让林川知道未来信息，但2019年储物柜中不可能已有2021年才收集的文件；信息获知与实物取得被混同。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+              },
+              {
+                "location": "settings 描述",
+                "excerpt": "2019年尚未收集"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ],
+            "impact": "关键证据来源不成立，读者无法区分人物知道什么与能取得什么。",
+            "suggestion": "明确记忆只提供线索，2019年需重新收集、制作或核验文件。"
+          },
+          {
+            "dimension": "integration",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "themes、characters 与 arcs",
+            "problem": "主题、支线和关系线未提供，无法判断它们是否通过选择与后果互相支持。",
+            "evidence": [],
+            "impact": "无法评估删去支线会损失什么。",
+            "suggestion": "补充与揭露陷害相关的主题和关系线，并说明其作用。"
+          },
+          {
+            "dimension": "ending",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "premise 与 arcs 摘要",
+            "problem": "结局以董事会揭露并获胜收束，但高潮证据违反时间线规则，核心承诺“有效取得财务文件”未兑现。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "高潮必须以有效取得的财务文件为基础"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ],
+            "impact": "结局不成立，无法说明得到/失去和新状态。",
+            "suggestion": "重写高潮取证，使胜利建立在2019年有效取得的文件上。"
+          },
+          {
+            "dimension": "writeability",
+            "kind": "aesthetic_choice",
+            "priority": "critical",
+            "location": "settings 描述与 arcs 摘要",
+            "problem": "当前弧线可写但核心取证步骤不可写：2019年无法取得2021年才收集的文件。",
+            "evidence": [
+              {
+                "location": "settings 描述",
+                "excerpt": "2019年尚未收集"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "无法按当前大纲写出可信高潮。",
+            "suggestion": "先解决时间线规则，再细化可执行的取证步骤。"
+          },
+          {
+            "dimension": "genre",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "arcs 摘要",
+            "problem": "重生悬疑需要真相时间线、必要线索与排除替代解释，但弧线直接取出文件获胜，没有取证过程。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "没有其他取证过程"
+              },
+              {
+                "location": "arcs 摘要",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "悬疑类型体验缺失。",
+            "suggestion": "设计2019年可取得的线索链、误导与排除替代解释。"
+          },
+          {
+            "dimension": "form",
+            "kind": "aesthetic_choice",
+            "priority": "optional",
+            "location": "arcs 摘要",
+            "problem": "短篇体量可容纳单一揭露，但当前总纲未说明章节分配与阶段性回报。",
+            "evidence": [
+              {
+                "location": "arcs 摘要",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。"
+              }
+            ],
+            "impact": "无法判断6000字是否足够承载可信取证。",
+            "suggestion": "补充1-3章各自功能与关键回报。"
+          }
+        ],
+        "proseValidation": [
+          "文学语言、对白、喜剧、恐怖氛围和感染力尚未通过关键场面试写验证。"
+        ]
+      }
+    }
+  ],
+  "status": "failed",
+  "error": "AssertionError: expected false to be true // Object.is equality",
+  "rawErrorOutput": null,
+  "usage": [
+    {
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 2137,
+      "output_tokens": 11173
+    }
+  ]
+}

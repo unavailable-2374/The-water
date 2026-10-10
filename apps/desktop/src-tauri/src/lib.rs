@@ -1,4 +1,7 @@
 mod secrets;
+mod account_session;
+mod atomic;
+mod backup;
 
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -88,6 +91,36 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/0008_pending_versions.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "writing_workbench",
+            sql: include_str!("../migrations/0009_writing_workbench.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "reasoning_effort",
+            sql: include_str!("../migrations/0010_reasoning_effort.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "story_graph",
+            sql: include_str!("../migrations/0011_story_graph.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "unified_assistant",
+            sql: include_str!("../migrations/0012_assistant.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "story_options",
+            sql: include_str!("../migrations/0013_story_options.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -125,6 +158,12 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
+            account_session::account_session_read,
+            account_session::account_session_write,
+            account_session::account_session_delete,
+            atomic::db_atomic,
+            backup::db_validate_backup,
+            backup::db_install_backup,
             secrets::secret_set,
             secrets::secret_get,
             secrets::secret_delete,

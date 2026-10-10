@@ -42,7 +42,7 @@ function Steps({ current }: { current: number }) {
           >
             <span aria-hidden="true" className={cn(
               'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium',
-              i < current ? 'bg-tea-600 text-paper-0' : i === current ? 'bg-cinnabar-600 text-paper-0' : 'bg-paper-200 text-ink-400 dark:bg-paper-800',
+              i < current ? 'bg-tea-600 text-paper-0' : i === current ? 'bg-accent-600 text-white' : 'bg-paper-200 text-ink-400 dark:bg-paper-800',
             )}>
               {i < current ? <Check size={12} strokeWidth={2.5} /> : i + 1}
             </span>

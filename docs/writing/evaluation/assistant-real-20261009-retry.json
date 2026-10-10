@@ -1,0 +1,49 @@
+{
+  "label": "REAL model responses / TEST fictional inputs; not literary quality evidence",
+  "startedAt": "2026-10-10T04:45:13.291Z",
+  "run": {
+    "id": "4_vUxAK3V9Yw10eK2TwmW",
+    "conversationId": "assistant:XMpEwerHkjCveisyHb4VR",
+    "novelId": null,
+    "messageId": "BghTkmIUBRRePCctLrvA0",
+    "context": {
+      "novelId": null,
+      "chapterId": null,
+      "selection": null,
+      "objectIds": [],
+      "sourceIds": []
+    },
+    "state": "failed",
+    "goal": "",
+    "constraints": [],
+    "jobId": null,
+    "error": "HTTP 401: Invalid or revoked API key",
+    "createdAt": 1791607513296
+  },
+  "status": "failed",
+  "error": "REAL assistant stopped: failed: HTTP 401: Invalid or revoked API key",
+  "finishedAt": "2026-10-10T04:45:13.801Z",
+  "assistant_runs": [
+    {
+      "id": "4_vUxAK3V9Yw10eK2TwmW",
+      "conversation_id": "assistant:XMpEwerHkjCveisyHb4VR",
+      "novel_id": null,
+      "message_id": "BghTkmIUBRRePCctLrvA0",
+      "context_json": "{\"novelId\":null,\"chapterId\":null,\"selection\":null,\"objectIds\":[],\"sourceIds\":[]}",
+      "state": "failed",
+      "goal": "",
+      "constraints_json": "[]",
+      "job_id": null,
+      "error": "HTTP 401: Invalid or revoked API key",
+      "created_at": 1791607513296,
+      "updated_at": 1791607513600
+    }
+  ],
+  "assistant_operations": [],
+  "writing_proposals": [],
+  "generation_jobs": [],
+  "job_steps": [],
+  "chapter_reviews": [],
+  "chapter_commits": [],
+  "usage_events": []
+}

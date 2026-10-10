@@ -1,0 +1,773 @@
+{
+  "label": "REAL model judgments on TEST fictional outlines. Not an objective quality score.",
+  "date": "2026-10-10T16:21:58.106Z",
+  "cases": [
+    {
+      "kind": "contradiction",
+      "premise": "TEST 虚构重生故事：林川在2022年死亡后回到2019年。只有记忆回到过去，任何物件和电子数据不能跨时间线。目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+      "outline": {
+        "version": 1,
+        "premise": "TEST 虚构重生故事：林川在2022年死亡后回到2019年。只有记忆回到过去，任何物件和电子数据不能跨时间线。目标是在2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+        "themes": [],
+        "characters": [],
+        "settings": [
+          {
+            "id": "QLxLOYj6W453sxvRJNsip",
+            "name": "TEST 核心条件",
+            "kind": "other",
+            "triggerKeys": [],
+            "priority": 0,
+            "constant": false,
+            "description": "TEST 林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+          }
+        ],
+        "arcs": [
+          {
+            "id": "9czb8uLyV3_TZKtiRMN4E",
+            "title": "TEST 取证与揭露",
+            "summary": "TEST 2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。没有其他取证过程。",
+            "startChapterNo": 1,
+            "endChapterNo": 3
+          }
+        ],
+        "beats": [],
+        "chapters": [],
+        "styleProfile": null,
+        "derivative": null
+      },
+      "review": {
+        "premise": {
+          "documentKind": "创作总纲",
+          "stage": "outline",
+          "primaryExperience": "重生悬疑：林川回到2019年揭露陷害，高潮必须以有效取得的财务文件为基础。",
+          "audience": "成年读者",
+          "lengthAndReadingForm": "短篇小说，目标约6000字",
+          "uncertainties": [
+            "2019年林川如何重新取得或重新形成财务文件，未提供。",
+            "反派、配角、关系与主题如何影响取证，未提供。",
+            "董事会揭露的具体证据链与核验方式，未提供。"
+          ]
+        },
+        "summary": "当前大纲存在核心硬矛盾：2019年取出了2021年才收集并藏入的财务文件，违反“只有记忆回到过去，任何物件和电子数据不能跨时间线”。这使高潮与结局不成立；其余维度多为信息不足。未验证文学语言、对白、氛围等质量。",
+        "checks": [
+          {
+            "dimension": "reader_promise",
+            "status": "needs_information",
+            "assessment": "核心承诺要求以有效取得的财务文件揭露陷害，但弧线直接取出未来文件，未兑现“有效取得”。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "高潮必须以有效取得的财务文件为基础"
+              }
+            ]
+          },
+          {
+            "dimension": "causality",
+            "status": "needs_information",
+            "assessment": "2019年取出2021年才收集藏入的文件，因果倒置，核心转折不成立。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件"
+              }
+            ]
+          },
+          {
+            "dimension": "character",
+            "status": "needs_information",
+            "assessment": "林川有揭露反派的目标，但反派、配角意图、恐惧、动机与选择代价均未提供，冲突无法成立。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "accumulation",
+            "status": "needs_information",
+            "assessment": "从醒来到董事会获胜没有中段累积，能力、关系、认识、责任和选择空间均未变化。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ]
+          },
+          {
+            "dimension": "pacing",
+            "status": "needs_information",
+            "assessment": "醒来后立即取出文件并直接获胜，胜利没有前置情绪与过程，节奏压缩到无法形成体验变化。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "立即打开储物柜"
+              }
+            ]
+          },
+          {
+            "dimension": "world_rules",
+            "status": "needs_information",
+            "assessment": "硬规则明确物件不能跨时间线，且2019年尚未收集文件，但弧线仍让2019年取出2021年藏入的文件，直接违反世界规则。",
+            "evidence": [
+              {
+                "location": "设定 TEST 核心条件",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              }
+            ]
+          },
+          {
+            "dimension": "information",
+            "status": "needs_information",
+            "assessment": "把重生记忆中的未来物件当作2019年当前可得实物，混淆了人物获知、读者看到与物件实际存在的时间。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ]
+          },
+          {
+            "dimension": "integration",
+            "status": "needs_information",
+            "assessment": "主题、主支线、关系与选择后果均未建立，删去支线没有可损失内容，取证线也未与人物或主题互相支持。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ]
+          },
+          {
+            "dimension": "ending",
+            "status": "needs_information",
+            "assessment": "高潮建立在无效取得的文件上，结局虽写“获胜”，但不承接前文，也未说明得到、失去与新状态。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "writeability",
+            "status": "needs_information",
+            "assessment": "当前大纲无法按硬约束写出有效取证高潮，核心转折与结局妨碍当前写作。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ]
+          },
+          {
+            "dimension": "genre",
+            "status": "needs_information",
+            "assessment": "重生悬疑所需的调查、线索、误导与排除替代解释均缺失，类型体验无法成立。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ]
+          },
+          {
+            "dimension": "form",
+            "status": "needs_information",
+            "assessment": "短篇可紧凑，但当前三章直接获胜未适配“有效取得财务文件”的核心承诺，形式与内容不匹配。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ]
+          }
+        ],
+        "causalChains": [
+          {
+            "location": "弧线 TEST 取证与揭露",
+            "priorConditions": "林川在2022年死亡后回到2019年；只有记忆回到过去，任何物件和电子数据不能跨时间线；林川在2021年才首次收集并藏好文件，2019年尚未收集。",
+            "action": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件，直接以此在董事会揭露反派并获胜。",
+            "change": "核心转折与结局建立在2019年不可能存在的未来物件上。",
+            "consequence": "违反“只有记忆回到过去，任何物件和电子数据不能跨时间线”的硬约束，高潮与结局不成立。"
+          }
+        ],
+        "timeline": [
+          {
+            "event": "林川在2019年醒来并打开储物柜取出财务文件。",
+            "happensAt": "2019年",
+            "characterLearnsAt": "2019年醒来后立即知道储物柜有文件，但未说明如何知道。",
+            "readerLearnsAt": "弧线摘要直接告知取出未来文件。",
+            "materialOriginAndTransfer": "文件在2021年才首次收集并藏好，2019年尚未收集；物件不能跨时间线。"
+          },
+          {
+            "event": "林川首次收集并藏好财务文件。",
+            "happensAt": "2021年",
+            "characterLearnsAt": "林川在2021年收集并藏好文件。",
+            "readerLearnsAt": "设定 TEST 核心条件。",
+            "materialOriginAndTransfer": "文件在2021年形成并藏入储物柜。"
+          },
+          {
+            "event": "林川在2022年死亡后回到2019年。",
+            "happensAt": "2022年死亡，回到2019年",
+            "characterLearnsAt": "林川死亡后回到2019年，只有记忆回到过去。",
+            "readerLearnsAt": "premise。",
+            "materialOriginAndTransfer": "只有记忆回到过去，任何物件和电子数据不能跨时间线。"
+          }
+        ],
+        "findings": [
+          {
+            "dimension": "reader_promise",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "premise 与弧线 TEST 取证与揭露",
+            "problem": "premise 要求高潮以有效取得的财务文件为基础，但弧线直接取出未来文件，未提供有效取得过程。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "高潮必须以有效取得的财务文件为基础"
+              }
+            ],
+            "impact": "核心承诺未兑现，读者期待的“有效取证后揭露”被跳过。",
+            "suggestion": "把高潮改为2019年重新取得或重新形成财务证据，并让揭露依赖该有效取得过程。"
+          },
+          {
+            "dimension": "causality",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "2019年的行动取出2021年才收集并藏入的文件，因果倒置。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "2019年林川醒来，立即打开储物柜，取出他在2021年才收集和藏进去的财务文件"
+              }
+            ],
+            "impact": "核心转折不成立，后续董事会揭露失去因果基础。",
+            "suggestion": "改为2019年通过当时可得线索、关系或制度漏洞重新取得文件，或让文件在2019年已存在但需重新发现。"
+          },
+          {
+            "dimension": "character",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "林川有揭露目标，但反派意图、配角立场、林川的恐惧与选择代价均未提供。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "人物选择没有代价，对手与配角无法形成有效阻力。",
+            "suggestion": "补充反派为何陷害、林川最怕失去什么、关键配角各自想要什么，以及取证会让他付出什么代价。"
+          },
+          {
+            "dimension": "accumulation",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "从醒来到董事会获胜之间没有能力、关系、认识、责任或选择空间的累积。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ],
+            "impact": "胜利没有前置积累，读者无法感到局势逐步改变。",
+            "suggestion": "设计至少一次受阻、一次认知修正和一次代价性选择，让取证过程逐步改变局面。"
+          },
+          {
+            "dimension": "pacing",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "醒来后立即取出文件并直接获胜，没有过程与体验变化。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "立即打开储物柜"
+              }
+            ],
+            "impact": "高潮缺少情绪前置，胜利显得无重量。",
+            "suggestion": "在短篇篇幅内分配发现、受阻、验证与揭露节点，让胜利有前置情绪。"
+          },
+          {
+            "dimension": "world_rules",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "设定 TEST 核心条件 与 弧线 TEST 取证与揭露",
+            "problem": "设定明确2019年尚未收集文件且物件不能跨时间线，弧线却让2019年取出2021年藏入的文件。",
+            "evidence": [
+              {
+                "location": "设定 TEST 核心条件",
+                "excerpt": "林川在2021年才首次收集并藏好文件，2019年尚未收集；只有记忆重生。"
+              }
+            ],
+            "impact": "硬约束被违反，核心转折与结局不成立。",
+            "suggestion": "删除未来物件直接出现，改为2019年重新取得或重新制作财务证据。"
+          },
+          {
+            "dimension": "information",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "把重生记忆中的未来物件当作2019年当前可得实物，混淆记忆与实物。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "取出他在2021年才收集和藏进去的财务文件"
+              }
+            ],
+            "impact": "读者无法理解林川如何知道并取得该文件，信息时点混乱。",
+            "suggestion": "明确林川只记得文件内容或线索，并写出2019年重新取得、核验该证据的步骤。"
+          },
+          {
+            "dimension": "integration",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "主题、主支线、关系与选择后果均未建立，取证线孤立。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ],
+            "impact": "主支线、关系与主题无法互相支持，删去支线没有损失。",
+            "suggestion": "让取证过程与林川的关系修复、信任选择或主题代价绑定，使支线影响主线。"
+          },
+          {
+            "dimension": "ending",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "高潮建立在无效取得的文件上，结局虽写获胜，但未说明得到、失去与新状态。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "核心承诺未解决，结局不承接前文。",
+            "suggestion": "改为有效取得文件后揭露，并明确林川得到什么、失去什么、进入何种新状态。"
+          },
+          {
+            "dimension": "writeability",
+            "kind": "contradiction",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "核心转折与结局依赖不可能存在的未来物件，且无替代取证过程。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ],
+            "impact": "当前大纲无法按硬约束写出有效取证高潮，妨碍当前写作。",
+            "suggestion": "补充2019年可执行的取证步骤、证据链与核验方式，再写董事会揭露。"
+          },
+          {
+            "dimension": "genre",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "重生悬疑所需的调查、线索、误导与排除替代解释均缺失。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "直接以此在董事会揭露反派并获胜"
+              }
+            ],
+            "impact": "类型体验不足，重生悬疑的调查与推理承诺落空。",
+            "suggestion": "加入时间线核对、必要线索、误导与排除替代解释，让揭露来自调查而非直接取出文件。"
+          },
+          {
+            "dimension": "form",
+            "kind": "missing_information",
+            "priority": "critical",
+            "location": "弧线 TEST 取证与揭露",
+            "problem": "短篇可紧凑，但当前三章直接获胜未适配“有效取得财务文件”的核心承诺。",
+            "evidence": [
+              {
+                "location": "弧线 TEST 取证与揭露",
+                "excerpt": "没有其他取证过程"
+              }
+            ],
+            "impact": "形式与内容不匹配，短篇核心承诺无法落地。",
+            "suggestion": "在短篇篇幅内聚焦一次有效取证与一次关键反转，删除无法成立的时间线捷径。"
+          }
+        ],
+        "proseValidation": [
+          "文学语言、对白、喜剧、恐怖氛围和感染力未验证。"
+        ]
+      }
+    },
+    {
+      "kind": "quiet",
+      "premise": "TEST 虚构日常心理短篇：退休的林阿姨与新邻居小陶，从隔门接饭盒，到允许对方进屋，最终主动邀对方吃饭。主要体验是陪伴、细小信任积累。全文一个月，完整出版约六千字。结局开放，只回应是否愿意建立联系，不承诺解决丧偶悲伤或爱情。",
+      "outline": {
+        "version": 1,
+        "premise": "TEST 虚构日常心理短篇：退休的林阿姨与新邻居小陶，从隔门接饭盒，到允许对方进屋，最终主动邀对方吃饭。主要体验是陪伴、细小信任积累。全文一个月，完整出版约六千字。结局开放，只回应是否愿意建立联系，不承诺解决丧偶悲伤或爱情。",
+        "themes": [],
+        "characters": [],
+        "settings": [
+          {
+            "id": "CI5jsnc-h0LFKRQyXM59F",
+            "name": "TEST 核心条件",
+            "kind": "other",
+            "triggerKeys": [],
+            "priority": 0,
+            "constant": false,
+            "description": "TEST 饭盒是邻居当天做饭留下的一份，无超自然能力和秘密。"
+          }
+        ],
+        "arcs": [
+          {
+            "id": "uFuG35J1IAXC5nnRSwENZ",
+            "title": "TEST 隔门",
+            "summary": "TEST 第一周小陶做多了饭，敲门分享。林阿姨只在门缝接过饭盒；她怕让人看到丈夫遗物，却记住邻居忌口，第二天把洗净饭盒和一份不辣的小菜放回门外。",
+            "startChapterNo": 1,
+            "endChapterNo": 1
+          },
+          {
+            "id": "XIPgWB4bmxNiMpbZzaBhc",
+            "title": "TEST 进屋",
+            "summary": "TEST 第二周小陶不追问遗物，也不催她整理；连续几次交换小菜后，林阿姨主动让小陶进屋取盒子，允许她看见相片，谈了一句丈夫喜欢的味道。关系从礼节变成有限信任。",
+            "startChapterNo": 2,
+            "endChapterNo": 2
+          },
+          {
+            "id": "RAcnRyCp2xcxlK5BMo09Q",
+            "title": "TEST 同桌",
+            "summary": "TEST 月底小陶忙于工作错过晚饭，林阿姨第一次主动做两份并邀她同桌。她仍难过，不承诺走出丧偶，但愿意让一个人进入生活。小说停在她打开门说饭好了，回应由接纳帮助到主动联系的变化。",
+            "startChapterNo": 3,
+            "endChapterNo": 3
+          }
+        ],
+        "beats": [],
+        "chapters": [],
+        "styleProfile": null,
+        "derivative": null
+      },
+      "review": {
+        "premise": {
+          "documentKind": "short-story",
+          "stage": "outline",
+          "primaryExperience": "陪伴、细小信任积累",
+          "audience": "成年读者",
+          "lengthAndReadingForm": "完整出版约六千字，短篇",
+          "uncertainties": [
+            "小陶持续互动的具体动机未提供",
+            "第二周“进屋取盒子”的盒子是否即饭盒未说明",
+            "林阿姨丈夫遗物的具体内容未提供"
+          ]
+        },
+        "summary": "总纲主线、因果、关系累积和开放结局方向基本成立；未发现明确矛盾，无 critical 问题。主要待补是小陶动机、第二周“盒子”指代和部分未决定细节，均不妨碍当前短篇写作。",
+        "checks": [
+          {
+            "dimension": "reader_promise",
+            "status": "supported",
+            "assessment": "核心承诺明确：陪伴与细小信任积累，开放结局只回应是否愿意建立联系。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "主要体验是陪伴、细小信任积累"
+              },
+              {
+                "location": "premise",
+                "excerpt": "结局开放，只回应是否愿意建立联系，不承诺解决丧偶悲伤或爱情"
+              }
+            ]
+          },
+          {
+            "dimension": "causality",
+            "status": "needs_information",
+            "assessment": "主线因果成立：分享饭盒→门缝接收→回赠小菜→进屋→同桌。小陶为何做多饭并持续分享未提供，可能显得功能化，但不妨碍主线成立。",
+            "evidence": [
+              {
+                "location": "arcs 第一周",
+                "excerpt": "小陶做多了饭，敲门分享"
+              },
+              {
+                "location": "arcs 月底",
+                "excerpt": "林阿姨第一次主动做两份并邀她同桌"
+              }
+            ]
+          },
+          {
+            "dimension": "character",
+            "status": "needs_information",
+            "assessment": "林阿姨的恐惧与选择代价已具体；小陶不追问、不催整理是有效行为，但其独立目标或背景未提供，可能像工具人。",
+            "evidence": [
+              {
+                "location": "arcs 第一周",
+                "excerpt": "她怕让人看到丈夫遗物"
+              },
+              {
+                "location": "arcs 第二周",
+                "excerpt": "小陶不追问遗物，也不催她整理"
+              }
+            ]
+          },
+          {
+            "dimension": "accumulation",
+            "status": "supported",
+            "assessment": "关系从礼节到有限信任再到主动联系，选择空间持续累积，未因换场景清零。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "从隔门接饭盒，到允许对方进屋，最终主动邀对方吃饭"
+              }
+            ]
+          },
+          {
+            "dimension": "pacing",
+            "status": "supported",
+            "assessment": "三周对应三弧，短篇约六千字，阶段回报清楚，体验从隔门、进屋到同桌有变化。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "全文一个月，完整出版约六千字"
+              },
+              {
+                "location": "arcs 月底",
+                "excerpt": "小说停在她打开门说饭好了"
+              }
+            ]
+          },
+          {
+            "dimension": "world_rules",
+            "status": "supported",
+            "assessment": "现实日常设定，饭盒无超自然能力；限制来自林阿姨对遗物暴露的恐惧，真实影响她的选择。",
+            "evidence": [
+              {
+                "location": "settings TEST 核心条件",
+                "excerpt": "饭盒是邻居当天做饭留下的一份，无超自然能力和秘密"
+              },
+              {
+                "location": "arcs 第一周",
+                "excerpt": "她怕让人看到丈夫遗物"
+              }
+            ]
+          },
+          {
+            "dimension": "information",
+            "status": "needs_information",
+            "assessment": "第二周“进屋取盒子”的盒子指代不明；第一周已把洗净饭盒放回门外，读者可能困惑为何又取盒子。",
+            "evidence": [
+              {
+                "location": "arcs 第二周",
+                "excerpt": "林阿姨主动让小陶进屋取盒子"
+              },
+              {
+                "location": "arcs 第一周",
+                "excerpt": "第二天把洗净饭盒和一份不辣的小菜放回门外"
+              }
+            ]
+          },
+          {
+            "dimension": "integration",
+            "status": "supported",
+            "assessment": "主线与主题通过选择后果互相支持；无支线，短篇结构下无需删减支线。",
+            "evidence": [
+              {
+                "location": "arcs 月底",
+                "excerpt": "她仍难过，不承诺走出丧偶，但愿意让一个人进入生活"
+              }
+            ]
+          },
+          {
+            "dimension": "ending",
+            "status": "supported",
+            "assessment": "开放结局回应核心承诺：是否愿意建立联系；不承诺解决丧偶悲伤或爱情，有意开放与未解决核心承诺区分清楚。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "结局开放，只回应是否愿意建立联系，不承诺解决丧偶悲伤或爱情"
+              },
+              {
+                "location": "arcs 月底",
+                "excerpt": "小说停在她打开门说饭好了"
+              }
+            ]
+          },
+          {
+            "dimension": "writeability",
+            "status": "needs_information",
+            "assessment": "关键联系具体到可写：饭盒、小菜、相片、同桌邀请均可落场。未提供分场或章节表，但短篇总纲可写；小陶动机和盒子细节未定不妨碍当前写作，建议标注。",
+            "evidence": [
+              {
+                "location": "arcs 第二周",
+                "excerpt": "连续几次交换小菜后"
+              },
+              {
+                "location": "arcs 月底",
+                "excerpt": "林阿姨第一次主动做两份并邀她同桌"
+              }
+            ]
+          },
+          {
+            "dimension": "genre",
+            "status": "supported",
+            "assessment": "日常治愈类型承诺成立：细小关系与认识积累，不强制任务式冲突，也不要求解决丧偶悲伤。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "主要体验是陪伴、细小信任积累"
+              },
+              {
+                "location": "arcs 月底",
+                "excerpt": "她仍难过，不承诺走出丧偶，但愿意让一个人进入生活"
+              }
+            ]
+          },
+          {
+            "dimension": "form",
+            "status": "supported",
+            "assessment": "短篇完整出版约六千字，三弧对应一个月，形式适配；非长篇连载，无需阶段性卷末回报。",
+            "evidence": [
+              {
+                "location": "premise",
+                "excerpt": "全文一个月，完整出版约六千字"
+              }
+            ]
+          }
+        ],
+        "causalChains": [
+          {
+            "location": "arcs 第一周",
+            "priorConditions": "新邻居关系，林阿姨退休且丧偶",
+            "action": "小陶做多了饭，敲门分享",
+            "change": "林阿姨只在门缝接过饭盒",
+            "consequence": "她怕让人看到丈夫遗物，保持距离但接受善意"
+          },
+          {
+            "location": "arcs 第一周",
+            "priorConditions": "她已接收饭盒并知道小陶忌口",
+            "action": "林阿姨记住邻居忌口",
+            "change": "第二天把洗净饭盒和一份不辣的小菜放回门外",
+            "consequence": "以回赠小菜建立初步互惠"
+          },
+          {
+            "location": "arcs 第二周",
+            "priorConditions": "第一周已建立饭盒与小菜交换",
+            "action": "小陶不追问遗物，也不催她整理；连续几次交换小菜后",
+            "change": "林阿姨主动让小陶进屋取盒子，允许她看见相片，谈了一句丈夫喜欢的味道",
+            "consequence": "不施压的持续互动降低防御，关系从礼节变有限信任"
+          },
+          {
+            "location": "arcs 月底",
+            "priorConditions": "第二周已允许小陶进屋并有限谈过丈夫",
+            "action": "月底小陶忙于工作错过晚饭",
+            "change": "林阿姨第一次主动做两份并邀她同桌",
+            "consequence": "她愿意从接纳帮助转为主动联系"
+          },
+          {
+            "location": "arcs 月底",
+            "priorConditions": "关系已从隔门、进屋累积到同桌邀请",
+            "action": "林阿姨第一次主动做两份并邀她同桌",
+            "change": "小说停在她打开门说饭好了",
+            "consequence": "以行动回应是否愿意建立联系，不承诺解决丧偶悲伤"
+          }
+        ],
+        "timeline": [
+          {
+            "event": "小陶做多了饭，敲门分享；林阿姨只在门缝接过饭盒；次日把洗净饭盒和一份不辣的小菜放回门外",
+            "happensAt": "第一周",
+            "characterLearnsAt": "第一周",
+            "readerLearnsAt": "第一周",
+            "materialOriginAndTransfer": "饭盒是邻居当天做饭留下的一份，无超自然能力和秘密"
+          },
+          {
+            "event": "小陶不追问遗物，也不催她整理；连续几次交换小菜后，林阿姨主动让小陶进屋取盒子，允许她看见相片，谈了一句丈夫喜欢的味道",
+            "happensAt": "第二周",
+            "characterLearnsAt": "第二周",
+            "readerLearnsAt": "第二周",
+            "materialOriginAndTransfer": "相片与丈夫遗物在屋内，林阿姨主动允许小陶看见"
+          },
+          {
+            "event": "小陶忙于工作错过晚饭；林阿姨第一次主动做两份并邀她同桌；小说停在她打开门说饭好了",
+            "happensAt": "月底",
+            "characterLearnsAt": "月底",
+            "readerLearnsAt": "月底",
+            "materialOriginAndTransfer": "林阿姨主动做两份饭，邀请小陶同桌"
+          },
+          {
+            "event": "一个月，完整出版约六千字；结局开放，只回应是否愿意建立联系，不承诺解决丧偶悲伤或爱情",
+            "happensAt": "全文",
+            "characterLearnsAt": "全文",
+            "readerLearnsAt": "全文",
+            "materialOriginAndTransfer": "无"
+          }
+        ],
+        "findings": [
+          {
+            "dimension": "causality",
+            "kind": "missing_information",
+            "priority": "optional",
+            "location": "arcs 第一周/第二周",
+            "problem": "小陶持续互动的动机未提供。",
+            "evidence": [],
+            "impact": "小陶为何做多饭并持续分享未提供，可能显得功能化，但不妨碍主线成立。",
+            "suggestion": "补一句小陶的生活状态或善意来源，不必展开。"
+          },
+          {
+            "dimension": "character",
+            "kind": "missing_information",
+            "priority": "optional",
+            "location": "arcs 第一周/第二周",
+            "problem": "小陶的独立意图较薄。",
+            "evidence": [],
+            "impact": "小陶不追问、不催整理是有效行为，但其独立目标或背景未提供，可能像工具人。",
+            "suggestion": "给小陶一个简单动机或忙碌状态，与月底错过晚饭呼应。"
+          },
+          {
+            "dimension": "information",
+            "kind": "missing_information",
+            "priority": "optional",
+            "location": "arcs 第二周",
+            "problem": "“盒子”指代不明。",
+            "evidence": [
+              {
+                "location": "arcs 第二周",
+                "excerpt": "林阿姨主动让小陶进屋取盒子"
+              },
+              {
+                "location": "arcs 第一周",
+                "excerpt": "第二天把洗净饭盒和一份不辣的小菜放回门外"
+              }
+            ],
+            "impact": "第一周已把洗净饭盒放回门外，第二周又取盒子，读者可能困惑。",
+            "suggestion": "明确是取回上次饭盒或另一容器。"
+          },
+          {
+            "dimension": "writeability",
+            "kind": "missing_information",
+            "priority": "optional",
+            "location": "outline",
+            "problem": "部分细节未决定。",
+            "evidence": [],
+            "impact": "未提供分场或章节表，但短篇总纲可写；小陶动机和盒子细节未定不妨碍当前写作。",
+            "suggestion": "在写作前标注未决定项，避免临时补设定。"
+          }
+        ],
+        "proseValidation": [
+          "文学语言、对白、喜剧、恐怖氛围和感染力需关键场面试写验证。"
+        ]
+      }
+    }
+  ],
+  "status": "passed",
+  "usage": [
+    {
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 2198,
+      "output_tokens": 8211
+    },
+    {
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 2460,
+      "output_tokens": 9296
+    }
+  ]
+}

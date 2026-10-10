@@ -1,10 +1,15 @@
+import { ActivityIndicator, ActivityStatus, StreamingCursor, TaskProgress } from '@/components/Activity';
+import { isJobWorking, isStepAwaitingReview, jobActivityMessage, jobReviewPath, jobAwaitingAction, jobAwaitingLabel } from '@/jobs/presentation';
+import { prepareJobMemoryRepair } from '@/db/repos/jobMemoryRepair';
+import { toast } from '@/components/Toast';
+import { useNavigate } from 'react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Feather, Pause, Play, RotateCw, Square, SkipForward, Trash2 } from 'lucide-react';
 import { fmt, t } from '@/i18n';
 import { Button, EmptyState, IconButton, cn } from '@/components/ui';
 import type { Novel } from '@/db/repos/novelsRepo';
-import { deleteJob, type Job, type JobStep } from '@/db/repos/jobsRepo';
-import { cancelJob, canActOnStep, pauseJob, resumeJob, retryStep, skipFailedStep, skipStep } from '@/jobs/runner';
+import { isRequiredStep, deleteJob, type Job, type JobStep } from '@/db/repos/jobsRepo';
+import { cancelJob, canActOnStep, pauseJob, resumeJob, retryStep, skipFailedStep, skipStep, kick } from '@/jobs/runner';
 import { STEP_LABELS } from '@/jobs/steps';
 import { isPlanningJob } from '@/novel/service';
 import { useJobs } from '@/stores/jobsStore';
@@ -20,7 +25,7 @@ export function jobStatusLabel(status: Job['status']): string {
 
 /** 纯 CSS 类名，不是文案，留在原地。 */
 export const JOB_STATUS_DOT: Record<Job['status'], string> = {
-  queued: 'bg-ink-300', running: 'bg-tea-500 animate-pulse', pausing: 'bg-amber-500', paused: 'bg-amber-500', cancelling: 'bg-ink-300', cancelled: 'bg-ink-300', failed: 'bg-cinnabar-500', completed: 'bg-tea-600',
+  awaiting_review: 'bg-amber-500', queued: 'bg-ink-300', running: 'bg-tea-500 animate-pulse', pausing: 'bg-amber-500', paused: 'bg-amber-500', cancelling: 'bg-ink-300', cancelled: 'bg-ink-300', failed: 'bg-cinnabar-500', completed: 'bg-tea-600',
 };
 
 /** 规划任务与写作任务同属 generate_novel，靠 params.stage 区分（见 novel/service.ts）。 */
@@ -31,7 +36,7 @@ function jobLabel(job: Job): string {
 function StatusDot({ status }: { status: Job['status'] }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-ink-600 dark:text-ink-300">
-      <span className={cn('h-1.5 w-1.5 rounded-full', JOB_STATUS_DOT[status])} aria-hidden="true" />{jobStatusLabel(status)}
+      {isJobWorking(status) ? <ActivityIndicator /> : <span className={cn('h-1.5 w-1.5 rounded-full', JOB_STATUS_DOT[status])} aria-hidden="true" />}{jobStatusLabel(status)}
     </span>
   );
 }
@@ -70,28 +75,21 @@ function JobDetail({ job }: { job: Job }) {
       <div className="flex items-start gap-4 px-8 pt-6 pb-4">
         <div className="min-w-0 flex-1">
           {/* 任务状态是异步变化的，读屏要能跟上 */}
-          <div className="flex items-center gap-3" aria-live="polite"><StatusDot status={job.status} /><span className="truncate text-sm text-ink-600 dark:text-ink-300">{job.progress.message}</span></div>
-          <div
-            className="mt-3 h-0.5 w-full rounded-full bg-paper-300 dark:bg-paper-800"
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuetext={fmt(t.studio.jobsTab.progressLabel, { pct })}
-          ><div className="h-0.5 rounded-full bg-tea-500 transition-all" style={{ width: `${pct}%` }} /></div>
-          <div className="mt-2 text-xs text-ink-400"><span className="font-serif">{fmt(t.studio.jobsTab.steps, { done: job.progress.done, total: job.progress.total })}</span> · <span className="font-serif">{fmt(t.studio.jobsTab.charsWritten, { n: job.progress.charsSoFar.toLocaleString() })}</span>{job.error ? <span className="text-cinnabar-600 dark:text-cinnabar-100" role="alert"> · {job.error}</span> : null}</div>
+          <div className="flex items-center gap-3" aria-live="polite"><StatusDot status={job.status} /><span className="truncate text-sm text-ink-600 dark:text-ink-300">{jobActivityMessage(job)}</span></div>
+          <TaskProgress percent={pct} active={isJobWorking(job.status)} label={fmt(t.studio.jobsTab.progressLabel, { pct })} className="mt-3 w-full" />
+          <div className="mt-2 text-xs text-ink-400"><span className="font-serif">{fmt(t.studio.jobsTab.steps, { done: job.progress.done, total: job.progress.total })}</span> · <span className="font-serif">{fmt(t.studio.jobsTab.charsWritten, { n: job.progress.charsSoFar.toLocaleString() })}</span>{job.error ? <span className={job.status === 'awaiting_review' ? 'text-amber-700 dark:text-amber-200' : 'text-cinnabar-600 dark:text-cinnabar-100'} role={job.status === 'awaiting_review' ? 'status' : 'alert'}> · {job.error}</span> : null}</div>
         </div>
         <JobControls job={job} />
       </div>
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-[minmax(260px,2fr)_3fr] gap-4 px-8 pb-6">
         <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
           <ul aria-label={t.studio.jobsTab.stepList} className="rounded-2xl bg-paper-100/70 p-2 text-xs dark:bg-paper-900/70">
-            {(steps ?? []).map((s) => <StepRow key={s.id} job={job} step={s} active={live?.stepId === s.id} />)}
+            {(steps ?? []).map((s) => <StepRow key={s.id} job={job} step={s} active={isJobWorking(job.status) && job.progress.currentStepId === s.id} />)}
           </ul>
           <UsageCards novelId={job.novelId} jobId={job.id} tick={job.progress.done} />
         </div>
         <div className="paper-texture overflow-y-auto whitespace-pre-wrap rounded-2xl bg-paper-0 px-8 py-6 font-serif text-sm leading-[1.9] text-ink-800 shadow-soft dark:bg-paper-900 dark:text-paper-100">
-          {live?.text ? <>{live.text}<span className="ml-0.5 inline-block h-[1em] w-0.5 animate-pulse bg-tea-500 align-text-bottom" aria-hidden="true" /></> : <span className="text-ink-400">{job.status === 'running' ? t.studio.jobsTab.thinking : ''}</span>}
+          {live?.text ? <>{live.text}{isJobWorking(job.status) && <StreamingCursor />}</> : isJobWorking(job.status) ? <ActivityStatus key={`${job.id}:${job.progress.currentStepId}`} label={t.studio.jobsTab.thinking} elapsed startedAt={steps?.find(s => s.id === job.progress.currentStepId)?.startedAt ?? job.startedAt} className="text-ink-400" /> : <span className="text-ink-400">{jobStatusLabel(job.status)}</span>}
         </div>
       </div>
     </div>
@@ -106,18 +104,19 @@ const STEP_DOT: Record<JobStep['status'], string> = {
 /** 单步重试 / 跳过（§2.1 第 6 条）：失败或被跳过的步骤都能单独处理，不必整任务重来。 */
 function StepRow({ job, step, active }: { job: Job; step: JobStep; active: boolean }) {
   const input = step.input as { chapterNo?: number };
-  const actionable = canActOnStep(job, step);
+  const awaitingReview = isStepAwaitingReview(job, step);
+  const actionable = !awaitingReview && canActOnStep(job, step);
   return (
     <li className={cn('flex items-center gap-2 rounded-xl px-3 py-1.5', active && 'bg-paper-0 shadow-soft dark:bg-paper-800')}>
       <span className="w-6 font-serif text-ink-400">{step.seq + 1}</span>
       <span className="flex-1 truncate text-ink-800 dark:text-paper-100">{STEP_LABELS[step.kind]}{input.chapterNo ? ` · ${fmt(t.studio.chapterNo, { n: input.chapterNo })}` : ''}</span>
       {step.attempts > 1 && <span className="font-serif text-ink-400" title={fmt(t.studio.jobsTab.attempts, { n: step.attempts })}>×{step.attempts}</span>}
-      <span className="inline-flex shrink-0 items-center gap-1.5 text-ink-500"><span className={cn('h-1.5 w-1.5 rounded-full', STEP_DOT[step.status])} aria-hidden="true" />{t.studio.jobsTab.stepStatus[step.status]}</span>
-      {step.error && <span className="max-w-[32%] truncate text-cinnabar-600 dark:text-cinnabar-100" title={step.error}>{step.error}</span>}
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-ink-500"><span className={cn('h-1.5 w-1.5 rounded-full', awaitingReview ? 'bg-amber-500' : STEP_DOT[step.status === 'running' && !isJobWorking(job.status) ? 'pending' : step.status])} aria-hidden="true" />{awaitingReview || (step.status === 'running' && !isJobWorking(job.status)) ? jobStatusLabel(job.status) : t.studio.jobsTab.stepStatus[step.status]}</span>
+      {step.error && <span className={cn('max-w-[32%] truncate', awaitingReview ? 'text-amber-700 dark:text-amber-200' : 'text-cinnabar-600 dark:text-cinnabar-100')} title={step.error}>{step.error}</span>}
       {actionable && (
         <span className="flex shrink-0 items-center gap-0.5">
           <Button size="sm" variant="ghost" title={t.studio.jobsTab.retryStep} onClick={() => retryStep(step.id)}><RotateCw size={12} strokeWidth={1.75} aria-hidden="true" />{t.common.retry}</Button>
-          {step.status === 'failed' && <Button size="sm" variant="ghost" title={t.studio.jobsTab.skipStep} onClick={() => skipStep(step.id)}><SkipForward size={12} strokeWidth={1.75} aria-hidden="true" />{t.studio.jobsTab.skip}</Button>}
+          {step.status === 'failed' && !isRequiredStep(step.kind) && <Button size="sm" variant="ghost" title={t.studio.jobsTab.skipStep} onClick={() => skipStep(step.id)}><SkipForward size={12} strokeWidth={1.75} aria-hidden="true" />{t.studio.jobsTab.skip}</Button>}
         </span>
       )}
     </li>
@@ -125,12 +124,31 @@ function StepRow({ job, step, active }: { job: Job; step: JobStep; active: boole
 }
 
 export function JobControls({ job, compact }: { job: Job; compact?: boolean }) {
+  const nav = useNavigate();
+  const steps = useJobs(s => s.steps[job.id]);
+  const step = steps?.find(s => s.id === job.progress.currentStepId);
+  const [repairing,setRepairing]=useState(false);
+  const waiting=jobAwaitingAction(job,step);
+  const handleWaiting=async()=>{
+    if (repairing) return;
+    if (waiting==='memory') {
+      setRepairing(true);
+      try {const chapterId=await prepareJobMemoryRepair(job.id);nav(`/studio/${job.novelId}/chapters?chapter=${encodeURIComponent(chapterId)}`);kick();}
+      catch(error){toast.error(error instanceof Error?error.message:String(error));}
+      finally{setRepairing(false);}
+    } else {
+      nav(waiting==='blocker'?`/studio/${job.novelId}/jobs`:jobReviewPath(job,step));
+      if(waiting==='proposal')document.getElementById('generated-review')?.scrollIntoView({block:'start',behavior:'smooth'});
+    }
+  };
+  useEffect(() => { if (job.status === 'awaiting_review' && !steps) void useJobs.getState().loadSteps(job.id); }, [job.id, job.status, steps]);
   const size = 'sm' as const;
   const resumeLabel = job.status === 'failed' ? t.common.retry : t.studio.resume;
   return (
     <div className="flex items-center gap-1">
       {job.status === 'running' && <Button size={size} variant="ghost" onClick={() => pauseJob(job.id)} title={t.studio.pause} aria-label={t.studio.pause}><Pause size={14} strokeWidth={1.75} aria-hidden="true" />{!compact && t.studio.pause}</Button>}
-      {(job.status === 'paused' || job.status === 'failed') && <Button size={size} variant="ai" onClick={() => resumeJob(job.id)} title={resumeLabel} aria-label={resumeLabel}><Play size={14} strokeWidth={1.75} aria-hidden="true" />{!compact && resumeLabel}</Button>}
+      {job.status === 'awaiting_review' && <Button size={size} variant="primary" disabled={repairing || !step} onClick={()=>void handleWaiting()}>{jobAwaitingLabel(job,step)}</Button>}
+      {(job.status === 'paused' || job.status === 'failed' || (job.status === 'awaiting_review' && step && !['memory','proposal'].includes(waiting))) && <Button size={size} variant="ai" onClick={() => resumeJob(job.id)} title={resumeLabel} aria-label={resumeLabel}><Play size={14} strokeWidth={1.75} aria-hidden="true" />{!compact && resumeLabel}</Button>}
       {job.status === 'failed' && <Button size={size} variant="ghost" onClick={() => skipFailedStep(job.id)} title={t.studio.jobsTab.skipAllFailed} aria-label={t.studio.jobsTab.skipAll}><SkipForward size={14} strokeWidth={1.75} aria-hidden="true" />{!compact && t.studio.jobsTab.skipAll}</Button>}
       {!['completed', 'cancelled'].includes(job.status) && <Button size={size} variant="ghost" onClick={() => cancelJob(job.id)} title={t.studio.jobsTab.stop} aria-label={t.studio.jobsTab.stop}><Square size={14} strokeWidth={1.75} aria-hidden="true" />{!compact && t.studio.jobsTab.stop}</Button>}
       {['completed', 'cancelled', 'failed'].includes(job.status) && !compact && <IconButton label={t.studio.jobsTab.deleteRecord} onClick={async () => { await deleteJob(job.id); await useJobs.getState().loadAll(); }}><Trash2 size={14} strokeWidth={1.75} aria-hidden="true" /></IconButton>}

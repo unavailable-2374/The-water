@@ -1,0 +1,475 @@
+{
+  "label": "REAL model responses; TEST fictional framework. Editorial judgments are not objective quality scores.",
+  "date": "2026-10-10T13:51:56.946Z",
+  "input": {
+    "title": "TEST 回声邮局",
+    "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+    "requirements": {
+      "genre": "",
+      "style": "",
+      "pov": "第三人称有限",
+      "tense": "过去时",
+      "tone": "",
+      "audience": "",
+      "taboos": [
+        "超自然解释",
+        "时间旅行",
+        "用母亲死亡解决冲突"
+      ],
+      "mustHave": [
+        "母亲健在",
+        "主角主动选择并付出具体代价"
+      ],
+      "language": "简体中文",
+      "extra": "",
+      "docType": "short-story",
+      "genrePackIds": [],
+      "disabledLore": []
+    },
+    "targetChars": 3000,
+    "styleProfile": null
+  },
+  "cards": [
+    {
+      "title": "死信柜里的十年",
+      "mainline": "林舟在停航前发现母亲十年前寄给他的求救信因邮资不足搁置在死信柜，他选择撕掉离岛调职令留在岛上，以接手死信档案为代价换取母亲不再回避往事，最终母子在旧邮局里达成沉默的共处。",
+      "conflict": "林舟必须在停航前决定是否用唯一离岛调职名额换取母亲对十年前求救信的回应。",
+      "choiceAndCost": "他撕掉离岛调职令，留在岛上接手母亲不愿处理的旧邮局死信档案。",
+      "growth": "林舟从“离岛就能摆脱母亲的沉默”转变为“留下并主动承担对话责任，即使母亲不解释往事”。",
+      "turns": [
+        "母亲十年前把信投进海岛邮局，收信人写“林舟（县中学旧宿舍）”，因邮资不足被退回死信柜；停航前清理时林舟发现。",
+        "信里母亲求十岁的他阻止她签下放弃祖屋的协议。"
+      ],
+      "ending": "母子在旧邮局里达成沉默的共处，林舟留下。",
+      "aftermath": "此后他可能错过城市晋升，但可能成为岛上死信档案的守护者；母亲可能仍不解释往事，却可能开始偶尔让他参与旧邮件整理。",
+      "id": "C_a2TdRMLunD_5UWQEec2"
+    },
+    {
+      "title": "烧掉的副本",
+      "mainline": "林舟在停航前从报废渔船退回的邮袋里发现母亲十年前寄给他的求救信，他选择不公开信中父亲离开的真相并烧掉副本，以失去唯一证据为代价保护母亲在岛上的名声，最终独自带着秘密离岛。",
+      "conflict": "林舟必须在停航前决定是否公开母亲当年求救信中指认的岛上秘密，以换取自己离岛清白。",
+      "choiceAndCost": "他放弃公开，烧掉自己抄录的副本，失去唯一能证明母亲曾试图阻止某事的证据。",
+      "growth": "林舟从“真相必须被公开才能正义”转变为“有些真相的沉默是保护所爱之人的选择”。",
+      "turns": [
+        "母亲十年前把信交给离岛渔民代寄，收信人是林舟，但渔民遗忘在船舱，船报废后信被退回邮局；停航前林舟在待处理邮袋中发现。",
+        "信里母亲求他别恨她，并提到父亲离开的真相。"
+      ],
+      "ending": "林舟独自带着秘密离岛。",
+      "aftermath": "他可能带着愧疚在城市生活，但可能因保守秘密而与母亲保持一种疏远却不再敌对的联系；母亲可能永远不知道他读过信，却可能察觉他不再追问。",
+      "id": "CibCAheb1Tqw1jRoIMl5i"
+    },
+    {
+      "title": "最后一班船票",
+      "mainline": "林舟在停航前收到母亲十年前从邻岛误投退回的求救信，他选择把最后一班船票塞给母亲而自己留在岛上，以放弃离岛工作为代价逼她面对离开的可能，最终母亲拒绝上船，他留下成为邮局最后一人。",
+      "conflict": "林舟必须在停航前决定是否用最后一班船带母亲离岛，还是独自离开。",
+      "choiceAndCost": "他把自己的船票塞给母亲，自己留在岛上，放弃离岛工作机会。",
+      "growth": "林舟从“母亲的控制毁了我的人生”转变为“理解她的恐惧并主动把选择权交还给她”。",
+      "turns": [
+        "母亲十年前把信投进邻岛邮筒，收信人是林舟，因地址写错被误投到邻岛，邻岛邮局关闭时退回；停航前林舟收到。",
+        "信里母亲求他带她离开困住她的婚姻与海岛。"
+      ],
+      "ending": "母亲拒绝上船，林舟留下成为邮局最后一人。",
+      "aftermath": "他可能永远留在岛上，但可能成为母亲重新学习信任的起点；母亲可能仍不离开，却可能开始教他辨认旧邮件。",
+      "id": "EVjeAqpNmilW93j0io9kp"
+    },
+    {
+      "title": "旧书里的原封",
+      "mainline": "林舟在停航前从仓库旧书里发现母亲十年前寄给他的求救信，他选择把信原封交给母亲并放弃追问，以失去唯一物证为代价换取她不必再躲藏，最终母亲当着他的面把信锁进邮局保险柜。",
+      "conflict": "林舟必须在停航前决定是否把信交给母亲，还是继续藏起来作为谈判筹码。",
+      "choiceAndCost": "他交出信并放弃追问，失去唯一能逼迫母亲开口的物证。",
+      "growth": "林舟从“用证据逼母亲认错”转变为“尊重她的沉默并主动结束对峙”。",
+      "turns": [
+        "母亲十年前把信夹在一本旧书里托人还到邮局，收信人是林舟，但书被错放在仓库；停航前整理时林舟发现。",
+        "信里母亲求他阻止她做某件伤害他的事。"
+      ],
+      "ending": "母亲当着他的面把信锁进邮局保险柜。",
+      "aftermath": "他可能永远不知道往事全貌，但可能获得母亲有限的信任；母亲可能仍不解释，却可能开始偶尔让他参与旧邮件的整理。",
+      "id": "mkGii9FGlnHfm4sHEMtyt"
+    }
+  ],
+  "comparison": {
+    "summary": "四个候选都围绕停航前一夜发现十年前求救信，并让林舟以具体代价主动选择。候选1与候选4偏向留下或交出信以结束对峙；候选2偏向烧掉副本并独自离岛；候选3偏向把离岛机会交还母亲。四者均保持母亲健在、无超自然与时间旅行，也未用母亲死亡解决冲突。对信件迟到原因与母女矛盾解法的提案属于作者未决项的探索，不构成硬约束违规。",
+    "options": [
+      {
+        "optionId": "C_a2TdRMLunD_5UWQEec2",
+        "conflict": "林舟在停航前是否用唯一离岛调职名额换取母亲对十年前求救信的回应。",
+        "character": "林舟为海岛邮递员；母亲健在且拒绝谈往事；冲突集中在母子沉默与旧邮局档案。",
+        "turns": "转折一：信因邮资不足搁置死信柜，停航前清理被发现；转折二：信中母亲求十岁的林舟阻止她签放弃祖屋协议；转折三：林舟撕掉离岛调职令留下。",
+        "emotion": "压抑、悬置、内疚与沉默共处；情绪不靠爆发，而靠留下与不追问的张力。",
+        "ending": "母子在旧邮局里达成沉默的共处，林舟留下。",
+        "tradeoff": "选择撕掉离岛调职令，留在岛上接手母亲不愿处理的旧邮局死信档案；得到留在母亲身边、以档案工作维持对话可能、以及不再逃离沉默的选择；放弃唯一离岛调职名额与城市晋升可能，母亲仍可能不解释往事。",
+        "concerns": [
+          "母亲十年前为何把收信地址写为“县中学旧宿舍”且林舟当时十岁，需澄清。",
+          "成长“承担对话责任”与母亲仍不解释之间，需要情节动作支撑，否则可能只呈现留下而非对话责任。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "CibCAheb1Tqw1jRoIMl5i",
+        "conflict": "林舟在停航前是否公开母亲求救信中指认的岛上秘密，以换取自己离岛清白。",
+        "character": "林舟为邮递员；母亲健在且拒绝谈往事；父亲离开真相作为信中秘密被引入。",
+        "turns": "转折一：信在报废渔船退回邮袋中被发现；转折二：信中求他别恨她并提到父亲离开真相；转折三：林舟不公开并烧掉自己抄录的副本。",
+        "emotion": "道德撕裂、保护性沉默、孤独与愧疚；选择偏向压抑而非公开对峙。",
+        "ending": "林舟独自带着秘密离岛。",
+        "tradeoff": "选择放弃公开，烧掉自己抄录的副本，以沉默保护母亲在岛上的名声；得到保护母亲名声、避免公开指认、以及可能维持不再敌对的关系；失去唯一能证明母亲曾试图阻止某事的证据，放弃离岛清白与公开真相。",
+        "concerns": [
+          "渔民遗忘在船舱后，信如何具体退回邮局待处理邮袋，流程略跳跃。",
+          "烧掉“自己抄录的副本”意味着原信处置未交代，需澄清是否保留原信，以及为何副本是唯一证据。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "EVjeAqpNmilW93j0io9kp",
+        "conflict": "林舟在停航前是否用最后一班船带母亲离岛，还是独自离开。",
+        "character": "林舟为邮递员；母亲健在且拒绝谈往事；信中提到困住她的婚姻与海岛。",
+        "turns": "转折一：信从邻岛误投退回，停航前林舟收到；转折二：信中求他带她离开困住她的婚姻与海岛；转折三：林舟把最后一班船票塞给母亲，母亲拒绝上船。",
+        "emotion": "紧张、被拒绝、失落与理解交织；选择把控制转为交还选择权。",
+        "ending": "母亲拒绝上船，林舟留下成为邮局最后一人。",
+        "tradeoff": "选择把最后一班船票塞给母亲，自己留在岛上，放弃离岛工作机会；得到把选择权交还母亲、理解她的恐惧、以及留守承担的机会；放弃离岛工作与离开海岛的可能，母亲仍拒绝离开。",
+        "concerns": [
+          "邻岛邮局关闭时退回与停航前收到之间十年跨度需澄清。",
+          "母亲拒绝上船后“林舟留下成为邮局最后一人”是未来状态，作为结局需明确是否在当夜被决定。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "mkGii9FGlnHfm4sHEMtyt",
+        "conflict": "林舟在停航前是否把信交给母亲，还是继续藏起来作为谈判筹码。",
+        "character": "林舟为邮递员；母亲健在且拒绝谈往事；信中求他阻止她做某件伤害他的事。",
+        "turns": "转折一：信夹在旧书里被错放仓库，停航前整理发现；转折二：信中求他阻止她做某件伤害他的事；转折三：林舟把信原封交给母亲并放弃追问，母亲当着他的面把信锁进邮局保险柜。",
+        "emotion": "对峙、放手、被拒与有限信任；情绪落点在尊重沉默而非和解解释。",
+        "ending": "母亲当着他的面把信锁进邮局保险柜。",
+        "tradeoff": "选择交出信并放弃追问，失去唯一能逼迫母亲开口的物证；得到尊重母亲沉默、结束对峙、以及母亲有限信任的可能；放弃唯一物证与逼问往事全貌的可能。",
+        "concerns": [
+          "托人还书到邮局却错放仓库，如何形成收信人为林舟的求救信，需澄清。",
+          "母亲锁信后是否解释往事未定，成长落实到情节主要靠“交出信并放弃追问”这一动作。"
+        ],
+        "violations": [],
+        "requiresWiderScope": false
+      }
+    ]
+  },
+  "selectedByTestAuthor": "C_a2TdRMLunD_5UWQEec2",
+  "plan": {
+    "id": "e7ybZb5XFueHLKJ1x5NEg",
+    "label": "死信柜里的十年",
+    "title": "TEST 回声邮局",
+    "cards": [
+      {
+        "id": "5Z-M8tCkAJQ3zzC6t8M_L",
+        "revision": 0,
+        "before": null,
+        "after": {
+          "kind": "scene",
+          "data": {
+            "title": "清柜发现死信",
+            "volumeId": null,
+            "povCharacterId": "char_linzhou",
+            "time": "停航前夜，清理死信柜时",
+            "location": "海岛旧邮局死信柜前",
+            "characterIds": [
+              "char_linzhou",
+              "char_mother"
+            ],
+            "goal": "让林舟在清理死信柜时发现写给自己的旧信，并确认它来自母亲。",
+            "obstacle": "旧信因邮资不足被退回，收件人写着他十岁时的旧宿舍名；母亲在场却拒绝承认与信有关。",
+            "turn": "他拆开信，读出母亲十年前求十岁的他阻止她签下放弃祖屋的协议。",
+            "outcome": "林舟拆开信，认出母亲笔迹，决定带着信去问母亲。",
+            "readerInterest": "旧信为何迟到十年，母亲为何写求救信。",
+            "beforeState": "停航前夜，林舟在旧邮局值最后一班，离岛调职令在口袋里；母亲仍住在岛上，拒绝谈起十年前的事。",
+            "targetChars": 1000,
+            "dependencyIds": [],
+            "threadIds": []
+          }
+        },
+        "chapterId": null,
+        "chapterNo": 1,
+        "order": 0
+      },
+      {
+        "id": "zZGlnyniqjFsV97D1HaYt",
+        "revision": 0,
+        "before": null,
+        "after": {
+          "kind": "scene",
+          "data": {
+            "title": "母亲不解释",
+            "volumeId": null,
+            "povCharacterId": "char_linzhou",
+            "time": "停航前夜，发现信后不久",
+            "location": "海岛旧邮局后间",
+            "characterIds": [
+              "char_linzhou",
+              "char_mother"
+            ],
+            "goal": "让林舟把信摆在母亲面前，要求她解释，并遭遇母亲的持续回避。",
+            "obstacle": "母亲承认笔迹，却拒绝解释为何写求救信，也拒绝谈祖屋协议，只命令林舟按计划离岛。",
+            "turn": "母亲说“信是我写的，但你别拿它逼我”，把死信柜钥匙留在桌上。",
+            "outcome": "林舟明白母亲不会给出解释，他必须决定是否用离岛调职名额换一次回应。",
+            "readerInterest": "母亲会否松口，林舟会否放弃离岛。",
+            "beforeState": "林舟已拆开死信，确认母亲十年前写给他；母亲在旧邮局后间整理邮件，仍回避往事。",
+            "targetChars": 1000,
+            "dependencyIds": [],
+            "threadIds": []
+          }
+        },
+        "chapterId": null,
+        "chapterNo": 2,
+        "order": 1
+      },
+      {
+        "id": "48u6nSWMty4EOF2N_Y7jv",
+        "revision": 0,
+        "before": null,
+        "after": {
+          "kind": "scene",
+          "data": {
+            "title": "撕掉调职令",
+            "volumeId": null,
+            "povCharacterId": "char_linzhou",
+            "time": "停航前夜，汽笛响起时",
+            "location": "海岛旧邮局门口与死信柜旁",
+            "characterIds": [
+              "char_linzhou",
+              "char_mother"
+            ],
+            "goal": "让林舟付出具体代价，主动选择留下并接手死信档案。",
+            "obstacle": "母亲仍不解释往事，停航时间逼近，离岛调职令是林舟唯一离开机会。",
+            "turn": "林舟撕掉离岛调职令，母亲没有阻止，反而把死信柜钥匙和旧邮件推给他。",
+            "outcome": "林舟撕掉调职令，登记接手死信档案；母亲没有阻止，把一叠旧邮件推到他面前，母子达成沉默共处。",
+            "readerInterest": "林舟会否留下，母亲会否以行动回应。",
+            "beforeState": "停航汽笛将响，林舟手握离岛调职令和那封信；母亲没有解释，只等他离开。",
+            "targetChars": 1000,
+            "dependencyIds": [],
+            "threadIds": []
+          }
+        },
+        "chapterId": null,
+        "chapterNo": 3,
+        "order": 2
+      }
+    ],
+    "retiredCards": [],
+    "before": {
+      "version": 1,
+      "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+      "themes": [],
+      "characters": [],
+      "settings": [],
+      "arcs": [],
+      "beats": [],
+      "chapters": [],
+      "styleProfile": null,
+      "derivative": null
+    },
+    "after": {
+      "version": 1,
+      "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+      "themes": [
+        "沉默与承担",
+        "离岛与留下",
+        "主动选择的具体代价",
+        "不靠解释达成的共处"
+      ],
+      "characters": [
+        {
+          "id": "char_linzhou",
+          "name": "林舟",
+          "aliases": [],
+          "role": "主角",
+          "description": "海岛邮递员，三十岁上下。停航前夜值最后一班，口袋里装着唯一离岛调职令。",
+          "arc": "从试图用离岛摆脱母亲沉默，转变为留下并主动承担对话责任。",
+          "relationships": [
+            {
+              "targetId": "char_mother",
+              "kind": "母子",
+              "note": "长期因母亲拒绝谈往事而疏远。"
+            }
+          ],
+          "speechSamples": [],
+          "verbalTics": [],
+          "addressBook": {},
+          "redlines": [
+            "不得被超自然力量推动选择",
+            "必须由主动选择付出具体代价"
+          ]
+        },
+        {
+          "id": "char_mother",
+          "name": "母亲",
+          "aliases": [],
+          "role": "关键人物",
+          "description": "林舟的母亲，健在，住在岛上。十年前曾寄出一封求救信，此后拒绝谈起往事。",
+          "arc": "始终不解释往事，但最终以不阻止林舟留下、允许他整理旧邮件的方式维持沉默共处。",
+          "relationships": [
+            {
+              "targetId": "char_linzhou",
+              "kind": "母子",
+              "note": "与林舟存在未解矛盾，但结局不靠死亡或解释解决。"
+            }
+          ],
+          "speechSamples": [],
+          "verbalTics": [],
+          "addressBook": {},
+          "redlines": [
+            "不得死亡",
+            "不得被超自然解释",
+            "不得被迫给出完整往事解释"
+          ]
+        }
+      ],
+      "settings": [
+        {
+          "id": "setting_old_post_office",
+          "name": "海岛旧邮局",
+          "kind": "location",
+          "description": "停航前夜的旧邮局，内有死信柜、旧邮戳、停航通知和待清理邮件。",
+          "triggerKeys": [],
+          "priority": 1,
+          "constant": false
+        },
+        {
+          "id": "setting_ancestral_house",
+          "name": "祖屋",
+          "kind": "location",
+          "description": "母亲居住的旧屋，与十年前放弃祖屋协议相关，但故事中不直接展开往事。",
+          "triggerKeys": [],
+          "priority": 2,
+          "constant": false
+        },
+        {
+          "id": "setting_old_dorm",
+          "name": "县中学旧宿舍",
+          "kind": "location",
+          "description": "林舟十岁时住过的县中学旧宿舍，出现在死信收件人地址中。",
+          "triggerKeys": [],
+          "priority": 3,
+          "constant": false
+        }
+      ],
+      "arcs": [
+        {
+          "id": "arc_dead_letter_choice",
+          "title": "留下与沉默共处",
+          "summary": "林舟从发现母亲十年前的求救信，到追问失败，最终主动撕掉离岛调职令并接手死信档案，以留下和承担对话责任为代价，与母亲达成沉默共处。",
+          "startChapterNo": 1,
+          "endChapterNo": 3
+        }
+      ],
+      "beats": [
+        {
+          "id": "beat_dead_letter_found",
+          "arcId": "arc_dead_letter_choice",
+          "title": "死信柜里的旧信",
+          "summary": "林舟在停航前清理死信柜，发现邮资不足退回的旧信，收件人写着他十岁时的旧宿舍名。",
+          "chapterNo": 1,
+          "characterIds": [],
+          "settingIds": [],
+          "order": 1
+        },
+        {
+          "id": "beat_mother_refuses",
+          "arcId": "arc_dead_letter_choice",
+          "title": "母亲不解释",
+          "summary": "林舟把信摆在母亲面前，母亲承认笔迹却拒绝解释，要求他按计划离岛。",
+          "chapterNo": 2,
+          "characterIds": [],
+          "settingIds": [],
+          "order": 2
+        },
+        {
+          "id": "beat_tear_transfer",
+          "arcId": "arc_dead_letter_choice",
+          "title": "撕掉调职令",
+          "summary": "停航汽笛响起，林舟撕掉离岛调职令，登记接手死信档案；母亲没有阻止，只把旧邮件推到他面前。",
+          "chapterNo": 3,
+          "characterIds": [],
+          "settingIds": [],
+          "order": 3
+        }
+      ],
+      "chapters": [
+        {
+          "chapterNo": 1,
+          "title": "死信柜",
+          "goal": "让林舟在停航前发现死信，并确认它来自母亲。",
+          "beatIds": [
+            "beat_dead_letter_found"
+          ],
+          "povCharacterId": null,
+          "targetChars": 1000,
+          "endHook": "他认出母亲笔迹，信中求十岁的他阻止她签下放弃祖屋的协议。"
+        },
+        {
+          "chapterNo": 2,
+          "title": "旧邮局后间",
+          "goal": "让林舟向母亲追问，并遭遇母亲对往事的持续回避。",
+          "beatIds": [
+            "beat_mother_refuses"
+          ],
+          "povCharacterId": null,
+          "targetChars": 1000,
+          "endHook": "林舟明白母亲不会给出解释，他必须决定是否用离岛调职名额换一次回应。"
+        },
+        {
+          "chapterNo": 3,
+          "title": "停航汽笛",
+          "goal": "让林舟付出具体代价，主动选择留下并接手死信档案。",
+          "beatIds": [
+            "beat_tear_transfer"
+          ],
+          "povCharacterId": null,
+          "targetChars": 1000,
+          "endHook": "母子在旧邮局里沉默共处，林舟留下。"
+        }
+      ],
+      "styleProfile": null,
+      "derivative": null
+    },
+    "meta": {
+      "storyOptionSelectionId": "bdc3GmQ-ZleyKC1rtRYYn",
+      "downstreamImpact": [
+        "新增三章计划与三张场景卡将锁定短篇节奏为停航前一夜的三段推进。",
+        "新增人物卡林舟与母亲后，后续对白必须遵守母亲健在、不解释往事、不死亡的红线。",
+        "信件迟到原因被锁定为邮资不足搁置死信柜，后续不得引入超自然、时间旅行或鬼魂解释。",
+        "结局锁定为林舟撕掉离岛调职令并接手死信档案，后续不得改为离岛或母亲死亡推动。",
+        "祖屋协议与十年前矛盾保持未完全解释状态，后续若展开需另开范围确认。"
+      ],
+      "logline": "停航前夜，海岛邮递员林舟在死信柜发现母亲十年前的求救信，他必须决定是否用唯一离岛调职名额换取母亲对往事的回应；最终他撕掉调职令，留下接手死信档案，与母亲达成沉默共处。",
+      "outlineDone": true
+    },
+    "baseHash": "142e258242d631849b775442fee43e4a08e021a6f3c00bb9215412f2e358db74"
+  },
+  "usage": [
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 887,
+      "output_tokens": 5468
+    },
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 2041,
+      "output_tokens": 8457
+    },
+    {
+      "purpose": "planning",
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 1543,
+      "output_tokens": 7522
+    }
+  ],
+  "status": "passed",
+  "selections": [
+    {
+      "option_id": "C_a2TdRMLunD_5UWQEec2",
+      "state": "accepted",
+      "error": null,
+      "generated_json": "{\"after\":{\"version\":1,\"themes\":[\"沉默与承担\",\"离岛与留下\",\"主动选择的具体代价\",\"不靠解释达成的共处\"],\"characters\":[{\"id\":\"char_linzhou\",\"name\":\"林舟\",\"aliases\":[],\"role\":\"主角\",\"description\":\"海岛邮递员，三十岁上下。停航前夜值最后一班，口袋里装着唯一离岛调职令。\",\"arc\":\"从试图用离岛摆脱母亲沉默，转变为留下并主动承担对话责任。\",\"relationships\":[{\"targetId\":\"char_mother\",\"kind\":\"母子\",\"note\":\"长期因母亲拒绝谈往事而疏远。\"}],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[\"不得被超自然力量推动选择\",\"必须由主动选择付出具体代价\"]},{\"id\":\"char_mother\",\"name\":\"母亲\",\"aliases\":[],\"role\":\"关键人物\",\"description\":\"林舟的母亲，健在，住在岛上。十年前曾寄出一封求救信，此后拒绝谈起往事。\",\"arc\":\"始终不解释往事，但最终以不阻止林舟留下、允许他整理旧邮件的方式维持沉默共处。\",\"relationships\":[{\"targetId\":\"char_linzhou\",\"kind\":\"母子\",\"note\":\"与林舟存在未解矛盾，但结局不靠死亡或解释解决。\"}],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[\"不得死亡\",\"不得被超自然解释\",\"不得被迫给出完整往事解释\"]}],\"settings\":[{\"id\":\"setting_old_post_office\",\"name\":\"海岛旧邮局\",\"kind\":\"location\",\"description\":\"停航前夜的旧邮局，内有死信柜、旧邮戳、停航通知和待清理邮件。\",\"triggerKeys\":[],\"priority\":1,\"constant\":false},{\"id\":\"setting_ancestral_house\",\"name\":\"祖屋\",\"kind\":\"location\",\"description\":\"母亲居住的旧屋，与十年前放弃祖屋协议相关，但故事中不直接展开往事。\",\"triggerKeys\":[],\"priority\":2,\"constant\":false},{\"id\":\"setting_old_dorm\",\"name\":\"县中学旧宿舍\",\"kind\":\"location\",\"description\":\"林舟十岁时住过的县中学旧宿舍，出现在死信收件人地址中。\",\"triggerKeys\":[],\"priority\":3,\"constant\":false}],\"arcs\":[{\"id\":\"arc_dead_letter_choice\",\"title\":\"留下与沉默共处\",\"summary\":\"林舟从发现母亲十年前的求救信，到追问失败，最终主动撕掉离岛调职令并接手死信档案，以留下和承担对话责任为代价，与母亲达成沉默共处。\",\"startChapterNo\":1,\"endChapterNo\":3}],\"beats\":[{\"id\":\"beat_dead_letter_found\",\"arcId\":\"arc_dead_letter_choice\",\"title\":\"死信柜里的旧信\",\"summary\":\"林舟在停航前清理死信柜，发现邮资不足退回的旧信，收件人写着他十岁时的旧宿舍名。\",\"chapterNo\":1,\"characterIds\":[],\"settingIds\":[],\"order\":1},{\"id\":\"beat_mother_refuses\",\"arcId\":\"arc_dead_letter_choice\",\"title\":\"母亲不解释\",\"summary\":\"林舟把信摆在母亲面前，母亲承认笔迹却拒绝解释，要求他按计划离岛。\",\"chapterNo\":2,\"characterIds\":[],\"settingIds\":[],\"order\":2},{\"id\":\"beat_tear_transfer\",\"arcId\":\"arc_dead_letter_choice\",\"title\":\"撕掉调职令\",\"summary\":\"停航汽笛响起，林舟撕掉离岛调职令，登记接手死信档案；母亲没有阻止，只把旧邮件推到他面前。\",\"chapterNo\":3,\"characterIds\":[],\"settingIds\":[],\"order\":3}],\"chapters\":[{\"chapterNo\":1,\"title\":\"死信柜\",\"goal\":\"让林舟在停航前发现死信，并确认它来自母亲。\",\"beatIds\":[\"beat_dead_letter_found\"],\"povCharacterId\":null,\"targetChars\":1000,\"endHook\":\"他认出母亲笔迹，信中求十岁的他阻止她签下放弃祖屋的协议。\"},{\"chapterNo\":2,\"title\":\"旧邮局后间\",\"goal\":\"让林舟向母亲追问，并遭遇母亲对往事的持续回避。\",\"beatIds\":[\"beat_mother_refuses\"],\"povCharacterId\":null,\"targetChars\":1000,\"endHook\":\"林舟明白母亲不会给出解释，他必须决定是否用离岛调职名额换一次回应。\"},{\"chapterNo\":3,\"title\":\"停航汽笛\",\"goal\":\"让林舟付出具体代价，主动选择留下并接手死信档案。\",\"beatIds\":[\"beat_tear_transfer\"],\"povCharacterId\":null,\"targetChars\":1000,\"endHook\":\"母子在旧邮局里沉默共处，林舟留下。\"}]},\"title\":\"TEST 回声邮局\",\"logline\":\"停航前夜，海岛邮递员林舟在死信柜发现母亲十年前的求救信，他必须决定是否用唯一离岛调职名额换取母亲对往事的回应；最终他撕掉调职令，留下接手死信档案，与母亲达成沉默共处。\",\"cards\":[{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"清柜发现死信\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"停航前夜，清理死信柜时\",\"location\":\"海岛旧邮局死信柜前\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"让林舟在清理死信柜时发现写给自己的旧信，并确认它来自母亲。\",\"obstacle\":\"旧信因邮资不足被退回，收件人写着他十岁时的旧宿舍名；母亲在场却拒绝承认与信有关。\",\"turn\":\"他拆开信，读出母亲十年前求十岁的他阻止她签下放弃祖屋的协议。\",\"outcome\":\"林舟拆开信，认出母亲笔迹，决定带着信去问母亲。\",\"readerInterest\":\"旧信为何迟到十年，母亲为何写求救信。\",\"beforeState\":\"停航前夜，林舟在旧邮局值最后一班，离岛调职令在口袋里；母亲仍住在岛上，拒绝谈起十年前的事。\",\"targetChars\":1000,\"dependencyIds\":[],\"threadIds\":[]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":2,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"母亲不解释\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"停航前夜，发现信后不久\",\"location\":\"海岛旧邮局后间\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"让林舟把信摆在母亲面前，要求她解释，并遭遇母亲的持续回避。\",\"obstacle\":\"母亲承认笔迹，却拒绝解释为何写求救信，也拒绝谈祖屋协议，只命令林舟按计划离岛。\",\"turn\":\"母亲说“信是我写的，但你别拿它逼我”，把死信柜钥匙留在桌上。\",\"outcome\":\"林舟明白母亲不会给出解释，他必须决定是否用离岛调职名额换一次回应。\",\"readerInterest\":\"母亲会否松口，林舟会否放弃离岛。\",\"beforeState\":\"林舟已拆开死信，确认母亲十年前写给他；母亲在旧邮局后间整理邮件，仍回避往事。\",\"targetChars\":1000,\"dependencyIds\":[],\"threadIds\":[]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":3,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"撕掉调职令\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"停航前夜，汽笛响起时\",\"location\":\"海岛旧邮局门口与死信柜旁\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"让林舟付出具体代价，主动选择留下并接手死信档案。\",\"obstacle\":\"母亲仍不解释往事，停航时间逼近，离岛调职令是林舟唯一离开机会。\",\"turn\":\"林舟撕掉离岛调职令，母亲没有阻止，反而把死信柜钥匙和旧邮件推给他。\",\"outcome\":\"林舟撕掉调职令，登记接手死信档案；母亲没有阻止，把一叠旧邮件推到他面前，母子达成沉默共处。\",\"readerInterest\":\"林舟会否留下，母亲会否以行动回应。\",\"beforeState\":\"停航汽笛将响，林舟手握离岛调职令和那封信；母亲没有解释，只等他离开。\",\"targetChars\":1000,\"dependencyIds\":[],\"threadIds\":[]}}}],\"downstreamImpact\":[\"新增三章计划与三张场景卡将锁定短篇节奏为停航前一夜的三段推进。\",\"新增人物卡林舟与母亲后，后续对白必须遵守母亲健在、不解释往事、不死亡的红线。\",\"信件迟到原因被锁定为邮资不足搁置死信柜，后续不得引入超自然、时间旅行或鬼魂解释。\",\"结局锁定为林舟撕掉离岛调职令并接手死信档案，后续不得改为离岛或母亲死亡推动。\",\"祖屋协议与十年前矛盾保持未完全解释状态，后续若展开需另开范围确认。\"],\"requiresWiderScope\":false}"
+    }
+  ]
+}

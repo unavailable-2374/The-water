@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { getSyncAccount, type SyncAccount } from '@/db/repos/syncAccountRepo';
+import type { SyncAccount } from '@/db/repos/syncAccountRepo';
+import { getAccount } from '@/sync/session';
 
 interface AccountState {
   account: SyncAccount | null;
@@ -12,7 +13,7 @@ export const useAccount = create<AccountState>((set) => ({
   account: null,
   loaded: false,
   refresh: async () => {
-    const account = await getSyncAccount().catch(() => null);
+    const account = await getAccount().catch(() => null);
     set({ account, loaded: true });
   },
 }));

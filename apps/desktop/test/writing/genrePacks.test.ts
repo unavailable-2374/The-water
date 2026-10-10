@@ -1,3 +1,4 @@
+/** TEST contracts and explicit test-only bans; no real reader or model results. */
 import { describe, expect, it } from 'vitest';
 import { SettingSchema, StyleProfileSchema, emptyStyleProfile } from '@the-water/shared';
 import {
@@ -16,14 +17,15 @@ import {
 } from '@/novel/genrePacks';
 import { mergeLoreSettings } from '@/llm/prompts/context';
 import { lintText } from '@/novel/lint';
-import { defaultRequirements } from '@/novel/types';
+import { defaultRequirements, NovelRequirementsSchema } from '@/novel/types';
 import { genreBlock } from '@/llm/prompts/base';
 import { genreOutlineBlock } from '@/llm/prompts/outline';
 
 describe('genre packs (L1)', () => {
   it('are well formed', () => {
-    expect(GENRE_PACK_IDS).toHaveLength(6);
-    expect(new Set(GENRE_PACK_IDS).size).toBe(6);
+    expect(GENRE_PACK_IDS).toHaveLength(7);
+    expect(new Set(GENRE_PACK_IDS).size).toBe(7);
+    expect(NovelRequirementsSchema.parse({ ...defaultRequirements(), genrePackIds: GENRE_PACK_IDS }).genrePackIds).toEqual(GENRE_PACK_IDS);
     for (const p of GENRE_PACKS) {
       expect(p.entries.length).toBeGreaterThan(0);
       expect(p.writingRules.length).toBeGreaterThan(0);
@@ -148,7 +150,7 @@ describe('genre lexicon reaches lint and the prompts', () => {
   it('reports genre-forbidden words as block-level', () => {
     const clean = lintText(text);
     expect(clean.issues.some((i) => i.rule.startsWith('genre-'))).toBe(false);
-    const wuxia = lintText(text, { genre: mergeGenrePacks(['wuxia']) });
+    const wuxia = lintText('TEST '+text, { genre: { ...mergeGenrePacks(['wuxia']), forbiddenWords: ['手机'] } });
     const hits = wuxia.issues.filter((i) => i.rule === 'genre-avoid-word');
     expect(hits.length).toBeGreaterThan(0);
     expect(hits.every((i) => i.severity === 'block')).toBe(true);
@@ -156,7 +158,7 @@ describe('genre lexicon reaches lint and the prompts', () => {
   });
 
   it('does not report the same word twice when the book also forbids it', () => {
-    const genre = mergeGenrePacks(['wuxia']);
+    const genre = { ...mergeGenrePacks(['wuxia']), forbiddenWords: ['手机'] }; // TEST explicit ban
     const profile = emptyStyleProfile({ id: 'p', negatives: { avoidWords: ['手机'], avoidWordsSoft: { limitPerK: 1, list: [] }, avoidPatterns: [], antiExemplars: [], oocRedlines: [] } });
     const r = lintText(text, { genre, profile });
     expect(r.issues.some((i) => i.rule === 'profile-avoid-word' && i.message.includes('手机'))).toBe(false);
@@ -167,11 +169,52 @@ describe('genre lexicon reaches lint and the prompts', () => {
     const m = mergeGenrePacks(['wuxia']);
     const block = genreBlock(m);
     expect(block).toContain('题材惯例');
-    expect(block).toContain('不要出现这些词');
+    expect(block).toContain('本书设定优先');
     expect(genreBlock(mergeGenrePacks([]))).toBe('');
     const outline = genreOutlineBlock(m);
     expect(outline).toContain('江湖称谓与辈分');
     expect(outline).toContain('避开这些烂俗桥段');
     expect(genreOutlineBlock(mergeGenrePacks([]))).toBe('');
+  });
+});
+
+
+describe('TEST genre-specific promises and mixed guidance', () => {
+  it('keeps urban fantasy vocabulary available without inventing a cultivation ladder', () => {
+    for (const ids of [['urban'], ['xianxia'], ['urban', 'xianxia', 'mystery'], ['wuxia', 'urban']]) {
+      const merged = mergeGenrePacks(ids);
+      const lint = lintText('TEST 手机上显示符术检验结果，维修员发现灵气异常。', { genre: merged });
+      expect(lint.issues.filter(i => i.rule.startsWith('genre-') && i.severity === 'block')).toEqual([]);
+      expect(genreLoreSettings(merged).every(s => s.description.startsWith('【题材创作指导，非本书事实】'))).toBe(true);
+    }
+    const realms = genreLoreSettings(mergeGenrePacks(['xianxia'])).find(s => s.id === 'xianxia:realms')!;
+    expect(realms.description).not.toContain('炼气→筑基');
+    expect(genreOutlineBlock(mergeGenrePacks(['xianxia']))).not.toContain('必须写进 settings');
+  });
+  it('retains every selected writing rule in either selection order, including later packs', () => {
+    for (const ids of [['urban', 'xianxia', 'mystery'], ['mystery', 'xianxia', 'urban']]) {
+      const merged = mergeGenrePacks(ids);
+      const prose = genreBlock(merged);
+      for (const id of ids) {
+        const pack = GENRE_PACKS.find(p => p.id === id)!;
+        for (const rule of pack.writingRules) expect(prose).toContain(rule);
+      }
+      expect(prose).toContain('同一事件');
+      expect(genreOutlineBlock(merged)).toContain('主要体验');
+      expect(merged.qc.join('\n')).toContain('生活权限与信息来源');
+    }
+  });
+  it('supports different suspense promises and preparation rather than universal fair-play bans', () => {
+    expect(packIdsForGenre('推理')).toEqual(['mystery']);
+    expect(packIdsForGenre('都市异能')).toEqual(['urban']);
+    expect(packIdsForGenre('治愈')).toEqual(['daily']);
+    const mystery = genreBlock(mergeGenrePacks(['mystery']));
+    expect(mystery).toContain('叙述者可以隐瞒、记错或说谎');
+    expect(mystery).toContain('危机型可以先告诉读者凶手');
+    expect(mystery).not.toContain('叙述者不可以');
+    const preparation = genreOutlineBlock(mergeGenrePacks(['mystery']));
+    expect(preparation).toContain('真实事件时间线');
+    expect(preparation).toContain('读者接触信息的顺序');
+    expect(preparation).toContain('替代解释');
   });
 });

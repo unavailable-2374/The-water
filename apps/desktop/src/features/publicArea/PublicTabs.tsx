@@ -16,7 +16,7 @@ function tabs(): Array<{ to: string; label: string; end: boolean }> {
 /** 公共书房的几张脸：书房 / 动态 / 榜单 / 我的发布。 */
 export function PublicTabs() {
   return (
-    <nav aria-label={t.publicArea.tabsLabel} className="inline-flex gap-1 rounded-full bg-paper-200/70 p-1 dark:bg-paper-900/70">
+    <nav aria-label={t.publicArea.tabsLabel} className="segmented-control inline-flex flex-wrap gap-1 rounded-xl bg-paper-200/70 p-1 dark:bg-paper-900/70">
       {tabs().map((tab) => (
         <NavLink
           key={tab.to}
@@ -24,7 +24,7 @@ export function PublicTabs() {
           end={tab.end}
           className={({ isActive }) =>
             cn(
-              'rounded-full px-4 py-1.5 text-sm transition',
+              'min-h-8 rounded-lg px-3 py-1.5 text-sm transition-colors',
               isActive ? 'bg-paper-0 font-medium text-ink-900 shadow-soft dark:bg-paper-800 dark:text-paper-50' : 'text-ink-500 hover:text-ink-800 dark:hover:text-paper-100',
             )
           }

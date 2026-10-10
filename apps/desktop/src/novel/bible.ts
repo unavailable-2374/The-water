@@ -15,7 +15,6 @@ const clip = (s: string, max: number): string => {
   const cps = Array.from(s.trim());
   return cps.length <= max ? cps.join('') : cps.slice(0, max).join('');
 };
-const capTail = <T>(xs: T[], cap: number): T[] => (xs.length <= cap ? xs : xs.slice(xs.length - cap));
 
 type BibleCharacterState = StoryBible['characters'][string];
 
@@ -79,13 +78,12 @@ export function applyBibleDelta(
       state: u.state.trim() ? clip(u.state, 2000) : cur.state,
       location: u.location.trim() ? clip(u.location, 200) : cur.location,
       knowledge: u.knowledge.trim() ? clip(u.knowledge, 2000) : cur.knowledge,
-      relationships: capTail(rels, BIBLE_CAPS.relationships),
+      relationships: rels,
     };
   }
 
-  const timeline = capTail(
-    [...bible.timeline, ...delta.timelineEvents.map((e) => e.event.trim()).filter(Boolean).map((event) => ({ chapterNo, event: clip(event, 500) }))],
-    BIBLE_CAPS.timeline,
+  const timeline = (
+    [...bible.timeline, ...delta.timelineEvents.map((e) => e.event.trim()).filter(Boolean).map((event) => ({ chapterNo, event: clip(event, 500) }))]
   );
 
   const facts = [...bible.facts];
@@ -101,7 +99,7 @@ export function applyBibleDelta(
   const closed = delta.closedThreads.map(norm).filter(Boolean);
   const isClosed = (thread: string) => {
     const t = norm(thread);
-    return closed.some((c) => c === t || t.includes(c) || c.includes(t));
+    return closed.some((c) => c === t);
   };
   const openThreads = bible.openThreads.filter((t) => !isClosed(t));
   const openSet = new Set(openThreads.map(norm));
@@ -121,8 +119,8 @@ export function applyBibleDelta(
   return {
     characters,
     timeline,
-    facts: capTail(facts, BIBLE_CAPS.facts),
-    openThreads: capTail(openThreads, BIBLE_CAPS.openThreads),
+    facts,
+    openThreads,
     arcSummaries,
     styleNotes: bible.styleNotes,
   };

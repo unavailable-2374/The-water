@@ -5,6 +5,7 @@ import type { FetchLike, LLMProvider, ProviderConfig } from './types';
 import { getDefaultProvider, getProvider, listProviders } from '@/db/repos/providersRepo';
 import { secrets } from '@/secrets/keychain';
 import { getSetting } from '@/db/repos/settingsRepo';
+import { serverProvider, SERVER_PROVIDER_ID } from './serverProvider';
 
 export type ProviderPurpose = 'chat' | 'writing' | 'planning';
 
@@ -38,6 +39,7 @@ export async function providerFromConfig(config: ProviderConfig): Promise<LLMPro
 }
 
 export async function providerById(id: string): Promise<LLMProvider> {
+  if (id === SERVER_PROVIDER_ID || await getSetting('aiServiceMode', 'server') === 'server') return (await serverProvider()).provider;
   const cfg = await getProvider(id);
   if (!cfg) throw new Error('供应商不存在');
   return providerFromConfig(cfg);
@@ -45,10 +47,11 @@ export async function providerById(id: string): Promise<LLMProvider> {
 
 /** Resolve the provider for a purpose: explicit setting → default → first. */
 export async function providerForPurpose(purpose: ProviderPurpose): Promise<{ config: ProviderConfig; provider: LLMProvider }> {
+  if (await getSetting('aiServiceMode', 'server') === 'server') return serverProvider();
   const prefs = await getSetting<Record<ProviderPurpose, string | null>>('defaultProviderId', { chat: null, writing: null, planning: null });
   let cfg: ProviderConfig | null = null;
   const wanted = prefs[purpose];
-  if (wanted) cfg = await getProvider(wanted);
+  if (wanted) { cfg = await getProvider(wanted); if (!cfg) throw new Error('指定的默认供应商不存在，请重新选择'); }
   if (!cfg) cfg = await getDefaultProvider();
   if (!cfg) {
     const all = await listProviders();

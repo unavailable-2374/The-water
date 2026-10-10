@@ -331,8 +331,8 @@ export function exportFileName(meta: ExportMeta, format: ExportFormat, range?: E
 // ── 与数据库 / 系统对话框打交道的薄层 ──────────────────────────────────────
 
 /** 取一本小说所有「有正文」的章节，按章号升序。 */
-export async function collectExportChapters(novelId: string): Promise<ExportChapter[]> {
-  const rows = await listCurrentVersions(novelId);
+export async function collectExportChapters(novelId: string, draft = false): Promise<ExportChapter[]> {
+  const rows = await listCurrentVersions(novelId, { draft });
   return rows
     .filter((r) => r.version && r.version.content.trim())
     .map((r) => ({ chapterNo: r.chapter.chapterNo, title: r.chapter.title, content: r.version!.content }))
@@ -353,11 +353,11 @@ export function metaFromNovel(novel: Novel, extra?: Partial<ExportMeta>): Export
 }
 
 /** 弹保存对话框并写文件。返回路径，取消则返回 null。 */
-export async function exportNovel(novel: Novel, format: ExportFormat, options?: { range?: ExportRange | null; meta?: Partial<ExportMeta> }): Promise<string | null> {
+export async function exportNovel(novel: Novel, format: ExportFormat, options?: { draft?: boolean; range?: ExportRange | null; meta?: Partial<ExportMeta> }): Promise<string | null> {
   const { save } = await import('@tauri-apps/plugin-dialog');
   const { writeFile, writeTextFile } = await import('@tauri-apps/plugin-fs');
   const meta = metaFromNovel(novel, options?.meta);
-  const chapters = selectChapters(await collectExportChapters(novel.id), options?.range);
+  const chapters = selectChapters(await collectExportChapters(novel.id, options?.draft), options?.range);
   if (chapters.length === 0) throw new Error('这个范围里还没有写好的章节');
   const path = await save({ defaultPath: exportFileName(meta, format, options?.range), filters: [{ name: FORMAT_FILTER[format], extensions: [format] }] });
   if (!path) return null;

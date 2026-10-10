@@ -4,9 +4,17 @@ export interface ExecResult {
   lastInsertId?: number;
 }
 
+/** Executed on one SQLite connection. A failed compare-and-swap rolls back every operation. */
+export interface AtomicOperation {
+  sql: string;
+  params?: unknown[];
+  expectedRows?: number;
+}
+
 export interface Db {
   select<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
   execute(sql: string, params?: unknown[]): Promise<ExecResult>;
+  atomic(operations: AtomicOperation[]): Promise<ExecResult[]>;
 }
 
 let current: Db | null = null;
@@ -27,4 +35,11 @@ export function now(): number {
 export async function selectOne<T>(sql: string, params?: unknown[]): Promise<T | null> {
   const rows = await getDb().select<T>(sql, params);
   return rows[0] ?? null;
+}
+
+/** Optional transaction boundary used by the assistant; manual callers use the same operations. */
+export type AtomicWriter = (operations: AtomicOperation[]) => Promise<unknown>;
+export const writeAtomic: AtomicWriter = (operations) => getDb().atomic(operations);
+export function writeStatement(commit: AtomicWriter, sql: string, params: unknown[] = []): Promise<unknown> {
+  return commit([{ sql, params }]);
 }

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt, notExists, or, sql } from 'drizzle-orm';
 import {
-  LIMITS,
+  LIMITS, validateCreationMaterials, validateMaterialSources,
   hashStoryline,
   utf8ByteLength,
   type CommitVersionResponse,
@@ -85,6 +85,7 @@ export async function createDraft(
     .where(and(eq(novelVersions.novelId, novelId), eq(novelVersions.idempotencyKey, idempotencyKey)))
     .get();
   if (existing) {
+    if (JSON.stringify(existing.creationMaterials ?? null) !== JSON.stringify(req.creationMaterials ?? null)) throw conflict('Idempotency key belongs to different creation materials');
     const missing = existing.status === 'draft' ? findMissingHashes(deps, manifestHashes(existing.manifest)) : [];
     return { response: { version: toVersionSummary(existing), missingHashes: missing }, created: false };
   }
@@ -97,6 +98,7 @@ export async function createDraft(
     .get();
   if ((drafts?.c ?? 0) >= LIMITS.MAX_DRAFTS_PER_USER) throw conflict(`未提交的草稿版本过多（上限 ${LIMITS.MAX_DRAFTS_PER_USER}），请先提交或删除`);
 
+  if (req.creationMaterials) { try { await validateCreationMaterials(req.creationMaterials); } catch (e) { throw validation(String(e)); } }
   const manifest = validateManifest(req.chapters);
   if (utf8ByteLength(JSON.stringify(req.storyline)) > LIMITS.MAX_STORYLINE_BYTES) throw validation('故事线过大');
   if (req.bible && utf8ByteLength(JSON.stringify(req.bible)) > LIMITS.MAX_BIBLE_BYTES) throw validation('故事圣经过大');
@@ -110,6 +112,7 @@ export async function createDraft(
     baseVersionId: novel.currentVersionId,
     idempotencyKey,
     storyline: req.storyline,
+    creationMaterials: req.creationMaterials ?? null,
     storylineHash,
     bible: req.bible,
     manifest,
@@ -217,6 +220,7 @@ export async function commitVersion(deps: AppDeps, user: AuthUser, novelId: stri
   }
   if (v.status !== 'draft') throw new ApiError('VERSION_NOT_DRAFT', '该版本已中止，不能提交');
 
+  if (v.creationMaterials) { try { await validateCreationMaterials(v.creationMaterials); } catch (e) { throw validation(String(e)); } }
   const hashes = manifestHashes(v.manifest);
   const missing = findMissingHashes(deps, hashes);
   if (missing.length) {
@@ -228,6 +232,7 @@ export async function commitVersion(deps: AppDeps, user: AuthUser, novelId: stri
     const b = blobMap.get(m.hash)!;
     return { index: m.index, title: m.title, hash: m.hash, charCount: b.charCount, content: b.content };
   });
+  if (v.creationMaterials) { try { await validateMaterialSources(v.creationMaterials,chapters,v.storyline); } catch(e) { throw validation(String(e)); } }
   const totalChars = chapters.reduce((s, c) => s + c.charCount, 0);
   if (totalChars > LIMITS.MAX_CHARS_PER_VERSION) throw validation(`单版本字数不能超过 ${LIMITS.MAX_CHARS_PER_VERSION}`);
 

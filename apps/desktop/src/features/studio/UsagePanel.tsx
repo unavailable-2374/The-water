@@ -17,12 +17,12 @@ import {
   type UsageGroup, type UsagePurpose, type UsageTotals,
 } from '@/db/repos/usageRepo';
 import {
-  BUILTIN_PRICE_AS_OF, estimateCost, formatCny, matchPrice,
+  BUILTIN_PRICE_AS_OF, costOfUsage, addUsage, emptyUsage, estimateCost, formatCny, matchPrice,
   type ChapterEstimate, type ModelPrice, type PriceCurrency,
 } from '@/novel/pricing';
 import { getNovelProviders } from '@/novel/service';
 import { providersForPurposes } from '@/jobs/runner';
-import type { StepProviderMap } from '@/jobs/purposes';
+import type { StepPurpose, StepProviderMap } from '@/jobs/purposes';
 import type { Usage } from '@/llm/types';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +31,7 @@ import type { Usage } from '@/llm/types';
 
 export interface CostPreview {
   usage: Usage;
+  minimumCalls?:number;maximumCalls?:number;
   costCny: number;
   /** 至少命中了一条价格；否则界面上要说明「未配置价格」。 */
   priced: boolean;
@@ -41,6 +42,19 @@ export interface CostPreview {
 /** 按将要使用的模型 + 当前价格表，把 token 估算折成钱。 */
 export async function previewCost(estimate: ChapterEstimate, providerIds: StepProviderMap): Promise<CostPreview> {
   const [prices, rate] = await Promise.all([effectivePrices(), getUsdToCnyRate()]);
+  if(estimate.byPurpose && Object.keys(estimate.byPurpose).length) {
+    const purposes=Object.keys(estimate.byPurpose) as StepPurpose[];
+    const map=await providersForPurposes({params:{providerIds},providerId:providerIds.writing ?? null},purposes).catch(()=>({} as Awaited<ReturnType<typeof providersForPurposes>>));
+    let usage=emptyUsage(),costCny=0,priced=true;
+    for(const purpose of purposes) {
+      const provider=map[purpose],tokens=estimate.byPurpose[purpose]!;
+      const full={...tokens,outputTokens:tokens.outputTokens+(provider?.caps.reasoningTokens ?? 0)*(estimate.calls?.[purpose] ?? 0)};
+      const price=provider ? matchPrice(prices,provider.model,provider.kind):null;
+      if((full.inputTokens+full.outputTokens)>0 && !price) priced=false;
+      usage=addUsage(usage,full);costCny+=costOfUsage(full,price,rate);
+    }
+    return {usage,costCny,priced,writingModel:map.writing?.model ?? '',auxiliaryModel:map.summarize?.model ?? '',minimumCalls:estimate.minimumCalls,maximumCalls:estimate.maximumCalls};
+  }
   let writingModel = '';
   let auxiliaryModel = '';
   let writingPrice: ModelPrice | null = null;
@@ -71,6 +85,7 @@ export function CostEstimateLine({ preview, prefix = t.studio.usage.estimatePref
   const { usage, costCny, priced } = preview;
   return (
     <p className="text-xs leading-relaxed text-ink-500">
+      {preview.minimumCalls!==undefined && <span>{preview.minimumCalls}–{preview.maximumCalls} {t.studio.workbench.calls} · </span>}
       {prefix} <span className="font-serif text-ink-700 dark:text-ink-200">{kilo(usage.inputTokens)}</span>{t.studio.usage.estimateInput}
       <span className="font-serif text-ink-700 dark:text-ink-200">{kilo(usage.outputTokens)}</span>{t.studio.usage.estimateOutput}
       {priced
@@ -85,11 +100,13 @@ export function CostEstimateLine({ preview, prefix = t.studio.usage.estimatePref
 // 用量卡片
 // ---------------------------------------------------------------------------
 
+const usageAmount = (totals: UsageTotals) => totals.unpricedCalls ? t.studio.usage.amountUnknown : formatCny(totals.costCny);
+
 function StatCard({ label, totals, hint }: { label: string; totals: UsageTotals; hint?: string }) {
   return (
     <div className="rounded-2xl bg-paper-100/70 px-4 py-3 dark:bg-paper-900/70">
       <div className="text-[11px] tracking-wide text-ink-500">{label}</div>
-      <div className="mt-1 font-serif text-xl tracking-wide text-ink-900 dark:text-paper-100">{formatCny(totals.costCny)}</div>
+      <div className="mt-1 font-serif text-xl tracking-wide text-ink-900 dark:text-paper-100">{usageAmount(totals)}</div>
       <div className="mt-0.5 text-[11px] text-ink-400">
         {fmt(t.studio.usage.callsLine, { calls: totals.calls, input: kilo(totals.inputTokens), output: kilo(totals.outputTokens) })}
       </div>
@@ -131,7 +148,7 @@ export function UsageCards({ novelId, jobId, tick }: { novelId: string; jobId?: 
     <Card className="space-y-3">
       <div className="flex items-center gap-2">
         <Coins size={15} strokeWidth={1.75} className="text-ink-400" aria-hidden="true" />
-        <h3 className="font-serif text-sm tracking-wide text-ink-800 dark:text-paper-100">{t.studio.usage.title}</h3>
+        <h3 className="font-sans text-sm tracking-tight text-ink-800 dark:text-paper-100">{t.studio.usage.title}</h3>
         <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setPricesOpen(true)}><Pencil size={13} strokeWidth={1.75} aria-hidden="true" />{t.studio.usage.editPrices}</Button>
       </div>
       {budget && (over || warn) && (
@@ -141,17 +158,18 @@ export function UsageCards({ novelId, jobId, tick }: { novelId: string; jobId?: 
           {over ? t.studio.usage.over : t.studio.usage.warn}
         </div>
       )}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-2">
         {data?.job && <StatCard label={t.studio.usage.thisJob} totals={data.job} />}
         {data?.novel && <StatCard label={t.studio.usage.thisNovel} totals={data.novel} />}
         {data?.month && <StatCard label={t.studio.usage.thisMonth} totals={data.month} />}
       </div>
+      {data && [data.job,data.novel,data.month].some(total=>total?.unpricedCalls) && <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t.studio.usage.estimateUnpriced}</p>}
       {data && data.byPurpose.length > 0 && (
         <ul aria-label={t.studio.usage.byPurpose} className="space-y-1 text-[11px] text-ink-500">
           {data.byPurpose.map((g) => (
             <li key={g.key} className="flex items-baseline gap-2">
               <span className="w-16 shrink-0">{USAGE_PURPOSE_LABELS[g.key as UsagePurpose] ?? g.key}</span>
-              <span className="font-serif text-ink-700 dark:text-ink-200">{formatCny(g.costCny)}</span>
+              <span className="font-serif text-ink-700 dark:text-ink-200">{usageAmount(g)}</span>
               <span className="text-ink-400">{fmt(t.studio.usage.purposeLine, { calls: g.calls, tokens: kilo(g.inputTokens + g.outputTokens) })}</span>
             </li>
           ))}
@@ -159,7 +177,7 @@ export function UsageCards({ novelId, jobId, tick }: { novelId: string; jobId?: 
       )}
       {data && data.months.length > 1 && (
         <div aria-label={t.studio.usage.monthsList} className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-400">
-          {data.months.map((m) => <span key={m.key}>{m.key} <span className="font-serif text-ink-600 dark:text-ink-300">{formatCny(m.costCny)}</span></span>)}
+          {data.months.map((m) => <span key={m.key}>{m.key} <span className="font-serif text-ink-600 dark:text-ink-300">{usageAmount(m)}</span></span>)}
         </div>
       )}
       <PriceSettingsDialog open={pricesOpen} onClose={() => setPricesOpen(false)} />

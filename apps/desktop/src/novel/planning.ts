@@ -1,3 +1,8 @@
+import { docTypeGuide } from './docTypes';
+import type { AtomicWriter } from '@/db/db';
+import { plannedThreadCards, type PlannedThread } from './threadPlanning';
+import { listWritingCards } from '@/db/repos/writingRepo';
+import type { WritingCardData } from '@the-water/shared';
 /**
  * 规划阶段（大纲 / 章节表）的落库逻辑。
  *
@@ -7,13 +12,11 @@
  */
 import { nanoid } from 'nanoid';
 import { emptyBible, type StorylineDoc } from '@the-water/shared';
-import { getNovel, updateNovel, type Novel } from '@/db/repos/novelsRepo';
-import { buildStorylineDoc, createSnapshot, replaceStorylineRows, upsertBeat } from '@/db/repos/storylineRepo';
-import { deleteChaptersFrom, listChapters, upsertChapterPlan, type Chapter } from '@/db/repos/chaptersRepo';
-import { saveBible } from '@/db/repos/bibleRepo';
-import { matchBeatByTitle, toStorylineDoc, type ChapterTable, type ChapterTableEntry, type OutlineDoc } from '@/novel/types';
-import { normalizeTargets } from '@/novel/wordBudget';
-import { emitJobEvent } from '@/jobs/events';
+import { getNovel, type Novel } from '@/db/repos/novelsRepo';
+import { buildStorylineDoc } from '@/db/repos/storylineRepo';
+import { matchBeatByTitle, toStorylineDoc, type ChapterTable, type ChapterTableEntry, type OutlineDoc, OutlineDocSchema } from '@/novel/types';
+import { proposeDocumentPlan } from '@/db/repos/planProposalsRepo';
+import { chapterCountForStory } from '@/novel/wordBudget';
 
 /** Convert current storyline rows back to the name-based OutlineDoc shape (for the chapter-table prompt). */
 export function storylineToOutline(doc: StorylineDoc, novel: Novel): OutlineDoc {
@@ -30,12 +33,8 @@ export function storylineToOutline(doc: StorylineDoc, novel: Novel): OutlineDoc 
   };
 }
 
-export function initialBible(doc: StorylineDoc) {
-  const b = emptyBible();
-  for (const c of doc.characters) b.characters[c.id] = { name: c.name, state: c.description.slice(0, 300), location: '', knowledge: '', relationships: c.relationships.map((r) => `${doc.characters.find((x) => x.id === r.targetId)?.name ?? ''}：${r.kind}${r.note ? '，' + r.note : ''}`) };
-  b.facts = doc.settings.map((s) => `${s.name}：${s.description}`.slice(0, 300));
-  return b;
-}
+/** Planned descriptions are not witnessed facts. */
+export function initialBible(_doc: StorylineDoc) { return emptyBible(); }
 
 /** 把一批章节表条目补齐、排序、裁到 [from, to] 区间内。纯函数。 */
 export function normalizeBatchEntries(entries: readonly ChapterTableEntry[], from: number, to: number, perChapter: number): ChapterTableEntry[] {
@@ -44,58 +43,71 @@ export function normalizeBatchEntries(entries: readonly ChapterTableEntry[], fro
   for (const e of kept) if (!byNo.has(e.chapterNo)) byNo.set(e.chapterNo, e);
   const out: ChapterTableEntry[] = [];
   for (let n = from; n <= to; n++) {
-    out.push(byNo.get(n) ?? { chapterNo: n, title: `第${n}章`, goal: '', beatTitles: [], povCharacter: null, targetChars: perChapter, endHook: '' });
+    const entry=byNo.get(n);
+    if(!entry) throw new Error(`章节规划缺少第 ${n} 章，不能填充未经生成的内容`);
+    out.push({...entry,targetChars:entry.targetChars || perChapter});
   }
   return out;
 }
 
 /** 大纲落库：故事线行 + 书名 / 主线 / 主题。 */
-export async function applyOutline(novelId: string, outline: OutlineDoc): Promise<void> {
+export async function applyOutline(novelId: string, outline: OutlineDoc, commit?: AtomicWriter, reviewRequired = true): Promise<string> {
+  outline = OutlineDocSchema.parse(outline);
   const novel = await getNovel(novelId);
   if (!novel) throw new Error('小说不存在');
-  const doc = toStorylineDoc(outline, novel.premise, [], () => nanoid());
-  await replaceStorylineRows(novelId, doc);
-  await updateNovel(novelId, {
-    title: novel.title && novel.title !== '未命名小说' ? novel.title : outline.title || novel.title,
-    status: 'planning',
-    meta: { ...novel.meta, logline: outline.logline, themes: outline.themes, outlineDone: true, tableDone: false },
-  });
-  emitJobEvent({ type: 'novel:storylineUpdated', novelId });
+  const before = await buildStorylineDoc(novelId,novel.premise,novel.meta.themes);
+  const proposed = toStorylineDoc(outline, novel.premise, [], () => nanoid());
+  const ids = new Map<string,string>();
+  for (const key of ['characters','settings','arcs','beats'] as const) for (const e of proposed[key]) {
+    const name = 'name' in e ? e.name : e.title;
+    const old = before[key].find(c => ('name' in c ? c.name:c.title)===name);
+    ids.set(e.id,old?.id ?? e.id);
+  }
+  const ref = (id:string) => ids.get(id) ?? id;
+  proposed.characters = proposed.characters.map(c=>({...before.characters.find(old=>old.id===ref(c.id)),...c,id:ref(c.id),relationships:c.relationships.map(r=>({...r,targetId:ref(r.targetId)}))}));
+  // Preserve voice/redlines already confirmed by the author.
+  for (const c of proposed.characters) { const old = before.characters.find(o=>o.id===c.id); if (old) Object.assign(c,{speechSamples:old.speechSamples,verbalTics:old.verbalTics,addressBook:old.addressBook,redlines:old.redlines}); }
+  proposed.settings = proposed.settings.map(c=>({...c,id:ref(c.id)}));
+  proposed.arcs = proposed.arcs.map(c=>({...c,id:ref(c.id)}));
+  proposed.beats = proposed.beats.map(c=>({...c,id:ref(c.id),arcId:c.arcId ? ref(c.arcId):null,characterIds:c.characterIds.map(ref),settingIds:c.settingIds.map(ref)}));
+  const merge = <T extends {id:string}>(old:T[], next:T[]):T[] => [...old.filter(c=>!next.some(n=>n.id===c.id)),...next];
+  // Before chapter planning, reconstruction replaces the whole draft. Once chapters
+  // reference the plan, retain existing entities for explicit downstream rewrite review.
+  const replaceDraft = before.chapters.length === 0;
+  const after:StorylineDoc = {...before,themes:proposed.themes,characters:replaceDraft ? proposed.characters : merge(before.characters,proposed.characters),settings:replaceDraft ? proposed.settings : merge(before.settings,proposed.settings),arcs:replaceDraft ? proposed.arcs : merge(before.arcs,proposed.arcs),beats:replaceDraft ? proposed.beats : merge(before.beats,proposed.beats)};
+  const existingCards=await listWritingCards(novelId), generated:WritingCardData[]=[];
+  if(outline.writing) {
+    generated.push({kind:'brief',data:outline.writing.brief});
+    for(const volume of outline.writing.volumes) {
+      if(volume.arcIndexes.some(i=>!proposed.arcs[i])) throw new Error('分卷引用不存在的故事弧');
+      generated.push({kind:'volume',data:{title:volume.title,summary:volume.summary,startChapterNo:volume.startChapterNo,endChapterNo:volume.endChapterNo,arcIds:volume.arcIndexes.map(i=>proposed.arcs[i]!.id)}});
+    }
+    for(const intent of outline.writing.intents) {
+      const character=proposed.characters.find(c=>c.name===intent.characterName || c.aliases.includes(intent.characterName));
+      if(!character) throw new Error('人物动机引用不存在的人物');
+      const {characterName: _name, ...intentData} = intent;
+      generated.push({kind:'character',data:{...intentData,characterId:character.id}});
+    }
+  }
+  if (outline.writing?.threads) generated.push(...plannedThreadCards(outline.writing.threads, proposed.characters));
+  const cards=generated.map(card=>{const old=existingCards.find(c=>c.kind===card.kind && (card.kind==='brief' || card.kind==='volume' && c.kind==='volume' && c.data.title===card.data.title || card.kind==='character' && c.kind==='character' && c.data.characterId===card.data.characterId || card.kind==='thread' && c.kind==='thread' && c.data.title===card.data.title));return {id:old?.id ?? nanoid(),revision:old?.revision ?? 0,before:old ?? null,after:card};});
+  const retiredCards = replaceDraft ? existingCards.filter(c => c.confirmed && ['brief','volume','character'].includes(c.kind) && !cards.some(next => next.id === c.id)).map(c=>({id:c.id,revision:c.revision,before:c})) : [];
+  return proposeDocumentPlan(novelId,after,'大纲 / Outline',{logline:outline.logline,outlineDone:true,...(reviewRequired && docTypeGuide(novel.requirements.docType).fiction ? {outlineReviewRequired:true} : {})},outline.title,cards,retiredCards,commit);
 }
 
-/**
- * 章节表落库。会先删掉已有章节再重建，所以在删之前**自动落一份故事线快照**
- * （reason = pre_rewrite，语义就是「破坏性重建之前的存档」），
- * 用户误重排时还能从「故事线 → 版本」里找回来。
- */
-export async function applyChapterTable(novelId: string, table: ChapterTable): Promise<Chapter[]> {
+/** AI chapter plans remain proposals; adopting them preserves prose/history. */
+export async function applyChapterTable(novelId: string, table: ChapterTable, threads: readonly PlannedThread[] = [], opts: { preserveExisting?: boolean; commit?: AtomicWriter } = {}): Promise<string> {
   const novel = await getNovel(novelId);
   if (!novel) throw new Error('小说不存在');
   const doc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
-  const perChapter = table.length ? Math.round(novel.targetChars / table.length) : 0;
-  const targets = normalizeTargets(table.map((e) => e.targetChars || perChapter), novel.targetChars);
-
-  const existing = await listChapters(novelId);
-  if (existing.length > 0) await createSnapshot(novelId, doc, 'pre_rewrite');
-  await deleteChaptersFrom(novelId, 1);
-
-  const chapters: Chapter[] = [];
-  for (let i = 0; i < table.length; i++) {
+  const total = Math.max(chapterCountForStory(doc,novel.targetChars,novel.requirements.docType),...table.map(c=>c.chapterNo)), perChapter = Math.round(novel.targetChars/total);
+  const plans = new Map(doc.chapters.filter(c=>c.chapterNo<=total || c.title.trim() || c.goal.trim()).map(c=>[c.chapterNo,c]));
+  for (let i=0;i<table.length;i++) {
     const e = table[i]!;
-    const beatIds = e.beatTitles.map((t) => matchBeatByTitle(t, doc.beats)?.id).filter((x): x is string => !!x);
-    const pov = e.povCharacter ? doc.characters.find((c) => c.name === e.povCharacter || c.aliases.includes(e.povCharacter!))?.id ?? null : null;
-    chapters.push(await upsertChapterPlan(novelId, { chapterNo: e.chapterNo, title: e.title, goal: e.goal, targetChars: targets[i]!, povCharacterId: pov, beatIds, endHook: e.endHook }));
+    if (opts.preserveExisting && plans.get(e.chapterNo)?.title.trim() && plans.get(e.chapterNo)?.goal.trim()) continue;
+    plans.set(e.chapterNo,{chapterNo:e.chapterNo,title:e.title,goal:e.goal,targetChars:e.targetChars || perChapter,povCharacterId:doc.characters.find(c=>c.name===e.povCharacter)?.id ?? null,beatIds:e.beatTitles.map(t=>matchBeatByTitle(t,doc.beats)?.id).filter((id):id is string=>!!id),endHook:e.endHook});
   }
-  // beats without chapterNo → take it from the first chapter that lists them
-  for (const b of doc.beats) {
-    if (b.chapterNo != null) continue;
-    const ch = chapters.find((c) => c.beatIds.includes(b.id));
-    if (ch) await upsertBeat(novelId, { ...b, chapterNo: ch.chapterNo });
-  }
-  const finalDoc = await buildStorylineDoc(novelId, novel.premise, novel.meta.themes);
-  await createSnapshot(novelId, finalDoc, 'generated');
-  await saveBible(novelId, 0, initialBible(finalDoc));
-  await updateNovel(novelId, { meta: { ...novel.meta, tableDone: true } });
-  emitJobEvent({ type: 'novel:storylineUpdated', novelId });
-  return chapters;
+  for (let n=1;n<=total;n++) if (!plans.get(n)?.title.trim() || !plans.get(n)?.goal.trim()) throw new Error(`全书章节计划缺少第 ${n} 章标题或目标，不能用空槽位冒充完整目录`);
+  const cards = plannedThreadCards(threads, doc.characters).map(after => ({ id: nanoid(), revision: 0, before: null, after }));
+  return proposeDocumentPlan(novelId,{...doc,chapters:[...plans.values()].sort((a,b)=>a.chapterNo-b.chapterNo)},'章节表 / Chapter plan',{tableDone:true,retireEmptyChapterSlots:true},undefined,cards,[],opts.commit);
 }

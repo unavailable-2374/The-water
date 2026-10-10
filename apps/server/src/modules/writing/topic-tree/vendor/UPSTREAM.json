@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/unavailable-2374/pi-topic-tree",
+  "commit": "0902401d01e8cd04de309413f3dba258cb385a84",
+  "version": "0.2.0",
+  "license": "MIT",
+  "adaptations": [
+    "Session-local registration for concurrent SDK hosts",
+    "Metered developer-controlled maintenance transport",
+    "Surface failed classification or summary; no synthesized fallback",
+    "Only current confirmed constraints are authoritative; extracted global facts do not become canon",
+    "Strict indexed-access guards for the host TypeScript configuration"
+  ]
+}

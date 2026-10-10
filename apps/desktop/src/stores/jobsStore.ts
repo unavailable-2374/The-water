@@ -55,6 +55,8 @@ export function wireJobsStore(): void {
       case 'chapter:reviewed':
       case 'novel:bibleUpdated':
       case 'novel:storylineUpdated':
+      case 'plan:resolved':
+      case 'plan:proposed':
         useJobs.setState({ novelTick: { ...s.novelTick, [e.novelId]: (s.novelTick[e.novelId] ?? 0) + 1 } });
         break;
     }

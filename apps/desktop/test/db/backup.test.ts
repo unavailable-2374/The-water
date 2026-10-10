@@ -98,3 +98,23 @@ describe('数据版本不漂移', () => {
     expect(APP_SCHEMA_VERSION).toBe(Math.max(...nums));
   });
 });
+
+it('TEST consistent V9 snapshot restores candidates, committed pointers and provenance',async()=>{
+  const {mkdirSync}=await import('node:fs');const {homedir}=await import('node:os');
+  const base=join(homedir(),'.codex','validation');mkdirSync(base,{recursive:true});
+  const target=mkdtempSync(join(base,'TEST-workbench-backup-'));
+  const {useTestDb}=await import('../helpers/testDb');const db=useTestDb();
+  const {snapshotDatabase}=await import('@/db/backup');
+  const {createNovel}=await import('@/db/repos/novelsRepo');const {defaultRequirements}=await import('@/novel/types');
+  const {upsertChapterPlan,createVersion}=await import('@/db/repos/chaptersRepo');
+  const {stageTestChapter}=await import('../helpers/writing');const {commitPreparedChapter}=await import('@/db/repos/writingRepo');
+  try {
+    const n=await createNovel({title:'TEST snapshot',premise:'TEST',requirements:defaultRequirements(),targetChars:3000});
+    const c=await upsertChapterPlan(n.id,{chapterNo:1});const official=await createVersion({chapterId:c.id,source:'generated',content:'TEST committed source'});
+    await stageTestChapter(c.id);await commitPreparedChapter(c.id,official.id);
+    const candidate=await createVersion({chapterId:c.id,source:'user_edit',content:'TEST pending text'});
+    const path=join(target,'TEST-backup.db');await snapshotDatabase(path);
+    const restored=new DatabaseSync(path);
+    try {expect(restored.prepare('PRAGMA integrity_check').get()).toMatchObject({integrity_check:'ok'});expect(restored.prepare('PRAGMA foreign_key_check').all()).toEqual([]);expect(restored.prepare('SELECT current_version_id,committed_version_id FROM chapters').get()).toMatchObject({current_version_id:candidate.id,committed_version_id:official.id});expect(restored.prepare('SELECT content_hash,review_id FROM chapter_commits').get()).toMatchObject({content_hash:official.contentHash});expect(checkBackup(readFileSync(path)).ok).toBe(true);} finally {restored.close();}
+  } finally {db.raw.close();rmSync(target,{recursive:true,force:true});}
+});

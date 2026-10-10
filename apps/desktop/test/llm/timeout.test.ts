@@ -128,7 +128,7 @@ describe('流空闲超时', () => {
   });
 
   it('持续有数据就不会超时', async () => {
-    const body = [openaiChunk('你'), openaiChunk('好'), 'data: [DONE]\n\n'].join('');
+    const body = [openaiChunk('你'), openaiChunk('好'), 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n'].join('');
     const f = fakeFetch([() => sseResponseFrom(stallAfter([body]))]);
     const provider = new OpenAICompatibleProvider(makeConfig(FAST), 'k', f.fetch);
     const events = await collect(provider.stream({ messages: [], maxTokens: 8 }));

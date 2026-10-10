@@ -4,7 +4,7 @@ import type { Locale } from '../shape';
 export const chat: Locale['chat'] = {
   placeholder: 'Ask anything…',
   placeholderHint: 'Type a question. Enter to send, Shift+Enter for a new line',
-  send: 'Send', stop: 'Stop', thinking: 'Thinking…', noProvider: 'No AI provider set up yet',
+  send: 'Send', stop: 'Stop', thinking: 'Thinking…', noProvider: 'Model service unavailable. Sign in or check model settings.',
   newConversation: 'New chat', conversationList: 'Chats', deleteConversation: 'Delete this chat',
   noConversations: 'No chats yet — ask whatever comes to mind',
   emptyTitle: 'Ask whatever comes to mind',

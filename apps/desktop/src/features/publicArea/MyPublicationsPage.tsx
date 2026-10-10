@@ -82,7 +82,7 @@ export function MyPublicationsPage() {
       <div className="mx-auto max-w-4xl px-10 py-10">
         <header className="mb-6 flex items-end justify-between gap-6">
           <div>
-            <h1 className="font-serif text-3xl font-semibold tracking-wide">{t.publicArea.tabMine}</h1>
+            <h1 className="font-sans text-3xl font-semibold tracking-tight">{t.publicArea.tabMine}</h1>
             <p className="mt-1 text-sm text-ink-500">{t.publicArea.minePageSubtitle}</p>
           </div>
           <PublicTabs />

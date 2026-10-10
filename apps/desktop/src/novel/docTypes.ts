@@ -4,7 +4,8 @@
  * the QC emphasis. Fiction types keep the storyline pipeline; non-fiction types map "章" to sections
  * and "情节点" to argument nodes.
  */
-export type DocType = 'long-webnovel' | 'short-story' | 'screenplay' | 'fanfic' | 'tech-blog' | 'wechat-post' | 'essay' | 'news' | 'popsci' | 'academic';
+import { DOCUMENT_TYPE_IDS } from '@the-water/shared';
+export type DocType = (typeof DOCUMENT_TYPE_IDS)[number];
 
 export interface DocTypeGuide {
   id: DocType;
@@ -24,10 +25,35 @@ export interface DocTypeGuide {
 
 export const DOC_TYPES: Record<DocType, DocTypeGuide> = {
   'long-webnovel': {
-    id: 'long-webnovel', label: '长篇小说', fiction: true, framework: '雪花法 + 分卷大纲 + 章尾钩子',
-    outlineRules: ['先给一句话与一段话简介（背景 + 三次危机 + 结局）', '每个故事弧写清爽点阶梯与情绪走向', '黄金三章：第 1 章 300 字内出主角与冲突，第 3 章前给第一个爽点', '每章末尾给一个钩子类型：悬念/反转/新人物/倒计时/承诺/情绪断点'],
-    writingRules: ['每章覆盖计划中的全部情节点并以钩子收束', '伏笔要么推进要么回收，不要凭空消失'],
-    qc: ['爽点是否兑现', '钩子类型是否连续重复', '战力/数值是否与设定一致'],
+    id: 'long-webnovel', label: '长篇小说', fiction: true, framework: '阅读体验 + 因果推进 + 分层兑现',
+    outlineRules: [
+      '创作说明回答六件事：主要阅读体验；主角与眼前具体目标；独特做事方式及限制；首篇重要选择；选择后果与后续局面；什么状态意味着全书结束。题材不能代替阅读体验，书名与简介应承诺正文长期能提供的内容',
+      '把体验、方式、限制、首篇选择、后果分别写入 writing.brief 的 readingExperience、distinctiveApproach、protagonistLimits、firstChoice、choiceConsequences；主角目标写入 mainline 并由 intents 细化，结束条件写入 ending',
+      '故事持续从行动 → 后果 → 处境改变 → 新选择生长；各主要篇章写清目标、持续阻力、关键选择、阶段结果和结局后变化，不仅换地点、换对手或提高数值',
+      '人物目标、害怕失去的事、信念、惯常解决方式与原则例外写入人物 description 和 intents 的动机/矛盾；重要配角有独立行动方向，成长允许改变自己或坚持自己并改变环境',
+      '开篇尽早交代主角、眼前处境、作品独特之处与下一步期待，并呈现主要阅读体验的真实样本；按题材选节奏，不强制黄金三章或固定字数爽点',
+      '按全书、当前篇章、临近章节分层规划；篇章给实质满足，平静场景积累关系与生活体验，章尾可用悬念、决定、关系变化或余味',
+      '重要设定写清能力边界与前文依据、制度对普通人生活的影响；分别维护作者/读者/人物知情边界、规则时间资源、期待与伏笔的回应计划',
+      '结尾在 ending 中分别规划核心事件处理、主角最终选择、重要关系的情感回应；用已有行动、人物与规则积累解决条件，开放结局也须完成本段故事',
+    ],
+    writingRules: [
+      '每个关键场景先明确读者在意什么，再让其发生可感知的变化；变化可以是发现、理解、关系、生活改善或阶段成果',
+      '人物主动判断、尝试和选择；行为以当时所知信息、目标与信念为依据，对手和配角按自身利益行动，不为主角成功忽略明显办法',
+      '持续提供约定的主要阅读体验，按计划兑现阶段目标；不反复撤回谜底、抹消胜利或重置关系来延长故事',
+      '平静场景用具体相处积累感情，重要冲突展开、过渡概述；不靠连续战斗或强制悬念代替推进',
+      '设定在工作、谋生、交易和求助等生活中产生影响；核心解法须有既定能力、资源和前文依据，伏笔初次出现也须自然属于场景',
+      '指代明确、动作空间与先后连贯；对白体现各人想争取什么及表达习惯，叙述语气与身份时代协调，按行动、话题和情绪变化分段',
+      '结尾回应事件、人物与情感；遵守已确认的揭示与兑现时机，章尾按计划留下悬念、决定、关系变化或平静余味',
+    ],
+    qc: [
+      '主要阅读体验是否持续提供，书名简介承诺是否与正文一致',
+      '人物选择、信息边界、明显替代方案与后果是否有依据',
+      '阶段问题是否实质处理，是否反复撤回答案、成果或关系变化',
+      '平静段落是否积累关系或生活体验，不能仅因缺战斗或悬念判拖沓',
+      '能力与社会生活是否一致，核心解法和伏笔回收是否有前文依据',
+      '指代、动作空间、对白声音和语气是否清楚稳定',
+      '到计划结尾时事件、人物选择和重要关系是否得到回应；未到回收时机不得催促揭密',
+    ],
     template: 'docs/writing/templates/long-webnovel.md',
   },
   'short-story': {

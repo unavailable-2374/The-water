@@ -1,0 +1,9 @@
+{
+  "label": "REAL model responses on fictional cards, isolated TEST database. Not objective literary quality measurements.",
+  "date": "2026-10-10T17:56:41.831Z",
+  "status": "failed",
+  "error": "LLMError: HTTP 401: Invalid or revoked API key",
+  "persistedBatches": [],
+  "persistedCards": [],
+  "usage": []
+}

@@ -349,7 +349,7 @@ export function GeneralSettings() {
   return (
     <div className="max-w-xl space-y-6">
       <header>
-        <h1 className="font-serif text-2xl font-semibold tracking-wide">{t.settings.general}</h1>
+        <h1 className="page-heading text-[28px] font-bold">{t.settings.general}</h1>
         <p className="mt-1 text-sm text-ink-500">{t.settings.generalDesc}</p>
       </header>
 
@@ -395,7 +395,8 @@ export function GeneralSettings() {
       <Card>
         <SectionTitle>{t.settings.about}</SectionTitle>
         <div className="space-y-4">
-          <div className="flex items-baseline gap-3 text-sm">
+          <div className="flex items-center gap-3 text-sm">
+            <img src="/logo.svg" alt="" aria-hidden="true" width={32} height={32} className="h-8 w-8 shrink-0" />
             <span className="font-serif text-base font-semibold tracking-wide">The Water</span>
             <span className="text-ink-500">{t.settings.version} {info?.version ?? '—'}</span>
             <span className="text-xs text-ink-400">{t.settings.tauriVersion} {info?.tauriVersion ?? '—'}</span>

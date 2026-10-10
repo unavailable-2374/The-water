@@ -1,3 +1,4 @@
+import { acceptDocumentPlan,listDocumentPlans } from '@/db/repos/planProposalsRepo';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDb } from '../helpers/testDb';
 import { emptyBible, emptyDerivative, emptyStyleProfile, emptyStoryline, emptyVoice } from '@the-water/shared';
@@ -69,6 +70,8 @@ describe('learning layer (style_feedback)', () => {
     expect(fb.some((f) => f.phrase.includes('嘴角微微勾起') && f.count === 1)).toBe(true);
     const second = await recordUserEdit(n.id, ai, '他转身离开。');
     expect(second.some((p) => p.includes('嘴角微微勾起'))).toBe(true);
+    const proposals=await listDocumentPlans(n.id);
+    if(proposals.length) await acceptDocumentPlan(n.id,proposals[0]!.id);
     const { styleProfile } = await getStyleExtras(n.id);
     expect(styleProfile!.negatives.avoidWordsSoft.list.some((p) => p.includes('嘴角微微勾起'))).toBe(true);
     expect((await listFeedback(n.id)).find((f) => f.phrase.includes('嘴角微微勾起'))!.promoted).toBe(true);
@@ -77,12 +80,12 @@ describe('learning layer (style_feedback)', () => {
 });
 
 describe('planner style_check', () => {
-  it('inserts style_check between adjust_length and summarize only when asked', async () => {
+  it('TEST review and commit are mandatory for all generation', async () => {
     const n = await createNovel({ title: 't', premise: '', requirements: defaultRequirements(), targetChars: 0 });
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    expect(planGenerate([ch]).map((s) => s.kind)).toEqual(['write_chapter', 'adjust_length', 'summarize']);
-    expect(planGenerate([ch], { styleCheck: true }).map((s) => s.kind)).toEqual(['write_chapter', 'adjust_length', 'style_check', 'summarize']);
-    expect(planRewrite([{ chapter: ch, mode: 'revise', instructions: [] }], { styleCheck: true }).map((s) => s.kind)).toEqual(['rewrite_chapter', 'adjust_length', 'style_check', 'summarize']);
+    expect(planGenerate([ch]).map((s) => s.kind)).toEqual(['scene_plan', 'write_scenes', 'adjust_length', 'style_check', 'summarize', 'commit_chapter']);
+    expect(planGenerate([ch], { styleCheck: true }).map((s) => s.kind)).toEqual(['scene_plan', 'write_scenes', 'adjust_length', 'style_check', 'summarize', 'commit_chapter']);
+    expect(planRewrite([{ chapter: ch, mode: 'revise', instructions: [] }], { styleCheck: true }).map((s) => s.kind)).toEqual(['rewrite_chapter', 'adjust_length', 'style_check', 'summarize', 'commit_chapter']);
     expect(planStyleCheck(ch)[0]).toMatchObject({ kind: 'style_check', input: { standalone: true } });
     // the rebuilt job_steps table accepts the new kinds
     const job = await createJob({ novelId: n.id, type: 'style_check', params: {}, providerId: null, steps: planStyleCheck(ch) });

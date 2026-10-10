@@ -9,7 +9,7 @@ import { buildBundle } from './bundle';
 import { buildLineage } from './lineage';
 import * as svc from './service';
 
-const BundleQuerySchema = z.object({ forkId: z.string().max(64).optional() });
+const BundleQuerySchema = z.object({ forkId: z.string().max(64).optional(), bundleVersion: z.coerce.number().int().min(1).max(2).default(1) });
 
 export function forkRoutes(deps: AppDeps) {
   const r = new Hono<AppEnv>();
@@ -22,7 +22,7 @@ export function forkRoutes(deps: AppDeps) {
 
   r.get('/novels/:id/versions/:vid/bundle', validate('query', BundleQuerySchema), (c) => {
     const q = getValid<z.infer<typeof BundleQuerySchema>>(c, 'query');
-    return c.json(buildBundle(deps, c.req.param('id'), c.req.param('vid'), c.get('user'), q.forkId));
+    return c.json(buildBundle(deps, c.req.param('id'), c.req.param('vid'), c.get('user'), q.forkId, q.bundleVersion));
   });
 
   r.get('/me/forks', requireAuth(), validate('query', CursorQuerySchema), (c) => {

@@ -15,7 +15,7 @@
 import { create } from 'zustand';
 import { zh } from './zh';
 import { en } from './en';
-import { pickPreferredLocale, readStoredLocale, resolveLocale, writeStoredLocale } from './locale';
+import { readStoredLocale, resolveLocale, writeStoredLocale } from './locale';
 import { DEFAULT_LOCALE, LOCALES, LOCALE_META, type LocaleCode } from './types';
 import type { Locale } from './shape';
 
@@ -78,12 +78,12 @@ export function setLocale(tag: string): LocaleCode {
 }
 
 /**
- * 启动最早期调用（在 React 挂载之前）：按「上次选择 → 系统语言 → 简体中文」定下语言，
+ * 启动最早期调用（在 React 挂载之前）：按「上次选择 → 简体中文」定下语言，
  * 顺手把 `<html lang>` 写对——index.html 里那个值只是个占位。
  */
 export function initLocale(): LocaleCode {
   const stored = readStoredLocale();
-  const code = stored ?? pickPreferredLocale(typeof navigator === 'undefined' ? undefined : navigator.languages);
+  const code = stored ?? DEFAULT_LOCALE;
   paint(code);
   return code;
 }

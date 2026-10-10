@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { PromptSpec } from '@/llm/types';
 import { RewriteInstructionsSchema, type RewriteInstructions } from '@/novel/types';
 import { JSON_ONLY_RULE, bullets, joinSections, section, sys, user } from './base';
@@ -20,11 +21,13 @@ export const REWRITE_MODE_LABEL: Record<string, string> = {
   name_replace: '仅替换名称',
 };
 
-export const REWRITE_PLAN_JSON_SHAPE = `[
-  { "chapterNo": 1, "instructions": ["本章需要改变：……", "……"] }
-]`;
+export const RewritePlanResponseSchema = z.object({ chapters: RewriteInstructionsSchema });
 
-export function rewritePlanPrompt(input: RewritePlanInput): PromptSpec<RewriteInstructions> {
+export const REWRITE_PLAN_JSON_SHAPE = `{ "chapters": [
+  { "chapterNo": 1, "instructions": ["本章需要改变：……", "……"] }
+] }`;
+
+export function rewritePlanPrompt(input: RewritePlanInput): PromptSpec<{ chapters: RewriteInstructions }> {
   const system = ['你是小说连载的责任编辑。作者修改了故事线，你要把这些改动转化为每一章具体、可执行的中文改写说明。', JSON_ONLY_RULE].join('\n');
 
   const itemsText = input.items
@@ -50,7 +53,7 @@ export function rewritePlanPrompt(input: RewritePlanInput): PromptSpec<RewriteIn
   const text = joinSections([
     section('故事线改动', input.diffSummary),
     section('受影响章节', itemsText),
-    section('任务', `请输出每章的改写说明，严格按下面的 JSON 数组结构输出。\n${rules}`),
+    section('任务', `请输出每章的改写说明，严格按下面的 JSON 对象结构输出，根对象的 chapters 字段承载改写说明数组。\n${rules}`),
     section('JSON 结构', REWRITE_PLAN_JSON_SHAPE),
   ]);
 
@@ -58,7 +61,7 @@ export function rewritePlanPrompt(input: RewritePlanInput): PromptSpec<RewriteIn
     messages: [sys(system), user(text)],
     maxTokens: Math.min(8000, Math.max(1500, 400 * input.items.length + 500)),
     temperature: 0.4,
-    schema: RewriteInstructionsSchema,
+    schema: RewritePlanResponseSchema,
     label: '生成改写说明',
   };
 }

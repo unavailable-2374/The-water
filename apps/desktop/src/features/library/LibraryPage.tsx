@@ -13,6 +13,8 @@ import { novelCharCounts } from '@/db/repos/chaptersRepo';
 import { TRASH_RETENTION_DAYS, isDocumentTrashed, listActiveDocuments, restoreDocument, softDeleteDocument } from '@/db/maintenance';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { TrashDialog } from './TrashDialog';
+import { useJobs } from '@/stores/jobsStore';
+import { isJobWorking } from '@/jobs/presentation';
 
 type Tab = 'documents' | 'novels';
 
@@ -26,7 +28,7 @@ export function LibraryPage() {
   const tab = (params.get('tab') as Tab) || 'documents';
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-10 py-10">{tab === 'documents' ? <DocumentsTab /> : <NovelsTab />}</div>
+      <div className="mx-auto max-w-6xl px-6 py-10 lg:px-12 lg:py-12">{tab === 'documents' ? <DocumentsTab /> : <NovelsTab />}</div>
     </div>
   );
 }
@@ -41,12 +43,12 @@ function TrashButton({ onClick }: { onClick: () => void }) {
 
 function PageHeader({ title, subtitle, actions }: { title: string; subtitle: string; actions: React.ReactNode }) {
   return (
-    <header className="mb-8 flex items-end justify-between gap-6">
+    <header className="mb-10 flex flex-wrap items-end justify-between gap-5">
       <div>
-        <h1 className="font-serif text-3xl font-semibold tracking-wide">{title}</h1>
-        <p className="mt-1 text-sm text-ink-500">{subtitle}</p>
+        <h1 className="page-heading text-[32px] font-bold leading-tight">{title}</h1>
+        <p className="mt-2 text-sm text-ink-500">{subtitle}</p>
       </div>
-      <div className="flex gap-2">{actions}</div>
+      <div className="flex flex-wrap gap-2">{actions}</div>
     </header>
   );
 }
@@ -139,11 +141,11 @@ function DocumentsTab() {
             action={<Button variant="primary" onClick={doImport}>{t.library.importFirst}</Button>}
           />
         ) : (
-          <ul aria-label={t.library.docsListLabel} className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-8 gap-y-10">
+          <ul aria-label={t.library.docsListLabel} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,190px),1fr))] gap-5">
             {docs.map((d) => {
               const pct = d.pageCount ? Math.round(((d.lastPage - 1) / d.pageCount) * 100) : 0;
               return (
-                <li key={d.id} className="group relative">
+                <li key={d.id} className="group relative rounded-2xl border border-black/[0.04] bg-paper-0 p-5 transition-shadow hover:shadow-lift dark:border-white/[0.06] dark:bg-paper-900">
                   <button
                     className="block w-full text-left"
                     aria-label={d.lastOpenedAt ? fmt(t.library.docCardReading, { name: d.title, pct }) : fmt(t.library.docCardNotStarted, { name: d.title })}
@@ -159,7 +161,7 @@ function DocumentsTab() {
                   </button>
                   <HoverAction
                     label={deleteLabel(d.title)}
-                    className="absolute -right-1 -top-1 bg-paper-0 shadow-soft hover:text-cinnabar-600 dark:bg-paper-800"
+                    className="absolute right-2 top-2 bg-paper-0 shadow-soft hover:text-cinnabar-600 dark:bg-paper-800"
                     onClick={() => removeDoc(d)}
                   >
                     <Trash2 size={13} aria-hidden="true" />
@@ -179,11 +181,13 @@ function NovelsTab() {
   const [trashOpen, setTrashOpen] = useState(false);
   const nav = useNavigate();
   const { confirm, dialog } = useConfirm();
+  const jobs = useJobs(s => s.jobs);
+  const ticks = useJobs(s => s.novelTick);
   // 字数一次聚合查询拿全，别每本书查一次
   const { data, loading, error, reload } = useAsyncData(async () => {
     const [list, counts] = await Promise.all([listNovels(), novelCharCounts()]);
     return list.map((n) => ({ ...n, chars: counts[n.id] ?? 0 }));
-  }, { key: 'library:novels' });
+  }, { key: `library:novels:${JSON.stringify(ticks)}` });
   const novels = data ?? [];
 
   const removeNovel = async (n: Novel) => {
@@ -220,15 +224,19 @@ function NovelsTab() {
             action={<Button variant="primary" onClick={() => nav('/studio/new')}>{t.library.newStory}</Button>}
           />
         ) : (
-          <ul aria-label={t.library.novelsListLabel} className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+          <ul aria-label={t.library.novelsListLabel} className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-5">
             {novels.map((n) => {
               const pct = n.targetChars ? Math.min(100, Math.round((n.chars / n.targetChars) * 100)) : 0;
               const name = n.title || t.common.untitledNovel;
+              const latestJob = Object.values(jobs).filter(j => j.novelId === n.id).sort((a, b) => b.createdAt - a.createdAt)[0];
+              const activeJob = latestJob && !['completed', 'cancelled'].includes(latestJob.status) ? latestJob : null;
+              const status = n.status === 'generating' && !activeJob ? (n.chars ? 'writing' : 'planning') : n.status;
+              const label = activeJob ? t.jobs.status[activeJob.status] : novelStatusLabel(status);
               return (
-                <li key={n.id} className="group relative flex gap-4 rounded-2xl bg-paper-0 p-4 shadow-soft transition hover:shadow-lift dark:bg-paper-900">
+                <li key={n.id} className="group relative flex gap-4 rounded-2xl border border-black/[0.05] bg-paper-0 p-5 shadow-soft transition-shadow hover:shadow-lift dark:border-white/[0.07] dark:bg-paper-900">
                   <button
                     className="flex flex-1 gap-4 text-left"
-                    aria-label={fmt(t.library.novelCard, { name, status: novelStatusLabel(n.status), pct })}
+                    aria-label={fmt(t.library.novelCard, { name, status: label, pct })}
                     onClick={() => nav(`/studio/${n.id}`)}
                   >
                     <BookCover title={n.title} size="sm" />
@@ -236,7 +244,7 @@ function NovelsTab() {
                       <div className="line-clamp-1 font-serif text-base font-semibold">{name}</div>
                       <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-500">{n.premise || n.meta.logline || t.library.noPremise}</div>
                       <div className="mt-3 flex items-center gap-2 text-[11px] text-ink-500">
-                        <Badge tone={n.status === 'complete' ? 'green' : n.status === 'generating' ? 'ai' : 'neutral'} dot>{novelStatusLabel(n.status)}</Badge>
+                        <Badge tone={status === 'complete' ? 'green' : activeJob && isJobWorking(activeJob.status) ? 'ai' : 'neutral'} dot>{label}</Badge>
                         {n.origin && <Badge tone="amber">{t.library.derived}</Badge>}
                         {n.remote?.currentVersionId && <Badge tone="blue">{t.library.published}</Badge>}
                       </div>

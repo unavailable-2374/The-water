@@ -3,7 +3,7 @@
  * 与作品层（L2：storyline / bible / StyleProfile）之间的一层，见 docs/writing/README.md §3.1。
  *
  * 一本书可以同时选多个包（科幻 + 悬疑），合并规则是确定性的：
- *   - 禁用词 / 禁用句式 / 桥段 / 大纲提示 / 写作规则 / 质检项：并集去重，按选择顺序
+ *   - 禁用词 / 禁用句式 / 桥段 / 大纲提示 / 写作规则 / 质检项：并集去重；多包补入共同场景与稳定边界指导
  *   - 数值靶区间：取交集；交集为空时后选的包胜出，并记入 `conflicts` 供 UI 提示
  *   - lore 条目：按 id 去重（先出现的胜出）；作品层同名条目覆盖题材层（见 context.mergeLoreSettings）
  *
@@ -15,7 +15,7 @@ import type { NovelRequirements } from './types';
 export type GenreTargetKey = 'sentenceMean' | 'burstiness' | 'paragraphMean' | 'dialogueRatio' | 'exclamationPerK' | 'ellipsisPerK';
 export type GenreTargets = Partial<Record<GenreTargetKey, [number, number]>>;
 
-/** 题材层 lore 条目，结构与 StorylineDoc 的 Setting 一致，可直接进 lorebook 注入。 */
+/** 题材创作指导，复用 Setting 形状和稳定 ID 注入；不是本书已确认事实。 */
 export interface GenreLoreEntry {
   /** 稳定 id：`${packId}:${slug}`；作品可用 requirements.disabledLore 关掉。 */
   id: string;
@@ -50,199 +50,583 @@ export interface GenrePack {
   presetIds: string[];
 }
 
-const ENTRY_PRIORITY = { core: 70, high: 60, mid: 50, low: 45 } as const;
-
 export const GENRE_PACKS: GenrePack[] = [
   {
-    id: 'xianxia',
-    label: '仙侠 / 玄幻',
-    aliases: ['玄幻', '仙侠', '奇幻'],
-    summary: '境界体系是第一约束：修为、丹药、法宝都不能随剧情需要变化。',
-    entries: [
-      {
-        id: 'xianxia:realms', name: '境界体系', kind: 'rule', priority: ENTRY_PRIORITY.core, constant: true,
-        triggerKeys: ['境界', '修为', '突破', '筑基', '金丹', '元婴'],
-        description: '自低到高：炼气→筑基→金丹→元婴→化神→合体→大乘→渡劫。跨一个大境界即碾压；越级取胜必须付出代价（伤势、折寿、道心受损或消耗底牌）。不得临时新增境界。',
-      },
-      {
-        id: 'xianxia:qi', name: '灵气与丹药', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: false,
-        triggerKeys: ['灵气', '丹药', '灵石', '法宝', '灵脉'],
-        description: '灵气浓度：洞天福地 > 宗门驻地 > 凡俗之地。丹药分品阶，越级服用必有反噬。法宝认主后不可随意易手。',
-      },
-      {
-        id: 'xianxia:sect', name: '宗门与辈分', kind: 'faction', priority: ENTRY_PRIORITY.mid, constant: false,
-        triggerKeys: ['宗门', '掌门', '长老', '师尊', '弟子'],
-        description: '宗门序列：掌门／长老／首座／亲传／内门／外门／杂役。对上自称弟子，同辈称师兄师姐；跨宗门称道友。',
-      },
+    "id": "xianxia",
+    "label": "仙侠 / 玄幻",
+    "aliases": [
+      "玄幻",
+      "仙侠",
+      "奇幻"
     ],
-    forbiddenWords: ['手机', '电话', '互联网', '数据库', '概率', '公里', '千米', '分钟', '咖啡', '沙发', 'OK', '拜拜'],
-    softWords: ['瞬间', '顿时', '猛地'],
-    forbiddenPatterns: ['系统提示…', '数据显示…'],
-    tropes: {
-      use: ['开篇同时给出一个明确的修炼目标和一个具体的压迫源', '每卷至少一次越级战，并写清代价', '功法、法宝的获得要有取舍，不能白给'],
-      avoid: ['废柴觉醒后立刻碾压全场且毫无代价', '长老一见天赋就当场收徒', '来历不明的强者随口指点解决困境'],
+    "summary": "先选择成长、探索、神话、权谋或奇异日常体验；力量规则服务选择和后果，不预设统一境界。",
+    "entries": [
+      {
+        "id": "xianxia:realms",
+        "name": "境界体系",
+        "kind": "rule",
+        "description": "仅在本书采用境界时规划其层级与边界；不默认炼气/筑基、不默认跨级碾压。核心解法依赖的能力须有前文依据，未知神秘力量可以保留未知。",
+        "triggerKeys": [
+          "境界",
+          "修为",
+          "突破",
+          "能力"
+        ],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "xianxia:qi",
+        "name": "灵气与丹药",
+        "kind": "rule",
+        "description": "若作品有灵气、丹药或法宝，记录作用、使用条件、不能做什么及使用影响；其取得和资源分配如何影响生活，以本书设定为准。",
+        "triggerKeys": [
+          "灵气",
+          "丹药",
+          "灵石",
+          "法宝",
+          "灵脉"
+        ],
+        "priority": 50,
+        "constant": false
+      },
+      {
+        "id": "xianxia:sect",
+        "name": "宗门与辈分",
+        "kind": "rule",
+        "description": "若存在宗门，设计资源、权力、礼俗、信任与修行目标的关系；不默认组织序列或称谓，修行与长生应影响时间感、人情和价值选择。",
+        "triggerKeys": [
+          "宗门",
+          "掌门",
+          "长老",
+          "师尊",
+          "弟子"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "规则同时产生能力机会、资源冲突与关系变化",
+        "具体地貌、建筑、礼俗和感官细节带来探索惊奇"
+      ],
+      "avoid": [
+        "临时新增规则解决核心困境",
+        "每卷只换地图、敌人和数值"
+      ]
     },
-    outlineHints: ['先定死境界体系与灵气规则，之后全书不得改动', '每卷主角修为最多推进一个大境界', '每个爽点之前先给等量的压迫'],
-    writingRules: ['修为、境界、法宝品阶必须与设定一致；拿不准时不要写具体数字', '打斗写关键三招与胜负的理由，不罗列招式', '不用现代词汇与现代计量单位（用时辰、里、丈）'],
-    qc: ['境界/战力是否与设定表冲突', '越级战是否付出了代价', '是否出现现代词汇或计量单位'],
-    targets: { sentenceMean: [10, 20], burstiness: [0.45, 0.9], dialogueRatio: [0.3, 0.6] },
-    presetIds: ['preset_fast-webnovel', 'preset_classical-wuxia'],
+    "outlineHints": [
+      "在 readingExperience 确定成长、探索、神话命运、权谋社会或奇异日常的重心，按体验选择设定详略",
+      "准备关键能力表：能做什么、条件、不能做什么、使用影响；允许逐步揭示，不在第一章堆全宇宙规则",
+      "在分卷 summary 写突破如何改变行动、社会位置与责任；新地图保留旧能力、朋友、经验与承诺的价值",
+      "仙侠另写为什么修行、长生对人情和价值的影响；无敌主角可受信息、时间、信任与协调约束",
+      "先试写一次利用既定能力作出选择的场景，检验规则是否产生后果与惊奇"
+    ],
+    "writingRules": [
+      "关键解法须有既定能力、资源和前文依据；境界与数值仅按本书采用的设定一致使用",
+      "成长改变可以做什么及承担什么，新阶段改变问题性质，不重复从头受辱再升级",
+      "力量影响普通人的生产、交通、礼俗与关系，挑与当前主线相关的部分具体呈现",
+      "神秘力量可以未知，但不可到结尾才用新规则解决核心问题；新觉醒须有铺垫",
+      "语言、称谓与计量依本书时代和场景；都市异能可用手机，不套古典世界禁词"
+    ],
+    "qc": [
+      "核心解法是否有前文依据；不能仅因未解释神秘氛围判违规",
+      "成长是否带来新行动与责任，新地图是否抹消旧积累",
+      "能力与资源分配是否影响普通人生活，修行目的是否进入人物选择"
+    ],
+    "targets": {
+      "sentenceMean": [
+        10,
+        20
+      ],
+      "burstiness": [
+        0.45,
+        0.9
+      ],
+      "dialogueRatio": [
+        0.3,
+        0.6
+      ]
+    },
+    "presetIds": [
+      "preset_fast-webnovel",
+      "preset_classical-wuxia"
+    ]
   },
   {
-    id: 'urban',
-    label: '都市 / 现实',
-    aliases: ['都市', '现实'],
-    summary: '一切按现实世界的钱、时间、法律与人情运转，冲突必须落在具体的东西上。',
-    entries: [
-      {
-        id: 'urban:reality', name: '现实约束', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: true,
-        triggerKeys: [],
-        description: '货币、物价、通勤时间、通讯方式、法律后果都按现实世界写。人物的违法行为必须带来相应的风险与代价。',
-      },
-      {
-        id: 'urban:workplace', name: '职场与人情', kind: 'rule', priority: ENTRY_PRIORITY.low, constant: false,
-        triggerKeys: ['公司', '老板', '同事', '项目', '合同', 'offer'],
-        description: '职场冲突走明暗两条线：明面上是制度与流程，暗线是利益与面子。决定由具体的人在具体的位置上做出。',
-      },
+    "id": "urban",
+    "label": "都市 / 现实",
+    "aliases": [
+      "都市",
+      "现实",
+      "都市异能",
+      "职场",
+      "创业"
     ],
-    forbiddenWords: ['修为', '灵气', '法宝', '境界', '系统面板', '金手指'],
-    softWords: ['逆袭', '打脸', '震惊'],
-    forbiddenPatterns: [],
-    tropes: {
-      use: ['冲突落在具体的钱、位置、关系上，不写抽象的正邪', '每个转折都要有可查证的现实依据：合同、聊天记录、监控、账单'],
-      avoid: ['靠突然出现的贵人相助解决核心困境', '反派仅因为「嫉妒」就无限作恶'],
+    "summary": "都市是生活环境：钱、时间、权限和责任影响选择，可以与异能、科幻或悬疑组合。",
+    "entries": [
+      {
+        "id": "urban:reality",
+        "name": "现实约束",
+        "kind": "rule",
+        "description": "按本书时代与城市核对钱从哪里来、时间怎么分配、谁有决定权、后果由谁承担。都市异能允许已确认的虚构条件，生活约束仍须影响行动。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "urban:workplace",
+        "name": "职场与人情",
+        "kind": "rule",
+        "description": "职业任务、判断依据、执行权限与利益关系须实际影响结果；介入调查有理由、资料有来源、协作有信任基础，不能随意进入所有场所。",
+        "triggerKeys": [
+          "公司",
+          "老板",
+          "同事",
+          "项目",
+          "合同",
+          "调查"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "具体工作问题同时推进能力表现、利益冲突和关系变化"
+      ],
+      "avoid": [
+        "贵人或资源无依据出现解决核心问题",
+        "所有对手仅因嫉妒无限作恶"
+      ]
     },
-    outlineHints: ['主角的困境要能用一句话说清代价（丢工作、还不上钱、失去监护权）', '每个故事弧对应一次现实处境的实质变化'],
-    writingRules: ['金额、时间、地点写具体，不写「一大笔钱」', '职业细节要经得起同行看', '不要出现超自然设定'],
-    qc: ['是否混入与题材不符的超自然设定', '金额/时间/地点是否前后矛盾', '职业细节是否失真'],
-    targets: { sentenceMean: [12, 24], dialogueRatio: [0.3, 0.55] },
-    presetIds: ['preset_light-humor', 'preset_warm-lyrical'],
+    "outlineHints": [
+      "明确职场、创业、情感家庭、日常、行业或都市异能方向，给出具体行业、目标与认可对象",
+      "在人物 description / intents 写收入来源、时间安排、住房家庭压力、决策权限与责任归属；数字只在帮助理解时使用",
+      "准备具体职业任务、资源条件、人物利益与关系；不确定的专业细节先核实，不编造现实证据",
+      "试写发现问题 → 判断依据 → 行动 → 结果的职业场景，并让结果改变生计、尊严或关系",
+      "异能说明哪些事变容易、哪些责任变复杂；供货、信用、团队、需求与权限继续影响结果"
+    ],
+    "writingRules": [
+      "钱、时间、权限与后果影响人物选择，资源不能凭空出现；不要求每次变化都有账单或具体金额",
+      "专业能力通过发现问题、判断、执行与结果体现；技术细节适量但关键判断须可理解",
+      "对立人物有利益和顾虑，善意也可冲突；失约、帮助与隐瞒影响后续相处",
+      "都市允许已确认的超自然设定，异能只解决其边界内的问题，职业与社会约束继续成立"
+    ],
+    "qc": [
+      "职业、资源、权限与介入理由是否可信；现实断言资料不足时建议核实，不臆造依据",
+      "能力是否抹掉供货、信用、团队或法律责任等生活约束",
+      "关系是否保留过去行为的影响，不能仅因身份变化重置关系"
+    ],
+    "targets": {
+      "sentenceMean": [
+        12,
+        24
+      ],
+      "dialogueRatio": [
+        0.3,
+        0.55
+      ]
+    },
+    "presetIds": [
+      "preset_light-humor",
+      "preset_warm-lyrical"
+    ]
   },
   {
-    id: 'scifi',
-    label: '科幻',
-    aliases: ['科幻'],
-    summary: '一个核心新设定，其余按现实物理；技术必须有代价与上限。',
-    entries: [
-      {
-        id: 'scifi:ceiling', name: '技术上限', kind: 'rule', priority: ENTRY_PRIORITY.core, constant: true,
-        triggerKeys: [],
-        description: '先定这个世界能做什么、不能做什么：能源、算力、材料、寿命、通讯。全书不得越界，新技术必须由已有规则推导出来。',
-      },
-      {
-        id: 'scifi:scale', name: '尺度与通讯', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: false,
-        triggerKeys: ['星系', '光年', '跃迁', '飞船', '通讯', '延迟'],
-        description: '星际距离带来通讯延迟与信息不对称，这本身就是冲突来源。若存在超光速，必须交代其代价与限制条件。',
-      },
+    "id": "scifi",
+    "label": "科幻",
+    "aliases": [
+      "科幻"
     ],
-    forbiddenWords: ['黑科技', '革命性', '万能芯片'],
-    softWords: ['未来感', '科技感'],
-    forbiddenPatterns: ['科学家发现…'],
-    tropes: {
-      use: ['只引入一个核心新设定，把它的社会后果写透', '故障与误用比敌人更有说服力', '技术带来的新伦理问题要落到具体的人身上'],
-      avoid: ['用新造名词解释一切', '最后一刻发明新技术解围'],
+    "summary": "科学或技术假设持续改变人的处境与社会；边界依据本书假设，不强制只有一个新设定。",
+    "entries": [
+      {
+        "id": "scifi:ceiling",
+        "name": "技术上限",
+        "kind": "rule",
+        "description": "准备技术能做什么、不能做什么、使用条件及影响；规则可逐步揭示，关键解法须有已有假设与前文依据。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "scifi:scale",
+        "name": "尺度与通讯",
+        "kind": "rule",
+        "description": "按本书假设考虑距离、交通、能源与通讯的后果；若有超光速说明其条件与影响，不将现实光速限制强套于已确认虚构规则。",
+        "triggerKeys": [
+          "星系",
+          "光年",
+          "跃迁",
+          "飞船",
+          "通讯",
+          "延迟"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "技术的误用与伦理后果落在具体的人身上"
+      ],
+      "avoid": [
+        "只用新造名词解释一切",
+        "最后一刻凭空发明技术解围"
+      ]
     },
-    outlineHints: ['第一章之前先写清技术上限，作为全书的硬约束', '每个转折都要能由已交代的规则推出'],
-    writingRules: ['术语前后一致，首次出现给一句人话解释', '不写超过 150 字的纯设定说明段', '技术能力不能随剧情需要变强'],
-    qc: ['技术能力是否前后不一致', '是否靠临时新技术解围', '术语是否首次出现未解释'],
-    targets: { sentenceMean: [14, 26], burstiness: [0.4, 0.8] },
-    presetIds: ['preset_hardboiled-scifi', 'preset_cold-restrained'],
+    "outlineHints": [
+      "选择核心科学或技术假设，追问它真的存在时人的行为、组织资源与社会关系怎样改变",
+      "准备技术边界与关键后果；多个假设也可成立，但不能只增加术语",
+      "试写一次技术条件改变具体人的选择与责任的场景"
+    ],
+    "writingRules": [
+      "技术条件、能力和术语前后一致，现实科学断言先核实",
+      "通过具体任务与生活呈现技术后果，关键解法不靠临时发明",
+      "先呈现现象再引入必需术语，说明长度服从当前体验"
+    ],
+    "qc": [
+      "假设是否持续改变行动与社会关系",
+      "能力是否为方便剧情随需变化，解法是否有依据"
+    ],
+    "targets": {
+      "sentenceMean": [
+        14,
+        26
+      ],
+      "burstiness": [
+        0.4,
+        0.8
+      ]
+    },
+    "presetIds": [
+      "preset_hardboiled-scifi",
+      "preset_cold-restrained"
+    ]
   },
   {
-    id: 'mystery',
-    label: '悬疑 / 推理',
-    aliases: ['悬疑'],
-    summary: '公平原则：读者看到的线索必须和侦探一样多。',
-    entries: [
-      {
-        id: 'mystery:fair-play', name: '公平原则', kind: 'rule', priority: ENTRY_PRIORITY.core, constant: true,
-        triggerKeys: [],
-        description: '凶手须在前三分之一出场；破案所依据的线索必须已经呈现给读者。不得靠未交代的密道、双胞胎、临时冒出的证据结案。',
-      },
-      {
-        id: 'mystery:clues', name: '线索账', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: false,
-        triggerKeys: ['线索', '证据', '不在场', '凶器', '动机'],
-        description: '每条线索登记：出现章节、表面含义、真实含义、回收章节。红鲱鱼必须有一个合理的日常解释，不能只是误导。',
-      },
+    "id": "mystery",
+    "label": "悬疑 / 推理",
+    "aliases": [
+      "悬疑",
+      "推理",
+      "心理悬疑",
+      "惊悚"
     ],
-    forbiddenWords: [],
-    softWords: ['诡异', '毛骨悚然', '不寒而栗'],
-    forbiddenPatterns: ['如果当时…知道…', '殊不知…'],
-    tropes: {
-      use: ['每章至少推进或推翻一条线索', '嫌疑人各有独立动机与各自的谎言', '揭示真相前留一个让读者自行推理的窗口'],
-      avoid: ['凶手在最后一章才出现', '靠意外自白结案', '侦探对读者隐藏已掌握的线索'],
+    "summary": "先区分解谜、危机或心理关系体验；线索公平程度由作品承诺决定。",
+    "entries": [
+      {
+        "id": "mystery:fair-play",
+        "name": "公平原则",
+        "kind": "rule",
+        "description": "若承诺读者参与破案，关键解答须有此前可接触的依据并排除替代解释；不规定凶手出场比例。危机型可早告知凶手，心理型不强制可提前推出唯一答案。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "mystery:clues",
+        "name": "线索账",
+        "kind": "rule",
+        "description": "分别准备真实事件顺序与读者接触顺序；每条关键线索记录出现时机、表面解释、真实解释与排除作用，区分作者/读者/人物知情。误导须有角色行为或处境依据。",
+        "triggerKeys": [
+          "线索",
+          "证据",
+          "不在场",
+          "凶器",
+          "动机"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "回答疑问后让答案改变处境和人物选择",
+        "嫌疑人有独立行动动机，误导也能回看解释"
+      ],
+      "avoid": [
+        "只堆尸体纸条神秘人而不确认任何收获",
+        "靠临时证据或能力结案"
+      ]
     },
-    outlineHints: ['先写好真相与完整时间线，再倒推每章暴露多少', '每个嫌疑人都要有一件说不出口的事（未必与案件有关）'],
-    writingRules: ['人物可以撒谎，叙述者不可以', '每次揭示都要指回前文出现过的细节', '不写「如果当时他知道…」式的预告'],
-    qc: ['凶手是否提前出场', '线索是否有出无回', '是否出现叙述性欺骗'],
-    targets: { sentenceMean: [12, 24], burstiness: [0.45, 0.85] },
-    presetIds: ['preset_cold-restrained', 'preset_hardboiled-scifi'],
+    "outlineHints": [
+      "在 readingExperience 明确解谜、危机或心理关系重心，决定隐藏什么、提前告知什么及读者能否参与破案",
+      "先规划真实事件时间线：各人行动、所见、误解与留下的结果；另在 beats / 场景规划读者接触信息的顺序，两者不可混同",
+      "线索对应成立解释与替代解释排除；动机只说明可疑，识破手法也不自动确定实施者",
+      "人物、读者、作者知识分别记录；不可靠叙述须符合心理处境，留可回看理解的裂缝",
+      "各阶段确认答案或排除一种解释，答案改变处境并引出新选择；读者猜中不构成临时换答案的理由",
+      "试写一条新信息有依据地改变判断的场景；混合异能须先确定稳定的信息边界"
+    ],
+    "writingRules": [
+      "新信息让理解或危险处境实质改变，不强制每章翻线索；阶段问题要有确认收获",
+      "参与破案型解答指回读者可接触的证据并处理替代解释，心理型揭晓让前文行为可重新理解",
+      "危机型可以先告诉读者凶手，重点写选择与危险逼近；叙述者可以隐瞒、记错或说谎，但须有处境依据和回看裂缝",
+      "稳定维护知情边界；读心可只读到对方相信的事，不能关键嫌疑人出现就恰好失灵",
+      "不为躲开读者猜测临时换真相，揭晓不能靠此前未建立的能力或证据"
+    ],
+    "qc": [
+      "先核对作品承诺，再判断线索公平；危机/心理型不能强套侦探同知或唯一答案",
+      "结论是否有证据，是否混淆动机、手法与实施者，替代解释是否处理",
+      "不可靠叙述是否有心理依据与文本裂缝，不能因叙述者撒谎自动报硬冲突",
+      "阶段是否更新理解或危机处境；未到揭晓时机不催促揭密"
+    ],
+    "targets": {
+      "sentenceMean": [
+        12,
+        24
+      ],
+      "burstiness": [
+        0.45,
+        0.85
+      ]
+    },
+    "presetIds": [
+      "preset_cold-restrained",
+      "preset_hardboiled-scifi"
+    ]
   },
   {
-    id: 'romance',
-    label: '言情 / 青春',
-    aliases: ['言情', '青春'],
-    summary: '关系推进按阶段走，每一次靠近与退开都要有可指认的理由。',
-    entries: [
-      {
-        id: 'romance:stages', name: '关系阶段', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: true,
-        triggerKeys: [],
-        description: '相遇→试探→靠近→误会或外力→选择→和解。每个阶段由具体事件推动，不靠时间跳跃带过。',
-      },
-      {
-        id: 'romance:motive', name: '动机链', kind: 'rule', priority: ENTRY_PRIORITY.mid, constant: false,
-        triggerKeys: ['喜欢', '在意', '表白', '分手', '误会'],
-        description: '写清双方各自的顾虑：一次靠近或退开，必须能追溯到此前发生过的一件具体的事。',
-      },
+    "id": "romance",
+    "label": "言情 / 青春",
+    "aliases": [
+      "言情",
+      "青春",
+      "爱情"
     ],
-    forbiddenWords: ['心如刀绞', '撕心裂肺', '泪水夺眶而出', '命中注定'],
-    softWords: ['宠溺', '霸道', '深情'],
-    forbiddenPatterns: ['眼底闪过一丝…', '霸道地…'],
-    tropes: {
-      use: ['误会要在两章内出现澄清的机会；人物选择不澄清必须给理由', '用共同经历而不是外貌推进感情'],
-      avoid: ['靠一个不解释的误会拖满全书', '把强制与不平等的关系写成浪漫'],
+    "summary": "让偏偏这两个人相爱有独特依据；相处、理解与共同生活持续改变关系。",
+    "entries": [
+      {
+        "id": "romance:stages",
+        "name": "关系阶段",
+        "kind": "rule",
+        "description": "关系的靠近、退开与选择由具体相处产生，不强制相遇到和解的固定阶段；关系成立后仍面对共同生活与独立目标。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "romance:motive",
+        "name": "动机链",
+        "kind": "rule",
+        "description": "吸引与顾虑追溯到经历、价值与具体互动；外貌身份可以吸引，但不能单独承担长期关系的全部解释。",
+        "triggerKeys": [
+          "喜欢",
+          "在意",
+          "表白",
+          "分手",
+          "误会"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "共同经历与价值选择推进关系"
+      ],
+      "avoid": [
+        "可轻易说清的误会长期维持全部冲突"
+      ]
     },
-    outlineHints: ['先给两人各自独立的目标，感情线不能是唯一的动机', '每个故事弧结束时关系必须发生不可逆的变化'],
-    writingRules: ['情绪靠细节与动作，不用现成成语', '对白允许未说完的半句', '不要连续三段以上的内心独白'],
-    qc: ['关系推进是否跳阶段', '误会是否被无理由拖延', '情绪是否只靠成语堆砌'],
-    targets: { sentenceMean: [14, 28], dialogueRatio: [0.3, 0.55] },
-    presetIds: ['preset_warm-lyrical', 'preset_light-humor'],
+    "outlineHints": [
+      "明确为什么偏偏是这两人，各有生活目标与顾虑",
+      "规划独特相处、理解变化和共同面对生活的选择，不按固定章数制造/澄清误会",
+      "试写一次行动与回应改变关系的场景"
+    ],
+    "writingRules": [
+      "通过具体相处累积吸引、理解与信任，保留失约、帮助和隐瞒的关系记忆",
+      "误会难以解释时须有利益、恐惧或处境理由，不能靠轻易说清的事长期拖延",
+      "情感成立后写共同生活与选择，情绪可展开也可克制，服从人物声音"
+    ],
+    "qc": [
+      "爱情是否主要靠外貌身份而缺相处依据",
+      "长期误会是否只有拒绝解释而无处境理由",
+      "关系推进与共同生活是否由行动支持"
+    ],
+    "targets": {
+      "sentenceMean": [
+        14,
+        28
+      ],
+      "dialogueRatio": [
+        0.3,
+        0.55
+      ]
+    },
+    "presetIds": [
+      "preset_warm-lyrical",
+      "preset_light-humor"
+    ]
   },
   {
-    id: 'wuxia',
-    label: '历史 / 武侠',
-    aliases: ['武侠', '历史'],
-    summary: '称谓、度量、江湖规矩三样都不能出戏，规矩本身就是冲突来源。',
-    entries: [
-      {
-        id: 'wuxia:jianghu', name: '江湖称谓与辈分', kind: 'rule', priority: ENTRY_PRIORITY.core, constant: true,
-        triggerKeys: [],
-        description: '称呼按辈分：前辈／晚辈／兄台／在下／姑娘／大侠；同门称师兄师姐；对官府称大人。不用现代客套语。',
-      },
-      {
-        id: 'wuxia:martial', name: '武功体系', kind: 'rule', priority: ENTRY_PRIORITY.high, constant: false,
-        triggerKeys: ['内力', '招式', '武功', '剑法', '真气', '穴道'],
-        description: '内力、招式、兵器有明确高下，不可无来由暴涨。疗伤与运功都要花时间，且有代价。',
-      },
-      {
-        id: 'wuxia:era', name: '时代常识', kind: 'rule', priority: ENTRY_PRIORITY.mid, constant: false,
-        triggerKeys: ['朝廷', '官府', '银两', '驿站', '科举', '宵禁'],
-        description: '货币、度量、官职、交通、宵禁按所设朝代写；拿不准的朝代细节宁可不写具体。',
-      },
+    "id": "wuxia",
+    "label": "历史 / 武侠",
+    "aliases": [
+      "武侠",
+      "历史",
+      "架空历史"
     ],
-    forbiddenWords: ['OK', '拜拜', '搞定', '颜值', '尴尬', '没问题', '手机', '分钟', '公里', '概率', '咖啡'],
-    softWords: ['瞬间', '气息'],
-    forbiddenPatterns: [],
-    tropes: {
-      use: ['一场打斗只写关键三招与胜负的理由', '江湖规矩本身就是冲突来源', '恩怨要落到具体的人与事，不写抽象的正邪'],
-      avoid: ['秘籍一到手立刻天下无敌', '反派每次都留主角一命'],
+    "summary": "历史保护时代中的信息与资源条件，武侠保护武力、恩仇、承诺与秩序的选择。",
+    "entries": [
+      {
+        "id": "wuxia:jianghu",
+        "name": "江湖称谓与辈分",
+        "kind": "rule",
+        "description": "称呼、身份与关系依本书时代和组织确定，不默认统一辈分称谓；恩仇、承诺和秩序影响行动。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      },
+      {
+        "id": "wuxia:martial",
+        "name": "武功体系",
+        "kind": "rule",
+        "description": "若有武功，记录作用、使用条件与边界，胜负有情境依据；武力不能取代兑现承诺、处理恩怨和秩序冲突。",
+        "triggerKeys": [
+          "内力",
+          "招式",
+          "武功",
+          "剑法",
+          "真气",
+          "穴道"
+        ],
+        "priority": 50,
+        "constant": false
+      },
+      {
+        "id": "wuxia:era",
+        "name": "时代常识",
+        "kind": "rule",
+        "description": "历史与架空历史核对人物当时可获得的信息、观念、组织资源和制度；具体史实先核实，架空变化仍有后果，现代知识不能自动解决一切。",
+        "triggerKeys": [
+          "朝廷",
+          "官府",
+          "银两",
+          "驿站",
+          "科举",
+          "宵禁"
+        ],
+        "priority": 50,
+        "constant": false
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "制度和承诺本身构成具体冲突"
+      ],
+      "avoid": [
+        "现代知识无条件解决所有问题",
+        "侠义仅停留口号"
+      ]
     },
-    outlineHints: ['先定门派格局与恩怨源头，再排主角的行走路线', '每一卷让主角在江湖规矩上付一次代价'],
-    writingRules: ['半文半白，不用现代口语与网络词', '称呼按辈分，不用现代客套', '打斗只写关键几招，不流水账', '度量用里、丈、时辰、两'],
-    qc: ['是否出现现代词汇或现代计量', '称呼辈分是否出错', '内力/武功是否无理由暴涨'],
-    targets: { sentenceMean: [10, 22], burstiness: [0.45, 0.85] },
-    presetIds: ['preset_classical-wuxia', 'preset_cold-restrained'],
+    "outlineHints": [
+      "区分历史、架空历史与武侠重点；具体史实按所设时代核实，不拿通用包当史料",
+      "历史准备可知信息、组织资源与利益关系，重大改变写清执行条件与后果",
+      "武侠准备恩仇、承诺与秩序冲突，试写一次武力能赢却仍须作价值选择的场景"
+    ],
+    "writingRules": [
+      "人物以当时信息、经验与利益行动，现代知识须通过资源和组织执行才产生结果",
+      "武力、恩仇、承诺与秩序共同推动行动，侠义在具体选择中体现",
+      "称谓、语气与度量依本书时代及混合设定，不将古典禁词用于所有背景"
+    ],
+    "qc": [
+      "时代中的信息、资源与观念是否支持行动",
+      "改变是否有实施条件和后果，其他人是否保留自身经验利益",
+      "侠义是否进入选择，人物是否只剩武功排名"
+    ],
+    "targets": {
+      "sentenceMean": [
+        10,
+        22
+      ],
+      "burstiness": [
+        0.45,
+        0.85
+      ]
+    },
+    "presetIds": [
+      "preset_classical-wuxia",
+      "preset_cold-restrained"
+    ]
   },
+  {
+    "id": "daily",
+    "label": "日常 / 治愈",
+    "aliases": [
+      "日常",
+      "治愈"
+    ],
+    "summary": "以陪伴、独特相处和细微生活变化积累价值，保护已建立的情感基调。",
+    "entries": [
+      {
+        "id": "daily:companionship",
+        "name": "陪伴与生活变化",
+        "kind": "rule",
+        "description": "关注人物独特的相处方式与可感知的生活变化；平静不等于无推进，不强制战斗、反转或惨烈事件。",
+        "triggerKeys": [],
+        "priority": 70,
+        "constant": true
+      }
+    ],
+    "forbiddenWords": [],
+    "softWords": [],
+    "forbiddenPatterns": [],
+    "tropes": {
+      "use": [
+        "具体生活与相处细节累积亲近感"
+      ],
+      "avoid": [
+        "相同互动与笑点长期重复"
+      ]
+    },
+    "outlineHints": [
+      "准备日常任务、生活细节与关系习惯，明确读者期待怎样的陪伴与情感安放",
+      "试写一次小事让读者多理解一个人或感到生活改善的场景"
+    ],
+    "writingRules": [
+      "相似互动须增加理解、亲近或生活变化，不只重复相同笑点",
+      "平静章节可以有满足与余味，重大事件须与此前基调和情感积累相称"
+    ],
+    "qc": [
+      "互动是否反复却未增加关系或体验",
+      "是否靠突发极端事件破坏已承诺的基调"
+    ],
+    "targets": {
+      "sentenceMean": [
+        12,
+        24
+      ],
+      "dialogueRatio": [
+        0.3,
+        0.55
+      ]
+    },
+    "presetIds": [
+      "preset_warm-lyrical",
+      "preset_light-humor"
+    ]
+  }
 ];
 
 export const GENRE_PACK_IDS: string[] = GENRE_PACKS.map((p) => p.id);
@@ -328,6 +712,12 @@ export function intersectGenreTargets(packs: ReadonlyArray<Pick<GenrePack, 'labe
   return { targets, conflicts };
 }
 
+export const MIXED_GENRE_GUIDANCE = {
+  outline: '混合题材先在 readingExperience 明确主要体验；在分卷/场景说明不同元素如何依赖并共同推进同一件事。都市是生活环境，幻想是世界条件，悬疑是信息组织，可以叠加；试写同一场景中的职业判断、能力检验、调查与关系后果。',
+  writing: '混合题材围绕同一事件共同推进；特殊能力有稳定信息边界，不因关键场景方便而失灵。调查仍有介入理由、权限、信息来源与协作；以本书已确认设定和主要体验为准，不把题材指导当新事实或单一题材禁令。',
+  qc: '混合题材核对稳定能力边界、生活权限与信息来源；各元素是否共同推进同一事件，而非轮流暂停；不能仅因都市出现已确认异能报冲突。',
+};
+
 /**
  * 合并多个题材包。禁用词/句式/桥段/规则取并集；数值靶区间取交集，交集为空时后选的包胜出并记入 conflicts。
  * `disabled` 里的 lore 条目 id 会被剔除。
@@ -357,9 +747,9 @@ export function mergeGenrePacks(ids: readonly string[], disabled: readonly strin
     softWords: uniq(packs.flatMap((p) => p.softWords)),
     forbiddenPatterns: uniq(packs.flatMap((p) => p.forbiddenPatterns)),
     tropes: { use: uniq(packs.flatMap((p) => p.tropes.use)), avoid: uniq(packs.flatMap((p) => p.tropes.avoid)) },
-    outlineHints: uniq(packs.flatMap((p) => p.outlineHints)),
-    writingRules: uniq(packs.flatMap((p) => p.writingRules)),
-    qc: uniq(packs.flatMap((p) => p.qc)),
+    outlineHints: uniq([...(packs.length > 1 ? [MIXED_GENRE_GUIDANCE.outline] : []), ...packs.flatMap((p) => p.outlineHints)]),
+    writingRules: uniq([...(packs.length > 1 ? [MIXED_GENRE_GUIDANCE.writing] : []), ...packs.flatMap((p) => p.writingRules)]),
+    qc: uniq([...(packs.length > 1 ? [MIXED_GENRE_GUIDANCE.qc] : []), ...packs.flatMap((p) => p.qc)]),
     targets,
     conflicts,
     presetIds: uniq(packs.flatMap((p) => p.presetIds)),
@@ -394,7 +784,7 @@ export function mergedGenreOf(req: Pick<NovelRequirements, 'genre' | 'genrePackI
 /** 题材 lore → Setting，直接复用作品层的 lorebook 注入（触发词 + 优先级 + 预算）。 */
 export function genreLoreSettings(m: MergedGenre): Setting[] {
   return m.entries.map((e) => ({
-    id: e.id, name: e.name, kind: e.kind, description: e.description,
+    id: e.id, name: e.name, kind: e.kind, description: `【题材创作指导，非本书事实】${e.description}`,
     triggerKeys: [...e.triggerKeys], priority: e.priority, constant: e.constant,
   }));
 }

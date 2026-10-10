@@ -1,3 +1,4 @@
+import { writeAtomic, writeStatement, type AtomicWriter } from '../db';
 import { nanoid } from 'nanoid';
 import { NovelOriginSchema, type NovelOrigin } from '@the-water/shared';
 import { getDb, now, selectOne } from '../db';
@@ -9,7 +10,7 @@ export interface RemoteState {
   serverUrl: string; novelId: string; currentVersionId: string | null; chapterHashes: string[]; storylineHash: string | null;
   draftVersionId: string | null; publishAttemptId: string | null; publishedAt: string | null;
 }
-export interface NovelMeta { logline: string; themes: string[]; outlineDone: boolean; tableDone: boolean }
+export interface NovelMeta { logline: string; themes: string[]; outlineDone: boolean; tableDone: boolean; storyOptionStage?: 'outline' }
 export const defaultMeta = (): NovelMeta => ({ logline: '', themes: [], outlineDone: false, tableDone: false });
 export interface Novel {
   id: string; title: string; premise: string; requirements: NovelRequirements; targetChars: number; status: NovelStatus;
@@ -32,20 +33,20 @@ export async function getNovel(id: string): Promise<Novel | null> {
   const r = await selectOne<Raw>('SELECT * FROM novels WHERE id = ? AND deleted_at IS NULL', [id]);
   return r ? map(r) : null;
 }
-export async function createNovel(input: { title: string; premise: string; requirements: NovelRequirements; targetChars: number; status?: NovelStatus; origin?: NovelOrigin | null }): Promise<Novel> {
-  const id = nanoid();
+export async function createNovel(input: { title: string; premise: string; requirements: NovelRequirements; targetChars: number; id?: string; commit?: AtomicWriter; status?: NovelStatus; origin?: NovelOrigin | null }): Promise<Novel> {
+  const id = input.id ?? nanoid();
   const t = now();
-  await getDb().execute(
+  await writeStatement(input.commit ?? writeAtomic,
     'INSERT INTO novels(id, title, premise, requirements, target_chars, status, origin, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
     [id, input.title, input.premise, JSON.stringify(input.requirements), input.targetChars, input.status ?? 'draft', input.origin ? JSON.stringify(input.origin) : null, t, t],
   );
   return (await getNovel(id))!;
 }
-export async function updateNovel(id: string, patch: Partial<Pick<Novel, 'title' | 'premise' | 'requirements' | 'targetChars' | 'status' | 'coverPath' | 'remote' | 'origin' | 'meta'>>): Promise<Novel | null> {
+export async function updateNovel(id: string, patch: Partial<Pick<Novel, 'title' | 'premise' | 'requirements' | 'targetChars' | 'status' | 'coverPath' | 'remote' | 'origin' | 'meta'>>, commit: AtomicWriter = writeAtomic): Promise<Novel | null> {
   const cur = await getNovel(id);
   if (!cur) return null;
   const n = { ...cur, ...patch };
-  await getDb().execute(
+  await writeStatement(commit,
     'UPDATE novels SET title=?, premise=?, requirements=?, target_chars=?, status=?, cover_path=?, origin=?, remote=?, meta=?, updated_at=? WHERE id=?',
     [n.title, n.premise, JSON.stringify(n.requirements), n.targetChars, n.status, n.coverPath, n.origin ? JSON.stringify(n.origin) : null, n.remote ? JSON.stringify(n.remote) : null, JSON.stringify(n.meta), now(), id],
   );

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BLOCKING_JOB_STATUSES, isBlockingJob, type Job, type JobStatus } from '@/db/repos/jobsRepo';
 import { activeJobsForNovel, blockingJobForNovel } from '@/stores/jobsStore';
 
-const ALL: JobStatus[] = ['queued', 'running', 'pausing', 'paused', 'cancelling', 'cancelled', 'failed', 'completed'];
+const ALL: JobStatus[] = ['queued', 'running', 'pausing', 'paused', 'cancelling', 'cancelled', 'failed', 'completed', 'awaiting_review'];
 
 const job = (id: string, status: JobStatus, novelId = 'n1', createdAt = 1): Job => ({
   id, novelId, type: 'generate_novel', status, params: {}, providerId: null,
@@ -14,9 +14,9 @@ const index = (list: Job[]) => Object.fromEntries(list.map((j) => [j.id, j]));
 
 describe('阻塞判定：界面与服务层必须同源', () => {
   it('只有 queued / running / pausing / paused 算阻塞', () => {
-    expect([...BLOCKING_JOB_STATUSES]).toEqual(['queued', 'running', 'pausing', 'paused']);
+    expect([...BLOCKING_JOB_STATUSES]).toEqual(['queued', 'running', 'pausing', 'paused', 'awaiting_review']);
     for (const s of ALL) {
-      expect(isBlockingJob(s)).toBe((['queued', 'running', 'pausing', 'paused'] as JobStatus[]).includes(s));
+      expect(isBlockingJob(s)).toBe((['queued', 'running', 'pausing', 'paused', 'awaiting_review'] as JobStatus[]).includes(s));
     }
   });
 

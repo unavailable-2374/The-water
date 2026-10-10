@@ -1,6 +1,5 @@
 import { NavLink, Route, Routes, Navigate } from 'react-router';
 import { t } from '@/i18n';
-import { cn } from '@/components/ui';
 import { ProvidersPage } from './ProvidersPage';
 import { GeneralSettings } from './GeneralSettings';
 import { AccountPanel } from './AccountPanel';
@@ -20,8 +19,8 @@ const tabs = () => [
 export function SettingsPage() {
   return (
     <div className="flex h-full">
-      <aside className="w-52 shrink-0 border-r border-paper-300/60 bg-paper-100/60 px-3 py-6 dark:border-paper-800 dark:bg-paper-900/60">
-        <h1 className="mb-4 px-4 font-serif text-xl font-semibold tracking-wide">{t.nav.settings}</h1>
+      <aside className="w-44 shrink-0 border-r border-paper-300/40 px-3 py-10 dark:border-paper-800 lg:w-52">
+        <h1 className="mb-6 px-3 text-xl font-semibold tracking-tight">{t.nav.settings}</h1>
         {/* NavLink 命中时自带 aria-current="page"，读屏能听出当前在哪一栏。 */}
         <nav aria-label={t.settings.settingsNav}>
           {tabs().map((tab) => (
@@ -29,18 +28,15 @@ export function SettingsPage() {
               key={tab.to}
               to={`/settings/${tab.to}`}
               end
-              className={({ isActive }) => cn(
-                'mb-1 block rounded-full px-4 py-2 text-sm transition',
-                isActive ? 'bg-paper-0 font-medium text-ink-900 shadow-soft dark:bg-paper-800 dark:text-paper-50' : 'text-ink-600 hover:bg-paper-200/60 dark:text-ink-300 dark:hover:bg-paper-800/60',
-              )}
+              className="nav-item"
             >
               {tab.label}
             </NavLink>
           ))}
         </nav>
       </aside>
-      <section className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-10 py-10">
+      <section className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-6 py-10 lg:px-10">
           <Routes>
             <Route index element={<Navigate to="/settings/providers" replace />} />
             <Route path="providers" element={<ProvidersPage />} />

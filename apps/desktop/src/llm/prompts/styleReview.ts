@@ -2,7 +2,7 @@
  * 审校：风格贴合度六维评分 + 逐句 OOC 判定 + 原著事实冲突（docs/writing/templates/fanfic.md「审校 prompt」）。
  */
 import { z } from 'zod';
-import { VOICE_DIMENSIONS, VOICE_DIMENSION_LABEL, type Character, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
+import { anchorEvidence, VOICE_DIMENSIONS, VOICE_DIMENSION_LABEL, type Character, type DerivativeDecl, type StyleProfile } from '@the-water/shared';
 import type { PromptSpec } from '@/llm/types';
 import { JSON_ONLY_RULE, bullets, joinSections, section, sys, user } from './base';
 import { UNTRUSTED_GUARD_RULE, wrapUntrusted } from './untrusted';
@@ -47,7 +47,7 @@ export const STYLE_REVIEW_JSON_SHAPE = `{
 
 export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleReviewResult> {
   const system = [
-    '你是原著读者中最挑剔的那一位，也是责任编辑。你只评"像不像原著、人物是否出戏、有没有与既定事实矛盾"，不评故事好坏，不改写。',
+    '你是原著读者中最挑剔的那一位，也是责任编辑。你只评"像不像原著、人物是否出戏、有没有与既定事实矛盾"，不评故事好坏，不改写。题材包仅为条件性创作指导，不是既定事实；只有本书明确承诺的声音、人物和设定能构成偏离，不能将一般体验建议变成 canonConflicts 或硬性评分要求。',
     UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
@@ -80,7 +80,14 @@ export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleRevi
     section('任务', `请审校这一章，严格按下面的 JSON 结构输出。\n${rules}`),
     section('JSON 结构', STYLE_REVIEW_JSON_SHAPE),
   ]);
-  return { messages: [sys(system), user(text)], maxTokens: 4000, temperature: 0.2, schema: StyleReviewResultSchema, label: `审校第${input.chapterNo}章` };
+  const schema=StyleReviewResultSchema.superRefine((value,check)=>{
+    value.ooc.forEach((issue,index)=>{
+      if(issue.verdict!=='OOC' || !issue.redline.trim()) return;
+      try { anchorEvidence(input.chapterText,{from:-1,to:-1,quote:issue.quote}); }
+      catch { check.addIssue({code:z.ZodIssueCode.custom,path:['ooc',index,'quote'],message:'阻断问题须引用当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文'}); }
+    });
+  });
+  return { messages: [sys(system), user(text)], maxTokens: 4000, temperature: 0.2, schema, label: `审校第${input.chapterNo}章` };
 }
 
 /** Turn a review + metric findings into revision instructions for rewriteChapterPrompt(mode: 'revise'). */

@@ -10,6 +10,7 @@ export function transition(status: JobStatus, event: JobEventName): JobStatus {
     pausing: { aborted: 'paused', stepDone: 'paused', cancel: 'cancelling', boot: 'paused' },
     paused: { resume: 'running', cancel: 'cancelled', boot: 'paused' },
     cancelling: { aborted: 'cancelled', stepDone: 'cancelled', boot: 'cancelled' },
+    awaiting_review: { resume: 'running', retry: 'running', cancel: 'cancelled', boot: 'awaiting_review' },
     failed: { retry: 'running', cancel: 'cancelled', boot: 'failed' },
     cancelled: { boot: 'cancelled' },
     completed: { boot: 'completed' },

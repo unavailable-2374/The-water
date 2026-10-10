@@ -1,7 +1,7 @@
 /**
  * 语言的解析、回退与持久化 —— 纯逻辑，可单测。
  *
- * 回退顺序：显式选择 → 浏览器/系统语言 → 简体中文。
+ * 应用启动顺序：上次显式选择 → 简体中文；系统偏好解析仅供显式调用。
  * 匹配规则从严到宽：完全相同 → 同语言不同地区（zh-TW 也回落到 zh-CN）→ 默认语言。
  */
 import { DEFAULT_LOCALE, LOCALES, type LocaleCode } from './types';
@@ -56,6 +56,6 @@ export function writeStoredLocale(code: LocaleCode): void {
   try {
     localStorage.setItem(LOCALE_STORAGE_KEY, code);
   } catch {
-    /* 隐私模式等场景写不了，下次启动重新按系统语言判断即可 */
+    /* 隐私模式等场景写不了，下次启动使用默认简体中文 */
   }
 }

@@ -1,0 +1,76 @@
+{
+  "recordedAt": "2026-10-08T23:05:01.227342+00:00",
+  "engine": {
+    "name": "Pi",
+    "agentCore": "1.1.0",
+    "piAi": "1.1.0",
+    "experimentalPiDurableEnabled": false,
+    "mastraRuntimeDependenciesRemoved": true
+  },
+  "provider": "lunaroute",
+  "model": "deepseek-4.1-flash",
+  "totalBudgetLimit": null,
+  "checks": {
+    "desktop": {
+      "passed": 823,
+      "skipped": 3,
+      "log": "pi-final-full-tests.log"
+    },
+    "shared": {
+      "passed": 31,
+      "log": "pi-final-full-tests.log"
+    },
+    "server": {
+      "passed": 252,
+      "skipped": 1,
+      "log": "pi-final-server-tests.log"
+    },
+    "typecheck": {
+      "status": "passed",
+      "log": "pi-final-typecheck-configuration.log"
+    },
+    "nativeBuild": {
+      "status": "passed",
+      "log": "pi-native-build.log"
+    },
+    "diffWhitespace": "passed"
+  },
+  "real": {
+    "plain": "pi-real-smoke.json",
+    "strictJson": "pi-real-json.json",
+    "native": "pi-native.json",
+    "log": "pi-real-tests.log",
+    "scope": "REAL provider with TEST inputs; not literary quality"
+  },
+  "compatibility": {
+    "capabilitySchemaAccepts": [
+      "pi",
+      "mastra"
+    ],
+    "serverReports": "pi",
+    "requiresUpdatedClient": true,
+    "formalCommitAuthority": "desktop version/hash/dependency checks and author adoption",
+    "persistedQueue": "existing writing_tasks/writing_task_events SQLite",
+    "legacySnapshots": "retained; matching expired writing-inference snapshots cleared"
+  },
+  "boundaries": [
+    "Full scene/review/revision/commit chapter orchestration still desktop",
+    "No external production deployment or production signing acceptance",
+    "No completed final literary quality comparison"
+  ],
+  "sourceHashes": {
+    "apps/server/src/modules/writing/harness.ts": "894aca563edbe0d9db2bfa62b61efc62b1693548ba54ae331e4b995bd451b062",
+    "apps/server/src/modules/writing/piInference.ts": "d39ea7f3f3b0eef551d5c455d3a28f599aaa7ae32f4ef4138d9471e0bb8dbca1",
+    "apps/server/src/modules/writing/routes.ts": "65b9c133ba94b17e1f18a1a422798965b6dc500831b64adf1f9b99d99b59857d",
+    "apps/server/src/env.ts": "9a215239a0c6c8923b878efbfd4ecbb797d3ac54f7eb9a079c2135d09d3b0ca7",
+    "apps/server/package.json": "83441189dc5904c8f49b7d37b7717ad79353b90e4689528fc60a4ef2c7d483de",
+    "apps/server/test/writingHarness.test.ts": "b44bcc24dadda5abd4f56e6d2059927f5b283242822612bc1242514cb5ada707",
+    "apps/server/test/writingHarness.real.test.ts": "8b227736ff17ca349d4670c027a04bb705cf36ba43504aba1fbd6e6d86bc2f20",
+    "packages/shared/src/harness.ts": "0fc166234d6a68cd838e289bcd6883a99cdbaa58cb94e5d9269877553c2795d2",
+    "packages/shared/test/harness.test.ts": "95b4d3b05b5720fa604eb8f4ee5f1b6546d5f0dcb05aeffdce9afdd0d610380f",
+    "apps/desktop/src/sync/api.ts": "2debbbdf01069b7eab63257bd3bbf7b330619138818389eb3349597c4418ef51",
+    "apps/desktop/src-tauri/src/secrets.rs": "706a58e601d354b976834f76d2711c51ac5b4432b143ce1a8992346d9ebae195",
+    "bun.lock": "9bdd9038dff6f65deacc95ae983930ed838adb632882c56f62b891dfe86741f4"
+  },
+  "credentialScanMatches": 0
+}

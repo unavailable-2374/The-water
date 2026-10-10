@@ -1,3 +1,4 @@
+import type { AtomicWriter } from '@/db/db';
 import type { LLMProvider, Usage } from '@/llm/types';
 import type { RateGate } from '@/llm/retry';
 import type { Job, JobStep } from '@/db/repos/jobsRepo';
@@ -5,6 +6,8 @@ import type { StepPurpose } from './purposes';
 
 /** Everything a step needs at runtime. */
 export interface StepContext {
+  /** Audits assistant-owned writes in the same transaction as domain changes. */
+  commit?: AtomicWriter;
   job: Job;
   step: JobStep;
   /** 本步骤用途对应的模型（见 jobs/purposes.ts）。 */

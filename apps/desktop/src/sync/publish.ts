@@ -1,3 +1,6 @@
+import { listWritingCards, listCanonEvents } from '@/db/repos/writingRepo';
+import { listChapters } from '@/db/repos/chaptersRepo';
+import { exportStoryGraph } from './storyGraphTransfer';
 /**
  * Publish protocol (plan §4.4): ensure remote novel → POST version manifest (Idempotency-Key)
  * → upload missing blobs in batches → commit (retry on BLOBS_MISSING). `remote` state is
@@ -5,7 +8,7 @@
  */
 import { nanoid } from 'nanoid';
 import {
-  LIMITS,
+  LIMITS, createMaterials, anchorEvidence, sha256Hex, type MaterialCard,
   countZh,
   hashChapterContent,
   hashStoryline,
@@ -25,6 +28,7 @@ import { ApiError, type PublicApi } from './api';
 import { getClient } from './account';
 
 export interface PublishOptions {
+  shareCreationMaterials?: boolean;
   title: string;
   summary: string;
   tags: string[];
@@ -62,6 +66,7 @@ export async function computeLocalManifest(novel: Novel): Promise<LocalManifest>
   const contents = new Map<string, string>();
   for (const { chapter, version } of rows) {
     if (!version) continue;
+    if (chapter.chapterNo !== entries.length + 1) throw new Error('发布正文必须是从第 1 章开始的连续已提交章节');
     const normalized = normalizeChapterText(version.content);
     if (!normalized) continue;
     const charCount = countZh(normalized);
@@ -227,6 +232,10 @@ export async function publishNovel(novelId: string, opts: PublishOptions, onProg
   const novel = await getNovel(novelId);
   if (!novel) throw new Error('小说不存在');
 
+  if (opts.shareCreationMaterials) {
+    const capabilities = await client.capabilities().catch(() => null);
+    if (!capabilities?.bundleVersions.includes(2) || capabilities.creationMaterials?.version !== 1) throw new Error('服务器不支持共享创作资料，请升级服务器或关闭共享');
+  }
   onProgress('正在整理章节…', 0, 1);
   const manifest = await computeLocalManifest(novel);
   if (manifest.entries.length === 0) throw new Error('还没有可发布的章节正文');
@@ -240,7 +249,22 @@ export async function publishNovel(novelId: string, opts: PublishOptions, onProg
   await saveRemote(novelId, remote);
 
   onProgress('提交章节清单…', 0, 1);
-  const body = { storyline: manifest.storyline, bible: manifest.bible, chapters: manifest.entries, changeNote: opts.changeNote?.trim() || undefined };
+  let creationMaterials;
+  if (opts.shareCreationMaterials) {
+    const chapters = await listChapters(novelId), cards = await listWritingCards(novelId, { confirmed: true });
+    const materialCards: MaterialCard[] = cards.map(c => ({ type: 'plan', id: c.id, chapterNo: c.chapterId ? chapters.find(ch => ch.id === c.chapterId)?.chapterNo ?? null : null, order: c.order, card: { kind: c.kind, data: c.data } as typeof c }));
+    for (const e of await listCanonEvents(novelId, 501)) {
+      const entry = manifest.entries[e.chapterNo - 1];
+      const content = entry ? manifest.contents.get(entry.hash) : undefined;
+      if (content === undefined) throw new Error('事实来源不在已发布正文中');
+      const evidence = anchorEvidence(content, { ...e.evidence, quote: normalizeChapterText(e.evidence.quote) });
+      materialCards.push({ type: 'canon', order:e.eventIndex, id: e.id, chapterNo: e.chapterNo, sourceVersionId: e.versionId, contentHash: await sha256Hex(content), event: { ...e, evidence }, origin: { contentHash: e.contentHash, evidence: e.evidence } });
+    }
+    const graphCards = await exportStoryGraph(novelId, new Map(manifest.entries.map(e => [e.index + 1, manifest.contents.get(e.hash)!])));
+    if (graphCards.length && (await client.capabilities()).storyGraphVersion !== 1) throw new Error('服务器尚不支持故事地图共享，请升级服务器');
+    creationMaterials = await createMaterials([...materialCards, ...graphCards]);
+  }
+  const body = { creationMaterials, storyline: manifest.storyline, bible: manifest.bible, chapters: manifest.entries, changeNote: opts.changeNote?.trim() || undefined };
   let created = await withRetry(() => client.createVersion(remote.novelId, body, attemptId));
   const stale =
     created.version.status === 'aborted' ||

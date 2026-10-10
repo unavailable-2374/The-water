@@ -102,7 +102,7 @@ export function AiDiscussPanel({ doc }: { doc: DocumentRow }) {
             <Bubble role={m.role} text={m.content} />
           </div>
         ))}
-        {chat.streaming !== null && <Bubble role="assistant" text={chat.streaming || t.chat.thinking} />}
+        {chat.streaming !== null && <Bubble role="assistant" text={chat.streaming} streaming />}
         <div ref={chat.bottomRef} />
       </div>
       <div className="border-t border-paper-300/60 p-3 dark:border-paper-800">

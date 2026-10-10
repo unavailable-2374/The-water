@@ -11,12 +11,14 @@ export const app: Locale['app'] = {
 
 export const nav: Locale['nav'] = {
   groupRead: 'Read', groupWrite: 'Write', groupDiscover: 'Discover',
-  library: 'Bookshelf', studio: 'My stories', public: 'Public library', settings: 'Settings', chat: 'Ask AI', notifications: 'Notifications',
+  library: 'Bookshelf', studio: 'My stories', public: 'Public library', settings: 'Settings', chat: 'Writing assistant', notifications: 'Notifications',
   /** 侧栏本身的无障碍名字。 */
   sidebar: 'Main navigation',
 };
 
 export const common: Locale['common'] = {
+  processing: 'Processing…',
+  elapsedTime: 'Elapsed {seconds}s',
   save: 'Save', cancel: 'Cancel', delete: 'Delete', confirm: 'Confirm', close: 'Close', edit: 'Edit', add: 'Add', back: 'Back',
   loading: 'Loading…', empty: 'Nothing here yet', retry: 'Retry', copy: 'Copy', copied: 'Copied', search: 'Search', yes: 'Yes', no: 'No',
   unknownError: 'Something went wrong', confirmDelete: 'Delete this? It cannot be undone.',
@@ -44,7 +46,8 @@ export const error: Locale['error'] = {
  */
 export const jobs: Locale['jobs'] = {
   status: {
-    queued: 'Queued', running: 'AI is writing', pausing: 'Pausing', paused: 'Paused',
+      awaiting_review: 'Awaiting author review',
+    queued: 'Queued', running: 'AI is working', pausing: 'Pausing', paused: 'Paused',
     cancelling: 'Stopping', cancelled: 'Cancelled', failed: 'Ran into a problem', completed: 'Done',
   },
   type: {

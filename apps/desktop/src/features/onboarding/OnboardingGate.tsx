@@ -3,6 +3,7 @@ import { getSetting, setSetting } from '@/db/repos/settingsRepo';
 import { useSettings } from '@/stores/settingsStore';
 import { ONBOARDING_DONE_KEY } from './steps';
 import { OnboardingWizard } from './OnboardingWizard';
+import { ServerOnboarding } from './ServerOnboarding';
 
 /**
  * 决定要不要弹首启引导：已经配过供应商、或者已经走过（含主动跳过）一次的都不再打扰。
@@ -10,6 +11,7 @@ import { OnboardingWizard } from './OnboardingWizard';
  */
 export function OnboardingGate() {
   const [show, setShow] = useState(false);
+  const mode = useSettings(s => s.settings.aiServiceMode);
   useEffect(() => {
     void (async () => {
       const done = await getSetting<boolean>(ONBOARDING_DONE_KEY, false).catch(() => true);
@@ -23,5 +25,6 @@ export function OnboardingGate() {
     })();
   }, []);
   if (!show) return null;
+  if (mode !== 'local') return <ServerOnboarding onClose={() => setShow(false)} />;
   return <OnboardingWizard onClose={() => setShow(false)} />;
 }

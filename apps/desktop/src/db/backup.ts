@@ -8,7 +8,7 @@ export const DB_FILE = 'the-water.db';
  * 而「备份来自更新版本的 The Water」这道保护就形同虚设。
  * `test/db/backup.test.ts` 会读迁移目录断言两者一致，漏改即测试红。
  */
-export const APP_SCHEMA_VERSION = 8;
+export const APP_SCHEMA_VERSION = 13;
 
 const SQLITE_MAGIC = 'SQLite format 3\0';
 /** 备份必须能找到的表，避免把别的 SQLite 文件当成本应用的库恢复进来。 */
@@ -69,23 +69,19 @@ export function preRestoreCopyName(at: Date = new Date()): string {
 }
 
 /**
- * 把当前库落盘成一个可搬走的单文件：先把 WAL 合并回主库，再盖上数据版本号。
- * 失败不抛（PRAGMA 在某些环境下不可用），只是备份里少个版本号。
+ * 用 SQLite 一致性快照输出完整单文件，失败直接报告。
  */
-async function sealDatabase(): Promise<void> {
-  const db = getDb();
-  await db.execute(`PRAGMA user_version = ${APP_SCHEMA_VERSION}`).catch(() => undefined);
-  await db.execute('PRAGMA wal_checkpoint(TRUNCATE)').catch(() => undefined);
+export async function snapshotDatabase(path:string):Promise<void> {
+  await getDb().execute(`PRAGMA user_version = ${APP_SCHEMA_VERSION}`);
+  // VACUUM INTO reads a consistent SQLite snapshot even when WAL writers are active.
+  await getDb().execute('VACUUM INTO ?', [path]);
 }
 
-/** 备份数据库：弹保存对话框，把主库文件复制过去。返回路径，取消则 null。 */
 export async function backupDatabase(): Promise<string | null> {
   const { save } = await import('@tauri-apps/plugin-dialog');
-  const { BaseDirectory, copyFile } = await import('@tauri-apps/plugin-fs');
-  await sealDatabase();
   const path = await save({ defaultPath: backupFileName(), filters: [{ name: '数据库备份', extensions: ['db'] }] });
   if (!path) return null;
-  await copyFile(DB_FILE, path, { fromPathBaseDir: BaseDirectory.AppData });
+  await snapshotDatabase(path);
   return path;
 }
 
@@ -104,7 +100,7 @@ export interface RestoreResult {
  */
 export async function restoreDatabase(path?: string): Promise<RestoreResult | null> {
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const { BaseDirectory, copyFile, readFile, remove, writeFile } = await import('@tauri-apps/plugin-fs');
+  const { BaseDirectory, readFile, writeFile } = await import('@tauri-apps/plugin-fs');
   const picked = path ?? (await open({ multiple: false, filters: [{ name: '数据库备份', extensions: ['db', 'sqlite', 'sqlite3'] }] }));
   if (!picked || Array.isArray(picked)) return null;
 
@@ -112,26 +108,22 @@ export async function restoreDatabase(path?: string): Promise<RestoreResult | nu
   const check = checkBackup(bytes);
   if (!check.ok) throw new Error(check.reason ?? '备份文件无法识别');
 
+  const {invoke}=await import('@tauri-apps/api/core');
+  await invoke('db_validate_backup',{path:picked});
+  const {suspendStoryOptionsForRestore}=await import('@/novel/storyOptions');
+  await suspendStoryOptionsForRestore();
+  await (await import('@/novel/outlineReview')).suspendOutlineReviewsForRestore();
+  const {suspendAssistantForRestore}=await import('@/assistant/runtime');
+  await suspendAssistantForRestore();
+  const {suspendJobRunnerForRestore}=await import('@/jobs/runner');
+  await suspendJobRunnerForRestore();
+  const {appDataDir,join}=await import('@tauri-apps/api/path');
   const previousCopy = preRestoreCopyName();
-  await copyFile(DB_FILE, previousCopy, { fromPathBaseDir: BaseDirectory.AppData, toPathBaseDir: BaseDirectory.AppData }).catch(() => undefined);
-  await closeConnection();
-  await writeFile(DB_FILE, bytes, { baseDir: BaseDirectory.AppData });
-  // WAL / SHM 属于旧库，留着会和新文件对不上
-  for (const stale of [`${DB_FILE}-wal`, `${DB_FILE}-shm`]) {
-    await remove(stale, { baseDir: BaseDirectory.AppData }).catch(() => undefined);
-  }
+  await snapshotDatabase(await join(await appDataDir(),previousCopy));
+  const staged=`${DB_FILE}.restore-staged-${Date.now()}`;
+  await writeFile(staged,bytes,{baseDir:BaseDirectory.AppData});
+  await invoke('db_install_backup',{staged});
   return { path: picked, version: check.version, previousCopy, needsRestart: true };
-}
-
-async function closeConnection(): Promise<void> {
-  try {
-    const { default: Database } = await import('@tauri-apps/plugin-sql');
-    const { DB_URL } = await import('./tauriDb');
-    const inner = await Database.load(DB_URL);
-    await inner.close();
-  } catch {
-    /* 关不掉也继续：文件覆盖后立刻重启即可 */
-  }
 }
 
 /** 在系统文件管理器里打开数据目录（选中数据库文件）。 */

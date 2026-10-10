@@ -1,3 +1,5 @@
+import { PlannedThreadSchema } from './threadPlanning';
+import { GENRE_PACK_IDS } from './genrePacks';
 /**
  * Novel-workshop domain types: user requirements, chapter context and the zod
  * schemas for every structured LLM output (outline, chapter table, summary,
@@ -5,7 +7,7 @@
  */
 import { z } from 'zod';
 import {
-  SettingKind,
+  SettingKind, WritingBriefSchema,
   emptyLore,
   emptyVoice,
   type Arc,
@@ -72,7 +74,7 @@ export const NovelRequirementsSchema = z.object({
   language: reqStr('简体中文'),
   extra: reqStr(),
   docType: z.string().max(40).default('long-webnovel'),
-  genrePackIds: z.array(z.string().max(40)).max(6).default([]),
+  genrePackIds: z.array(z.string().max(40)).max(GENRE_PACK_IDS.length).default([]),
   disabledLore: z.array(z.string().max(80)).max(100).default([]),
 });
 
@@ -132,7 +134,7 @@ export type OutlineArc = z.infer<typeof OutlineArcSchema>;
 
 export const OutlineBeatSchema = z.object({
   /** 0-based index into `arcs`. */
-  arcIndex: z.number().int().min(0).catch(0),
+  arcIndex: z.number().int().min(0),
   title: z.string().min(1).max(100),
   summary: text(),
   characterNames: nameList(50),
@@ -142,13 +144,29 @@ export const OutlineBeatSchema = z.object({
 export type OutlineBeat = z.infer<typeof OutlineBeatSchema>;
 
 export const OutlineDocSchema = z.object({
+  writing: z.object({brief:WritingBriefSchema.extend({premise:z.string().trim().min(1,'创作简报缺少故事前提'),mainline:z.string().trim().min(1,'创作简报缺少全书主线')}),volumes:z.array(z.object({title:text(),summary:text(),startChapterNo:z.number().int().min(1).max(500),endChapterNo:z.number().int().min(1).max(500),arcIndexes:z.array(z.number().int().min(0))})).max(100),intents:z.array(z.object({characterName:text(),goal:text(),motivation:text(),contradiction:text(),fear:text().optional(),belief:text().optional(),habitualStrategy:text().optional(),independentAgenda:text().optional(),growth:z.array(z.object({chapterNo:z.number().int().min(1).max(500),change:text()}))})).max(500),threads:z.array(PlannedThreadSchema).max(30).optional()}).optional(),
   title: text(100),
-  logline: text(1000),
+  logline: z.string().trim().min(1, '大纲缺少全书主线，请重新生成').max(1000),
   themes: z.array(z.string().max(100)).max(20).default([]),
   settings: z.array(OutlineSettingSchema).max(500).default([]),
   characters: z.array(OutlineCharacterSchema).max(500).default([]),
-  arcs: z.array(OutlineArcSchema).max(200).default([]),
+  arcs: z.array(OutlineArcSchema).min(1, 'arcs 是空数组，必须补全故事弧').max(200),
   beats: z.array(OutlineBeatSchema).max(5000).default([]),
+}).superRefine((outline, ctx) => {
+  const count = outline.arcs.length;
+  const allowed = count ? `合法下标为 0–${count - 1}` : 'arcs 是空数组，必须先补全实际故事弧';
+  outline.writing?.volumes.forEach((volume, vi) => {
+    if (volume.startChapterNo > volume.endChapterNo) ctx.addIssue({ code: 'custom', path: ['writing', 'volumes', vi, 'endChapterNo'], message: '分卷结束章不能早于开始章' });
+    volume.arcIndexes.forEach((index, ii) => {
+      if (index >= count) ctx.addIssue({ code: 'custom', path: ['writing', 'volumes', vi, 'arcIndexes', ii], message: `分卷「${volume.title}」引用不存在的故事弧下标 ${index}；${allowed}。arcIndexes 使用从 0 开始的 arcs 数组下标，分卷不能代替 arcs。` });
+    });
+  });
+  outline.beats.forEach((beat, bi) => {
+    if (beat.arcIndex >= count) ctx.addIssue({ code: 'custom', path: ['beats', bi, 'arcIndex'], message: `情节点「${beat.title}」引用不存在的故事弧下标 ${beat.arcIndex}；${allowed}` });
+  });
+  outline.writing?.intents.forEach((intent, ii) => {
+    if (!outline.characters.some(c => c.name === intent.characterName || c.aliases.includes(intent.characterName))) ctx.addIssue({ code: 'custom', path: ['writing', 'intents', ii, 'characterName'], message: `人物动机引用不存在的人物「${intent.characterName}」，必须使用 characters 中的人物姓名或别名` });
+  });
 });
 export type OutlineDoc = z.infer<typeof OutlineDocSchema>;
 

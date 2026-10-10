@@ -1,0 +1,31 @@
+{
+  "label": "REAL provider response to TEST input; interface smoke only, not literary quality",
+  "startedAt": "2026-10-08T22:12:08.584Z",
+  "endedAt": "2026-10-08T22:12:09.505Z",
+  "engine": "Mastra",
+  "provider": "lunaroute",
+  "model": "deepseek-4.1-flash",
+  "status": "completed",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "TEST 后端接口验收，不是写作质量评测。请只回复：后端服务已连接。"
+      }
+    ],
+    "maxTokens": 512,
+    "temperature": 0.6
+  },
+  "output": "后端服务已连接。",
+  "finishReason": {
+    "type": "done",
+    "finishReason": "stop"
+  },
+  "reportedUsage": {
+    "inputTokens": 50,
+    "outputTokens": 22
+  },
+  "error": null,
+  "upstreamKeyInResponse": false,
+  "verification": "TEST account/email verification fixture; real upstream fetch, real Mastra workflow, real Hono auth and task endpoints"
+}

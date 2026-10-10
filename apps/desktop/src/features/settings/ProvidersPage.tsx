@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Plus, Star, Trash2, Pencil, PlugZap } from 'lucide-react';
 import { fmt, t } from '@/i18n';
 import { Badge, Button, EmptyState, IconButton, confirm, deleteLabel } from '@/components/ui';
@@ -13,7 +14,8 @@ import type { ProviderConfig } from '@/llm/types';
 import { ProviderForm } from './ProviderForm';
 
 export function ProvidersPage() {
-  const { providers, settings, refreshProviders, update } = useSettings();
+  const navigate = useNavigate();
+  const { providers, providerError, settings, refreshProviders, update } = useSettings();
   const [editing, setEditing] = useState<ProviderConfig | null | 'new'>(null);
   const [testing, setTesting] = useState<string | null>(null);
 
@@ -57,11 +59,36 @@ export function ProvidersPage() {
     await refreshProviders();
   };
 
+  if (settings.aiServiceMode !== 'local') return (
+    <div className="space-y-6">
+      <h1 className="page-heading text-[28px] font-bold">{t.settings.serverService}</h1>
+      <p className="text-sm text-ink-500">{t.settings.serverServiceDesc}</p>
+      <p className="text-sm text-ink-500">{t.settings.serverPrivacy}</p>
+      {providerError && <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{providerError}</p>}
+      {providers[0] && <div className="rounded-2xl bg-paper-0 p-5 shadow-soft dark:bg-paper-900">
+        <p>{providers[0].name} · {providers[0].model}</p>
+        <p className="mt-1 text-xs text-ink-500">{providers[0].baseUrl}</p>
+      </div>}
+      <div className="flex gap-3">
+        <Button variant="primary" onClick={() => navigate('/settings/account')}>{t.settings.serverLogin}</Button>
+        <Button onClick={async () => {
+          try { await refreshProviders(); const state = useSettings.getState(); if (!state.providers.length) throw new Error(state.providerError || t.settings.serverUnavailable); }
+          catch (error) { toast.error(error instanceof Error ? error.message : String(error)); }
+        }}>{t.settings.serverRefresh}</Button>
+      </div>
+      <Button variant="ghost" onClick={() => update({ aiServiceMode: 'local' })}>{t.settings.localMode}</Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-6">
+      <div className="flex items-center justify-between gap-3 text-sm text-ink-500">
+        <p>{t.settings.localModeDesc}</p>
+        <Button onClick={() => update({ aiServiceMode: 'server' })}>{t.settings.serverMode}</Button>
+      </div>
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl font-semibold tracking-wide">{t.settings.providers}</h1>
+          <h1 className="page-heading text-[28px] font-bold">{t.settings.providers}</h1>
           <p className="mt-1 text-sm text-ink-500">{t.settings.providersDesc}</p>
         </div>
         <Button variant="primary" onClick={() => setEditing('new')}><Plus size={16} strokeWidth={1.75} aria-hidden="true" />{t.settings.addProvider}</Button>

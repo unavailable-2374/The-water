@@ -1,0 +1,61 @@
+{
+  "installedApp": "/Applications/The Water.app",
+  "sha256": "ea5e8247cd79a86355987566b57096ca0b1982a725b6a147c0848ae104fba753",
+  "codesign": "deep strict verified",
+  "nativeUi": {
+    "launch": "passed",
+    "inspectCurrentOutlineEnabled": true,
+    "reimagineEnabled": true,
+    "outlineCardsPresent": true
+  },
+  "unchangedProductionTables": {
+    "novels": {
+      "count": 4,
+      "sha256": "665404ecc370b449f937e614ca3b6f247c0776d5fdf3d427d1e7a352edffbe3a"
+    },
+    "chapters": {
+      "count": 140,
+      "sha256": "e41c6a6248703d0f73891e707620ca08f1d876705d39f2225ebde9a22432579c"
+    },
+    "chapter_versions": {
+      "count": 28,
+      "sha256": "98b2c315b0705f7fb1421de3893b4f0d03029f4d5f96ddda2a93449f4e0aa682"
+    },
+    "storyline_characters": {
+      "count": 29,
+      "sha256": "6decc85c3a8d3ef4ae6b6eab37e676c66e2cc8388fde1742c903b42210c43adf"
+    },
+    "storyline_settings": {
+      "count": 36,
+      "sha256": "c282e8e452306a19d759c907917278fc80983d4f679cd90c607a45153c2cb469"
+    },
+    "storyline_arcs": {
+      "count": 25,
+      "sha256": "321b5ab58f7347d3081542c284e62c7f3a110aa6c044987470214ddc6d5617dd"
+    },
+    "storyline_beats": {
+      "count": 58,
+      "sha256": "0e2eb324321d0777d2943d9e6f2f35e12227311fc39575f12477fa762cd44912"
+    },
+    "writing_cards": {
+      "count": 61,
+      "sha256": "1a50eab5a62caa2be7131d33b43f83730a184a3a570e0de03fd85add58dd86fd"
+    }
+  },
+  "quickCheck": [
+    [
+      "ok"
+    ]
+  ],
+  "foreignKeyCheck": [],
+  "productionGenerationOrAdoptionPerformed": false,
+  "workspaceTests": {
+    "passed": 1333,
+    "skipped": 11
+  },
+  "rustTests": 8,
+  "typecheck": "all workspaces passed",
+  "releaseBuild": "passed",
+  "realModelRecord": "docs/writing/evaluation/outline-review-real-20261010.json",
+  "realModelFlow": "passed on two TEST outlines; does not establish general literary reliability"
+}

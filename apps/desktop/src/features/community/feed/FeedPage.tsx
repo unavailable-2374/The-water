@@ -20,7 +20,7 @@ export function FeedPage() {
       <div className="mx-auto max-w-3xl px-10 py-10">
         <header className="mb-6 flex items-end justify-between gap-6">
           <div>
-            <h1 className="font-serif text-3xl font-semibold tracking-wide">{t.community.tabs.feed}</h1>
+            <h1 className="font-sans text-3xl font-semibold tracking-tight">{t.community.tabs.feed}</h1>
             <p className="mt-1 text-sm text-ink-500">{t.community.feedSubtitle}</p>
           </div>
           <PublicTabs />

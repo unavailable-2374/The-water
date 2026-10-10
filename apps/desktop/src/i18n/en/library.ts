@@ -60,7 +60,7 @@ export const library: Locale['library'] = {
     listLabel: 'Items in Trash',
     loading: 'Loading Trash…',
     noPremise: 'No premise written',
-    docKind: 'PDF document',
+    docKind: 'Reading document',
     deletedAt: 'Deleted {time}',
     daysLeft: '{days} days left',
     expiring: 'Clearing out soon',

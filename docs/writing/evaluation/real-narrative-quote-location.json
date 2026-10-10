@@ -1,0 +1,247 @@
+{
+  "label": "REAL review calls on TEST contradictions. Not a literary quality score.",
+  "model": "deepseek-4.1-flash",
+  "results": [
+    {
+      "fixture": {
+        "id": "TEST-early-knowledge",
+        "category": "knowledge",
+        "basis": "已确认：角色顾岚在第三章才首次接触密码含义。当前是第一章，顾岚为唯一视角，此前没有任何人告诉她密码。",
+        "text": "顾岚第一次走到档案馆门口。她还没见过任何档案，也没和任何人交谈。她准确地按下了只有第三章密信才会公布的密码，门应声打开。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "TEST-early-knowledge-1",
+              "category": "knowledge",
+              "severity": "block",
+              "evidence": {
+                "from": 32,
+                "to": 60,
+                "quote": "她准确地按下了只有第三章密信才会公布的密码，门应声打开。"
+              },
+              "basis": "已确认资料规定顾岚在第三章才首次接触密码含义，且当前第一章她是唯一视角，此前无人告诉她密码。正文却让她在第一章准确按下该密码，属于视角人物提前知情，越过已确认的知情边界，并提前消耗了第三章密信的揭示功能。",
+              "suggestion": "删除顾岚准确输入密码并开门的描写。可改为她面对门锁无从下手、尝试无关线索失败，或只发现与密码无关的异常；密码含义与正确输入应保留到第三章由密信揭示。",
+              "sourceIds": [
+                "TEST-early-knowledge"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"TEST-early-knowledge-1\",\"category\":\"knowledge\",\"severity\":\"block\",\"evidence\":{\"quote\":\"她准确地按下了只有第三章密信才会公布的密码，门应声打开。\"},\"basis\":\"已确认资料规定顾岚在第三章才首次接触密码含义，且当前第一章她是唯一视角，此前无人告诉她密码。正文却让她在第一章准确按下该密码，属于视角人物提前知情，越过已确认的知情边界，并提前消耗了第三章密信的揭示功能。\",\"suggestion\":\"删除顾岚准确输入密码并开门的描写。可改为她面对门锁无从下手、尝试无关线索失败，或只发现与密码无关的异常；密码含义与正确输入应保留到第三章由密信揭示。\",\"sourceIds\":[\"TEST-early-knowledge\"]}]}",
+        "usage": {
+          "inputTokens": 886,
+          "outputTokens": 430
+        }
+      },
+      "detected": true
+    },
+    {
+      "fixture": {
+        "id": "TEST-broken-motivation",
+        "category": "motivation",
+        "basis": "已确认的人物红线：顾岚绝不以无辜工人的生计换个人奖金；本章她完全知情且没有受威胁、误解或改变信念。",
+        "text": "顾岚知道伪造签字会使十位无辜工人失业。她没有受到任何威胁，也没有改变保护工人的信念。为了独占一百元奖金，她毫不犹豫地伪造了他们的签字。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "TEST-broken-motivation-1",
+              "category": "motivation",
+              "severity": "block",
+              "evidence": {
+                "from": 0,
+                "to": 67,
+                "quote": "顾岚知道伪造签字会使十位无辜工人失业。她没有受到任何威胁，也没有改变保护工人的信念。为了独占一百元奖金，她毫不犹豫地伪造了他们的签字。"
+              },
+              "basis": "已确认人物红线为顾岚绝不以无辜工人的生计换个人奖金，且本章她完全知情、未受威胁、未误解、未改变保护工人的信念。正文却写她明知伪造签字会使十位无辜工人失业，仍为独占一百元奖金毫不犹豫地伪造签字，直接违反该动机红线，且未提供任何可解释其行为转折的触发、压力或信念变化。",
+              "suggestion": "删除或改写该行为，使其不违反红线：可改为顾岚拒绝伪造签字，或让她在不知情/被胁迫/信念已发生可信转变的前提下行动，并补足触发事件、内心权衡与代价。若保留冲突，应明确她并非以工人生计换奖金，而是另有被迫或误判因素。",
+              "sourceIds": [
+                "TEST-broken-motivation"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"TEST-broken-motivation-1\",\"category\":\"motivation\",\"severity\":\"block\",\"evidence\":{\"quote\":\"顾岚知道伪造签字会使十位无辜工人失业。她没有受到任何威胁，也没有改变保护工人的信念。为了独占一百元奖金，她毫不犹豫地伪造了他们的签字。\"},\"basis\":\"已确认人物红线为顾岚绝不以无辜工人的生计换个人奖金，且本章她完全知情、未受威胁、未误解、未改变保护工人的信念。正文却写她明知伪造签字会使十位无辜工人失业，仍为独占一百元奖金毫不犹豫地伪造签字，直接违反该动机红线，且未提供任何可解释其行为转折的触发、压力或信念变化。\",\"suggestion\":\"删除或改写该行为，使其不违反红线：可改为顾岚拒绝伪造签字，或让她在不知情/被胁迫/信念已发生可信转变的前提下行动，并补足触发事件、内心权衡与代价。若保留冲突，应明确她并非以工人生计换奖金，而是另有被迫或误判因素。\",\"sourceIds\":[\"TEST-broken-motivation\"]}]}",
+        "usage": {
+          "inputTokens": 889,
+          "outputTokens": 357
+        }
+      },
+      "detected": true
+    },
+    {
+      "fixture": {
+        "id": "TEST-time-conflict",
+        "category": "timeline",
+        "basis": "已确认世界规则：档案馆到东闸步行至少四十分钟。该世界没有车辆、传送或其他交通方式。",
+        "text": "钟敲了九下，顾岚离开档案馆，独自步行去东闸。她沿着唯一的路一直走，没有使用任何交通工具。九点十分，她已经在东闸完成了登记。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "timeline-archive-eastgate-10min",
+              "category": "timeline",
+              "severity": "block",
+              "evidence": {
+                "from": 0,
+                "to": 61,
+                "quote": "钟敲了九下，顾岚离开档案馆，独自步行去东闸。她沿着唯一的路一直走，没有使用任何交通工具。九点十分，她已经在东闸完成了登记。"
+              },
+              "basis": "已确认世界规则规定档案馆到东闸步行至少四十分钟，且没有车辆、传送或其他交通方式。正文中顾岚九点离开档案馆，九点十分已到东闸完成登记，仅过十分钟，时间与地点推进不成立。",
+              "suggestion": "将到达并完成登记的时间改为九点四十分或更晚，或将离开档案馆的时间提前到八点半之前，使步行耗时符合至少四十分钟的设定。",
+              "sourceIds": [
+                "TEST-time-conflict"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"timeline-archive-eastgate-10min\",\"category\":\"timeline\",\"severity\":\"block\",\"evidence\":{\"quote\":\"钟敲了九下，顾岚离开档案馆，独自步行去东闸。她沿着唯一的路一直走，没有使用任何交通工具。九点十分，她已经在东闸完成了登记。\"},\"basis\":\"已确认世界规则规定档案馆到东闸步行至少四十分钟，且没有车辆、传送或其他交通方式。正文中顾岚九点离开档案馆，九点十分已到东闸完成登记，仅过十分钟，时间与地点推进不成立。\",\"suggestion\":\"将到达并完成登记的时间改为九点四十分或更晚，或将离开档案馆的时间提前到八点半之前，使步行耗时符合至少四十分钟的设定。\",\"sourceIds\":[\"TEST-time-conflict\"]}]}",
+        "usage": {
+          "inputTokens": 884,
+          "outputTokens": 401
+        }
+      },
+      "detected": true
+    },
+    {
+      "fixture": {
+        "id": "TEST-false-payoff",
+        "category": "thread",
+        "basis": "已确认伏笔 TEST-red-key：尚未被任何人找到的红钥匙只开地下二号门；其他钥匙均不能开。当前本章红钥匙仍锁在馆长未打开的柜中。",
+        "text": "顾岚从来没有拿到红钥匙，馆长的柜子也始终锁着。她掏出普通的宿舍钥匙，顺利打开只能由红钥匙开启的地下二号门。红钥匙的秘密就这样解开了。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "TEST-false-payoff-thread-1",
+              "category": "thread",
+              "severity": "block",
+              "evidence": {
+                "from": 23,
+                "to": 66,
+                "quote": "她掏出普通的宿舍钥匙，顺利打开只能由红钥匙开启的地下二号门。红钥匙的秘密就这样解开了。"
+              },
+              "basis": "已确认伏笔 TEST-red-key 规定：尚未被任何人找到的红钥匙只开地下二号门，其他钥匙均不能开；当前本章红钥匙仍锁在馆长未打开的柜中。正文却让顾岚用普通宿舍钥匙打开只能由红钥匙开启的地下二号门，并据此解开红钥匙秘密，属于对伏笔的错误回收，同时违反已确认设定。",
+              "suggestion": "删除或改写该回收：若要让顾岚进入地下二号门，应先让她取得柜中的红钥匙，或明确写出其他合法开启机制并同步修改设定；若红钥匙秘密尚未到揭示点，则不要在本章用普通钥匙打开该门或宣告秘密解开。",
+              "sourceIds": [
+                "TEST-false-payoff",
+                "TEST-red-key"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"TEST-false-payoff-thread-1\",\"category\":\"thread\",\"severity\":\"block\",\"evidence\":{\"quote\":\"她掏出普通的宿舍钥匙，顺利打开只能由红钥匙开启的地下二号门。红钥匙的秘密就这样解开了。\"},\"basis\":\"已确认伏笔 TEST-red-key 规定：尚未被任何人找到的红钥匙只开地下二号门，其他钥匙均不能开；当前本章红钥匙仍锁在馆长未打开的柜中。正文却让顾岚用普通宿舍钥匙打开只能由红钥匙开启的地下二号门，并据此解开红钥匙秘密，属于对伏笔的错误回收，同时违反已确认设定。\",\"suggestion\":\"删除或改写该回收：若要让顾岚进入地下二号门，应先让她取得柜中的红钥匙，或明确写出其他合法开启机制并同步修改设定；若红钥匙秘密尚未到揭示点，则不要在本章用普通钥匙打开该门或宣告秘密解开。\",\"sourceIds\":[\"TEST-false-payoff\",\"TEST-red-key\"]}]}",
+        "usage": {
+          "inputTokens": 901,
+          "outputTokens": 518
+        }
+      },
+      "detected": true
+    },
+    {
+      "fixture": {
+        "id": "TEST-ending-overrun",
+        "category": "ending",
+        "basis": "已确认主线：全书第五章才公开证据；第一章仅发现问题，结局禁止销毁档案或消除全部后果。本章是第一章。",
+        "text": "顾岚刚在第一章发现疑点，便向全城公开了完整证据。所有嫌疑人立即认罪，她随后焚毁所有原始档案。此前的代价和后果全部消失，故事结束。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "TEST-ending-overrun-knowledge-1",
+              "category": "knowledge",
+              "severity": "block",
+              "evidence": {
+                "from": 0,
+                "to": 24,
+                "quote": "顾岚刚在第一章发现疑点，便向全城公开了完整证据。"
+              },
+              "basis": "已确认主线为第五章才公开证据，第一章仅发现问题。此处第一章即公开完整证据，越过视角人物的知情与行动边界，提前完成后续关键节点。",
+              "suggestion": "第一章只保留发现疑点、线索不足和调查受阻；公开证据留到第五章，并补足她为何不能立即公开的限制或代价。",
+              "sourceIds": [
+                "TEST-ending-overrun"
+              ]
+            },
+            {
+              "id": "TEST-ending-overrun-ending-1",
+              "category": "ending",
+              "severity": "block",
+              "evidence": {
+                "from": 34,
+                "to": 64,
+                "quote": "她随后焚毁所有原始档案。此前的代价和后果全部消失，故事结束。"
+              },
+              "basis": "已确认结局禁止销毁档案或消除全部后果。此处第一章即焚毁原始档案、让此前代价和后果全部消失并结束故事，越过已确认结局。",
+              "suggestion": "删除焚毁档案和后果消失的收束，第一章结尾保留疑点与未解代价，让故事继续推进。",
+              "sourceIds": [
+                "TEST-ending-overrun"
+              ]
+            },
+            {
+              "id": "TEST-ending-overrun-causality-1",
+              "category": "causality",
+              "severity": "block",
+              "evidence": {
+                "from": 24,
+                "to": 33,
+                "quote": "所有嫌疑人立即认罪"
+              },
+              "basis": "从刚发现疑点到所有嫌疑人立即认罪，缺少证据链、审讯博弈、压力或交易等可见触发与权衡，结果无因。",
+              "suggestion": "补写认罪所需的具体证据、审讯压力或利益交换，或改为部分嫌疑人否认、反扑，使认罪有可追溯的因果链。",
+              "sourceIds": [
+                "TEST-ending-overrun"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"TEST-ending-overrun-knowledge-1\",\"category\":\"knowledge\",\"severity\":\"block\",\"evidence\":{\"quote\":\"顾岚刚在第一章发现疑点，便向全城公开了完整证据。\"},\"basis\":\"已确认主线为第五章才公开证据，第一章仅发现问题。此处第一章即公开完整证据，越过视角人物的知情与行动边界，提前完成后续关键节点。\",\"suggestion\":\"第一章只保留发现疑点、线索不足和调查受阻；公开证据留到第五章，并补足她为何不能立即公开的限制或代价。\",\"sourceIds\":[\"TEST-ending-overrun\"]},{\"id\":\"TEST-ending-overrun-ending-1\",\"category\":\"ending\",\"severity\":\"block\",\"evidence\":{\"quote\":\"她随后焚毁所有原始档案。此前的代价和后果全部消失，故事结束。\"},\"basis\":\"已确认结局禁止销毁档案或消除全部后果。此处第一章即焚毁原始档案、让此前代价和后果全部消失并结束故事，越过已确认结局。\",\"suggestion\":\"删除焚毁档案和后果消失的收束，第一章结尾保留疑点与未解代价，让故事继续推进。\",\"sourceIds\":[\"TEST-ending-overrun\"]},{\"id\":\"TEST-ending-overrun-causality-1\",\"category\":\"causality\",\"severity\":\"block\",\"evidence\":{\"quote\":\"所有嫌疑人立即认罪\"},\"basis\":\"从刚发现疑点到所有嫌疑人立即认罪，缺少证据链、审讯博弈、压力或交易等可见触发与权衡，结果无因。\",\"suggestion\":\"补写认罪所需的具体证据、审讯压力或利益交换，或改为部分嫌疑人否认、反扑，使认罪有可追溯的因果链。\",\"sourceIds\":[\"TEST-ending-overrun\"]}]}",
+        "usage": {
+          "inputTokens": 890,
+          "outputTokens": 1674
+        }
+      },
+      "detected": true
+    },
+    {
+      "fixture": {
+        "id": "TEST-cross-volume-canon",
+        "category": "canon",
+        "basis": "第一卷已确认且第二卷仍有效的永久规则：人眼看不见隐形墨水，只有盐水能显色。当前第二卷没有规则变更，纸面从未接触盐水或其他显色手段。",
+        "text": "第二卷开始，顾岚取出从未接触盐水的隐形墨水信。她在没有任何设备和显色手段的情况下，直接用肉眼清楚读出了全部隐形文字。"
+      },
+      "result": {
+        "value": {
+          "issues": [
+            {
+              "id": "canon-invisible-ink-naked-eye",
+              "category": "canon",
+              "severity": "block",
+              "evidence": {
+                "from": 0,
+                "to": 58,
+                "quote": "第二卷开始，顾岚取出从未接触盐水的隐形墨水信。她在没有任何设备和显色手段的情况下，直接用肉眼清楚读出了全部隐形文字。"
+              },
+              "basis": "已确认永久规则：人眼看不见隐形墨水，只有盐水能显色；第二卷无规则变更，且该信纸从未接触盐水或其他显色手段。正文却让顾岚在无设备、无显色手段时直接用肉眼读出全部隐形文字，直接违反该世界规则。",
+              "suggestion": "改为顾岚无法用肉眼读出内容，必须寻找盐水或其他已确认的显色手段；若需推进信息，可写她发现信纸空白、尝试显色或因缺少盐水而受阻，再通过合规手段获得文字。",
+              "sourceIds": [
+                "TEST-cross-volume-canon"
+              ]
+            }
+          ]
+        },
+        "raw": "{\"issues\":[{\"id\":\"canon-invisible-ink-naked-eye\",\"category\":\"canon\",\"severity\":\"block\",\"evidence\":{\"quote\":\"第二卷开始，顾岚取出从未接触盐水的隐形墨水信。她在没有任何设备和显色手段的情况下，直接用肉眼清楚读出了全部隐形文字。\"},\"basis\":\"已确认永久规则：人眼看不见隐形墨水，只有盐水能显色；第二卷无规则变更，且该信纸从未接触盐水或其他显色手段。正文却让顾岚在无设备、无显色手段时直接用肉眼读出全部隐形文字，直接违反该世界规则。\",\"suggestion\":\"改为顾岚无法用肉眼读出内容，必须寻找盐水或其他已确认的显色手段；若需推进信息，可写她发现信纸空白、尝试显色或因缺少盐水而受阻，再通过合规手段获得文字。\",\"sourceIds\":[\"TEST-cross-volume-canon\"]}]}",
+        "usage": {
+          "inputTokens": 893,
+          "outputTokens": 405
+        }
+      },
+      "detected": true
+    }
+  ]
+}

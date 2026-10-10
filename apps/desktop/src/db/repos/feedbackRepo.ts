@@ -1,5 +1,8 @@
 import { getDb, now } from '../db';
 import { PROMOTE_THRESHOLD, demoteFromProfile, promoteIntoProfile, removedPhrases } from '@/novel/learning';
+import { proposeDocumentPlan,listDocumentPlans } from './planProposalsRepo';
+import { getNovel } from './novelsRepo';
+import { buildStorylineDoc } from './storylineRepo';
 import { getStyleExtras, setStyleProfile } from './storylineRepo';
 import { emptyStyleProfile, type StyleProfile } from '@the-water/shared';
 
@@ -28,15 +31,18 @@ export async function listFeedback(novelId: string): Promise<FeedbackRow[]> {
   return rows.map((r) => ({ phrase: r.phrase, count: r.count, promoted: r.promoted === 1 }));
 }
 
-/** Phrases at/over threshold go into the novel's profile negatives (soft list). */
+/** Learned preferences are proposals; only explicit author adoption changes confirmed style. */
 export async function promotePending(novelId: string): Promise<string[]> {
   const rows = await getDb().select<{ phrase: string }>('SELECT phrase FROM style_feedback WHERE novel_id = ? AND promoted = 0 AND count >= ? AND length(phrase) >= 2', [novelId, PROMOTE_THRESHOLD]);
   const phrases = rows.map((r) => r.phrase);
   if (phrases.length === 0) return [];
   const { styleProfile } = await getStyleExtras(novelId);
   const next = promoteIntoProfile(styleProfile ?? emptyStyleProfile({ id: 'learned', name: '从修改中学到的' }), phrases);
-  await setStyleProfile(novelId, next);
-  for (const p of phrases) await getDb().execute('UPDATE style_feedback SET promoted = 1 WHERE novel_id = ? AND phrase = ?', [novelId, p]);
+  const label='写作偏好 / Writing preferences';
+  if((await listDocumentPlans(novelId)).some(p=>p.label===label)) return [];
+  const novel=await getNovel(novelId);if(!novel) throw new Error('小说不存在');
+  const doc=await buildStorylineDoc(novelId,novel.premise,novel.meta.themes);
+  await proposeDocumentPlan(novelId,{...doc,styleProfile:next},label);
   return phrases;
 }
 

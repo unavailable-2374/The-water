@@ -1,0 +1,154 @@
+{
+  "label": "REAL model responses; TEST fictional framework. Editorial judgments are not objective quality scores.",
+  "date": "2026-10-10T13:42:06.241Z",
+  "input": {
+    "title": "TEST 回声邮局",
+    "premise": "TEST 虚构框架：海岛邮递员林舟在停航前收到一封十年前寄出的求救信。寄信人是仍然健在、拒绝谈起往事的母亲。全篇只发生在离岛前的一个夜晚。没有时间旅行、鬼魂或超自然解释。母亲不能死亡，结局必须由林舟付出具体代价的主动选择推动。作者尚未决定信件迟到的原因或母女矛盾的解法。",
+    "requirements": {
+      "genre": "",
+      "style": "",
+      "pov": "第三人称有限",
+      "tense": "过去时",
+      "tone": "",
+      "audience": "",
+      "taboos": [
+        "超自然解释",
+        "时间旅行",
+        "用母亲死亡解决冲突"
+      ],
+      "mustHave": [
+        "母亲健在",
+        "主角主动选择并付出具体代价"
+      ],
+      "language": "简体中文",
+      "extra": "",
+      "docType": "short-story",
+      "genrePackIds": [],
+      "disabledLore": []
+    },
+    "targetChars": 3000,
+    "styleProfile": null
+  },
+  "cards": [
+    {
+      "title": "旧格口",
+      "mainline": "旧格口",
+      "conflict": "林舟想用这封迟到十年的信逼母亲说出真相；母亲则坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。",
+      "choiceAndCost": "林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧案。代价是失去 mainland 的工作、宿舍和离岛资格。",
+      "growth": "林舟发现信封背面有母亲当年补写的“别让孩子知道”，迟到并非天意，而是旧地址分拣错误与母亲中途反悔共同造成。",
+      "turns": [
+        "信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。",
+        "林舟在信封背面发现母亲补写的“别让孩子知道”。",
+        "母亲承认自己曾想求助，却在最后一刻选择沉默。"
+      ],
+      "ending": "母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。",
+      "aftermath": "候选A",
+      "id": "7XKYEFJqesKI44UkM9I_R"
+    },
+    {
+      "title": "代寄人",
+      "mainline": "代寄人",
+      "conflict": "林舟必须在职业伦理与保护母亲之间选择：他发现是退休老邮差故意扣下这封信，而老邮差正是他入行的恩人。",
+      "choiceAndCost": "林舟选择向邮政稽查举报老邮差私自扣信，并公开扣信事实。代价是失去老邮差给他的转正推荐、丢掉即将到手的 mainland 岗位，母亲也因秘密被揭开而不再信任他。",
+      "growth": "老邮差病重，托林舟把信还回，并承认当年不是救母亲，而是替她掩盖她曾想逃离家庭的事实。",
+      "turns": [
+        "林舟查到信件被老邮差锁进私人柜。",
+        "老邮差承认扣信，并要求林舟替他保密。",
+        "林舟选择举报，代价从职业延伸到亲情。"
+      ],
+      "ending": "林舟仍把信交到母亲手里，没有替她读，也没有替她解释。他独自留在岛上等待调查，母亲健在却拒绝再与他说话。",
+      "aftermath": "候选B",
+      "id": "Y9UTGgGqPCIgbTSqHQRaO"
+    },
+    {
+      "title": "最后一班船",
+      "mainline": "最后一班船",
+      "conflict": "林舟要决定是否用这封信阻止母亲继续替施害者保密；母亲宁愿把往事烂在肚子里，也不愿林舟成为揭发者。",
+      "choiceAndCost": "林舟选择复印并寄出举报材料，同时放弃离岛资格，留在岛上配合调查。代价是母亲可能永远不原谅他，他也要面对岛上熟人的排斥和失去邮局工作。",
+      "growth": "信里不是普通求救，而是母亲当年写给妇联的举报草稿，收信人却是林舟从未听过的姨妈；姨妈早已搬走，信被退回后无人认领。",
+      "turns": [
+        "信被夹在旧邮袋，因编号错挂直到停航前清舱才出现。",
+        "林舟发现收信人并非母亲常提的亲戚，而是一个被抹去的名字。",
+        "母亲拒绝作证，林舟却决定以邮递员身份寄出材料。"
+      ],
+      "ending": "母亲没有原谅林舟，但也没有死亡或消失。林舟留下，成为岛上唯一知道真相并承担后果的人，母女关系停在未和解但未断裂的状态。",
+      "aftermath": "候选C",
+      "id": "6-F0vqt14R443rR_zaXu8"
+    },
+    {
+      "title": "潮位线",
+      "mainline": "潮位线",
+      "conflict": "林舟是否离开岛去 mainland，还是留下接手母亲不愿关的旧邮局；母亲拒绝谈往事，让林舟误以为她从未为自己争取过。",
+      "choiceAndCost": "林舟选择登上最后一班船离岛，去接受 mainland 的工作。代价是把母亲和旧邮局留在岛上，放弃继承老屋，也放弃在当夜得到母亲解释的可能。",
+      "growth": "林舟算出迟到原因：信因邮资不足被扣在邮局，母亲当年没来补费，是因为林舟突发高烧；她选择先救林舟，也等于放弃寄信求救。",
+      "turns": [
+        "信因邮资不足被扣，母亲从未补费认领。",
+        "林舟发现母亲当年放弃寄信，是因为自己突发高烧。",
+        "母亲沉默不是无话可说，而是不愿承认自己曾想离开林舟。"
+      ],
+      "ending": "林舟离岛，母亲留在岛上，两人没有完成和解。船开前，林舟第一次主动给母亲写信，把选择权留给她；他付出一去难返的代价。",
+      "aftermath": "候选D",
+      "id": "m_n3lhYW1VsuBSgyAQk1r"
+    }
+  ],
+  "comparison": {
+    "summary": "四个候选都把冲突集中在离岛前一夜的有限时空内，但选择方向不同：A 以不逼问和留下承担母子沉默；B 以举报恩人维护规则并承受亲情断裂；C 以寄出举报材料主动揭发并留在岛上承担排斥；D 以离岛和写信把选择权交还母亲。人物上，A 与 D 更集中在林舟与母亲的直接关系，B 引入老邮差作为恩情债务，C 引入施害者与举报程序。转折分别来自旧格口、私人柜、错挂邮袋、邮资不足与高烧记忆。情绪落点从陪伴式承担、孤立等待、未和解未断裂到一去难返的离别。结局均未用母亲死亡解决冲突，也均保留母亲健在。",
+    "options": [
+      {
+        "optionId": "7XKYEFJqesKI44UkM9I_R",
+        "conflict": "林舟想用迟到十年的信逼母亲说出真相；母亲坚持沉默，认为揭开旧事会把林舟拖回她当年想切断的生活。",
+        "character": "林舟以克制和退让承担选择，母亲以沉默维持边界。",
+        "turns": "信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现；林舟在信封背面发现母亲补写的“别让孩子知道”；母亲承认自己曾想求助，却在最后一刻选择沉默。",
+        "emotion": "压抑、迟来的理解、无和解但选择陪伴；情绪落点不是释然，而是承担。",
+        "ending": "母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。",
+        "tradeoff": "选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函留下。得到的是母亲不被逼供的空间、自己留在岛上陪伴与处理旧事的可能，以及把决定权交还母亲的姿态；放弃的是 mainland 的工作、宿舍、离岛资格、职业前途，以及当夜得到完整真相与和解的可能。",
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "Y9UTGgGqPCIgbTSqHQRaO",
+        "conflict": "林舟必须在职业伦理与保护母亲之间选择：他发现是退休老邮差故意扣下这封信，而老邮差正是他入行的恩人。",
+        "character": "林舟被置于职业伦理、恩情与亲情之间；老邮差成为道德债务来源；母亲因秘密被揭开而不再信任。",
+        "turns": "林舟查到信件被老邮差锁进私人柜；老邮差承认扣信，并要求林舟替他保密；林舟选择举报，代价从职业延伸到亲情。",
+        "emotion": "背叛恩情与亲情撕裂并存，落点在孤立等待调查；母亲健在却拒绝再说话，使情绪停在未修复的断裂处。",
+        "ending": "林舟仍把信交到母亲手里，没有替她读，也没有替她解释。他独自留在岛上等待调查，母亲健在却拒绝再与他说话。",
+        "tradeoff": "选择向邮政稽查举报老邮差并公开扣信事实。得到的是事实公开、规则被维护、信件回到母亲手里，以及自己作为行动者承担调查后果的位置；放弃的是老邮差给的转正推荐、即将到手的 mainland 岗位、恩情关系、母亲的信任，以及较平稳的亲情结局。",
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "6-F0vqt14R443rR_zaXu8",
+        "conflict": "林舟要决定是否用这封信阻止母亲继续替施害者保密；母亲宁愿把往事烂在肚子里，也不愿林舟成为揭发者。",
+        "character": "林舟成为主动揭发者；母亲拒绝作证，宁愿保密；林舟独自承担真相公开后的岛上后果。",
+        "turns": "信被夹在旧邮袋，因编号错挂直到停航前清舱才出现；林舟发现收信人并非母亲常提的亲戚，而是一个被抹去的名字；母亲拒绝作证，林舟却决定以邮递员身份寄出材料。",
+        "emotion": "决绝、排斥、未和解但未断裂；情绪重心在揭发后的孤立与承担，而非获得原谅。",
+        "ending": "母亲没有原谅林舟，但也没有死亡或消失。林舟留下，成为岛上唯一知道真相并承担后果的人，母女关系停在未和解但未断裂的状态。",
+        "tradeoff": "选择复印并寄出举报材料，同时放弃离岛资格，留在岛上配合调查。得到的是把秘密推进公共程序、阻止施害者继续被母亲保密、自己掌握行动权；放弃的是母亲的原谅、邮局工作、离岛资格、岛上熟人的接纳，以及短期内母女和解的可能。",
+        "violations": [],
+        "requiresWiderScope": false
+      },
+      {
+        "optionId": "m_n3lhYW1VsuBSgyAQk1r",
+        "conflict": "林舟是否离开岛去 mainland，还是留下接手母亲不愿关的旧邮局；母亲拒绝谈往事，让林舟误以为她从未为自己争取过。",
+        "character": "林舟在误以为母亲从未为自己争取过的前提下做离开决定；母亲沉默被重新解释为不愿承认自己曾想离开林舟。",
+        "turns": "信因邮资不足被扣，母亲从未补费认领；林舟发现母亲当年放弃寄信，是因为自己突发高烧；母亲沉默不是无话可说，而是不愿承认自己曾想离开林舟。",
+        "emotion": "离别、误读转为理解、主动写信留下选择权；情绪落点是一去难返的代价与未完成的和解。",
+        "ending": "林舟离岛，母亲留在岛上，两人没有完成和解。船开前，林舟第一次主动给母亲写信，把选择权留给她；他付出一去难返的代价。",
+        "tradeoff": "选择登上最后一班船离岛，去接受 mainland 的工作。得到的是 mainland 的工作、离岛机会、离开旧邮局与旧生活、未来可能性，以及通过写信把选择权留给母亲的主动姿态；放弃的是母亲、旧邮局、老屋继承、当夜得到母亲解释的可能、立即和解，以及一去难返后重新回到原点的可能。",
+        "violations": [],
+        "requiresWiderScope": false
+      }
+    ]
+  },
+  "selectedByTestAuthor": "7XKYEFJqesKI44UkM9I_R",
+  "status": "failed",
+  "error": "Error: 场景所属章节越界 / Scene chapter outside scope",
+  "selections": [
+    {
+      "option_id": "7XKYEFJqesKI44UkM9I_R",
+      "state": "failed",
+      "error": "场景所属章节越界 / Scene chapter outside scope",
+      "generated_json": "{\"after\":{\"version\":1,\"themes\":[\"迟到的信与沉默\",\"留下的代价\"],\"characters\":[{\"id\":\"char_linzhou\",\"name\":\"林舟\",\"aliases\":[],\"role\":\"主角\",\"description\":\"海岛邮递员，即将离岛前往大陆工作。想用迟到十年的信逼母亲说出真相。\",\"arc\":\"从逼问真相转为承担代价的主动留下\",\"relationships\":[{\"targetId\":\"char_mother\",\"kind\":\"母子\",\"note\":\"既想逼问真相，又无法完全割断与母亲的联系\"}],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[]},{\"id\":\"char_mother\",\"name\":\"母亲\",\"aliases\":[],\"role\":\"关键人物\",\"description\":\"仍然健在，拒绝谈起往事。曾想寄出求救信，却在最后一刻选择沉默。\",\"arc\":\"承认曾想求助，但不完整解释往事\",\"relationships\":[{\"targetId\":\"char_linzhou\",\"kind\":\"母子\",\"note\":\"认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活\"}],\"speechSamples\":[],\"verbalTics\":[],\"redlines\":[]}],\"settings\":[{\"id\":\"setting_island\",\"name\":\"海岛\",\"kind\":\"location\",\"description\":\"停航前夜的海岛，潮湿、封闭，离岛船班即将停运。\",\"triggerKeys\":[],\"priority\":1,\"constant\":false},{\"id\":\"setting_echo_post\",\"name\":\"回声邮局旧格口\",\"kind\":\"location\",\"description\":\"已停用的旧格口，清退时发现十年前寄出的信。\",\"triggerKeys\":[],\"priority\":2,\"constant\":false},{\"id\":\"setting_home_stove\",\"name\":\"家中灶火\",\"kind\":\"location\",\"description\":\"母亲把信放进灶火，说出“我当年是想走”。\",\"triggerKeys\":[],\"priority\":3,\"constant\":false}],\"arcs\":[{\"id\":\"arc_old_slot\",\"title\":\"旧格口\",\"summary\":\"林舟在停航前夜发现十年前母亲寄出的求救信，追索迟到原因，最终选择不拆信、不逼问，把信交给母亲并撕掉调职函留下。\",\"startChapterNo\":1,\"endChapterNo\":1}],\"beats\":[{\"id\":\"beat_1\",\"arcId\":\"arc_old_slot\",\"title\":\"旧格口清退\",\"summary\":\"停航前夜，林舟在回声邮局停用旧格口清退时发现一封十年前寄出的求救信。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou\"],\"settingIds\":[\"setting_echo_post\"],\"order\":1},{\"id\":\"beat_2\",\"arcId\":\"arc_old_slot\",\"title\":\"迟到原因\",\"summary\":\"信因旧地址分拣错误滞留，母亲中途反悔并在信封背面补写“别让孩子知道”。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"settingIds\":[\"setting_home_stove\"],\"order\":2},{\"id\":\"beat_3\",\"arcId\":\"arc_old_slot\",\"title\":\"逼问与沉默\",\"summary\":\"林舟想用信逼母亲说出真相；母亲坚持沉默，认为揭开旧事会拖回林舟。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"settingIds\":[\"setting_home_stove\"],\"order\":3},{\"id\":\"beat_4\",\"arcId\":\"arc_old_slot\",\"title\":\"主动选择\",\"summary\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"settingIds\":[\"setting_home_stove\"],\"order\":4},{\"id\":\"beat_5\",\"arcId\":\"arc_old_slot\",\"title\":\"灶火与代价\",\"summary\":\"母亲把信放进灶火，说“我当年是想走”。林舟没有等到和解，但留下承担失去前途的后果。\",\"chapterNo\":1,\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"settingIds\":[\"setting_home_stove\"],\"order\":5}],\"chapters\":[{\"chapterNo\":1,\"title\":\"停航前夜\",\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"beatIds\":[\"beat_1\",\"beat_2\",\"beat_3\",\"beat_4\",\"beat_5\"],\"povCharacterId\":\"char_linzhou\",\"targetChars\":3000,\"endHook\":\"母亲把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\"}]},\"title\":\"旧格口\",\"logline\":\"停航前夜，海岛邮递员林舟在停用的回声邮局旧格口发现母亲十年前的求救信，最终选择不拆信、不逼问，撕掉调职函留下，付出失去前途的代价。\",\"cards\":[{\"id\":null,\"chapterId\":null,\"chapterNo\":null,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":null,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}},{\"id\":null,\"chapterId\":null,\"chapterNo\":1,\"value\":{\"kind\":\"scene\",\"data\":{\"title\":\"旧格口\",\"volumeId\":null,\"povCharacterId\":\"char_linzhou\",\"time\":\"离岛前的一个夜晚\",\"location\":\"海岛、回声邮局旧格口、家中灶火\",\"characterIds\":[\"char_linzhou\",\"char_mother\"],\"goal\":\"在离岛前的一个夜晚，让林舟发现迟到十年的求救信，追索迟到原因，并最终以主动选择付出具体代价。\",\"obstacle\":\"母亲坚持沉默，认为旧事一旦揭开，林舟会被拖回她当年拼命想切断的生活。\",\"turn\":\"信被分拣到停用的“回声邮局”旧格口，停航前清退时才被发现。\",\"outcome\":\"母亲仍没有完整解释往事，只把信放进灶火，说出一句“我当年是想走”。林舟没有等到和解，但选择留下，承担失去前途的具体后果。\",\"choice\":\"林舟选择不拆信、不逼问，把信原样交给母亲，并当夜撕掉调职函，留下陪她处理旧门牌与旧事。\",\"consequence\":\"失去大陆的工作、宿舍和离岛资格。\",\"beforeState\":\"作者选定方向“旧格口”，但尚未细化大纲、章节与场景。\",\"targetChars\":3000,\"dependencyIds\":[],\"threadIds\":[\"arc_old_slot\"]}}}],\"downstreamImpact\":[\"新增角色实体 char_linzhou、char_mother，后续正文与场景必须遵循其设定、目标与冲突。\",\"新增场景实体 setting_island、setting_echo_post、setting_home_stove，后续场景地点与道具需保持一致。\",\"新增弧线 arc_old_slot，第1章及其场景必须服从该弧线的选择与代价。\",\"新增第1章“停航前夜”及5个场景，正文将按该章场景顺序展开。\",\"新增5个节拍 beat_1 至 beat_5，大纲与场景需覆盖这些节拍。\"],\"requiresWiderScope\":false}"
+    }
+  ]
+}

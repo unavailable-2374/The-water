@@ -1,0 +1,48 @@
+{
+  "label": "REAL provider response to TEST structured input; not writing quality",
+  "endedAt": "2026-10-08T22:24:25.255Z",
+  "engine": "Mastra",
+  "provider": "lunaroute",
+  "model": "deepseek-4.1-flash",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "TEST 结构化接口验收。只返回 JSON：testLabel 为 TEST，valid 为 true。"
+      }
+    ],
+    "maxTokens": 512,
+    "temperature": 0.6,
+    "json": {
+      "name": "TEST_harness_json",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "testLabel": {
+            "type": "string",
+            "const": "TEST"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "testLabel",
+          "valid"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "output": "{\"testLabel\":\"TEST\",\"valid\":true}",
+  "status": "completed",
+  "reportedUsage": {
+    "inputTokens": 51,
+    "outputTokens": 85
+  },
+  "error": null,
+  "finishReason": {
+    "type": "done",
+    "finishReason": "stop"
+  }
+}

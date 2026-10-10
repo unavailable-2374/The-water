@@ -38,6 +38,7 @@ export const STEP_PURPOSE_HINTS: Record<StepPurpose, string> = {
 };
 
 export const STEP_PURPOSE: Record<StepKind, StepPurpose> = {
+  scene_plan: 'planning', write_scenes: 'writing', commit_chapter: 'summarize',
   outline: 'planning',
   chapter_table: 'planning',
   write_chapter: 'writing',

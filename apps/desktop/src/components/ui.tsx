@@ -10,19 +10,19 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'ai';
 export function Button({ variant = 'secondary', size = 'md', className, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: 'sm' | 'md' | 'lg' }) {
-  const base = 'inline-flex items-center justify-center gap-1.5 rounded-xl font-medium transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 active:scale-[0.98]';
-  const sizes = { sm: 'px-2.5 py-1 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-2.5 text-base' }[size];
+  const base = 'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl font-medium transition-[background-color,box-shadow,transform] duration-150 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-accent-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper-50 active:scale-[0.98]';
+  const sizes = { sm: 'min-h-8 px-3 py-1.5 text-xs', md: 'min-h-10 px-4 py-2 text-sm', lg: 'min-h-12 px-5 py-3 text-base' }[size];
   const variants: Record<Variant, string> = {
-    primary: 'bg-cinnabar-600 text-paper-0 shadow-soft hover:bg-cinnabar-700 hover:shadow-lift',
+    primary: 'bg-accent-600 text-white shadow-soft hover:bg-accent-700',
     secondary: 'bg-paper-0 text-ink-800 shadow-soft ring-1 ring-paper-300/70 hover:bg-paper-100 dark:bg-paper-900 dark:text-paper-100 dark:ring-paper-800 dark:hover:bg-paper-800',
     ghost: 'text-ink-600 hover:bg-paper-200/70 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-paper-800 dark:hover:text-paper-100',
     ai: 'bg-tea-600 text-paper-0 shadow-soft hover:bg-tea-700 hover:shadow-lift',
-    danger: 'bg-paper-0 text-cinnabar-600 ring-1 ring-cinnabar-100 hover:bg-cinnabar-50 dark:bg-paper-900 dark:ring-cinnabar-700/40',
+    danger: 'bg-paper-0 text-cinnabar-600 ring-1 ring-cinnabar-100 hover:bg-cinnabar-50 dark:bg-paper-900 dark:text-cinnabar-100 dark:ring-cinnabar-700/40 dark:hover:bg-cinnabar-700/20',
   };
   return <button className={cn(base, sizes, variants[variant], className)} {...props} />;
 }
 
-const fieldBase = 'w-full rounded-xl border border-paper-300 bg-paper-0 px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 transition focus:border-tea-500 focus:outline-none focus:ring-2 focus:ring-tea-500/20 dark:border-paper-800 dark:bg-paper-900 dark:text-paper-100';
+const fieldBase = 'w-full min-h-10 rounded-xl border border-paper-300/80 bg-paper-0 px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 transition focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:opacity-50 dark:border-paper-800 dark:bg-paper-950 dark:text-paper-100';
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(fieldBase, className)} {...props} />;
 }
@@ -44,13 +44,13 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 /** 卡片。剩余属性原样透传，方便调用处补 `role` / `aria-*` 这类无障碍属性。 */
 export function Card({ className, children, hover, ...rest }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; hover?: boolean }) {
-  return <div className={cn('rounded-2xl bg-paper-0 p-5 shadow-soft dark:bg-paper-900', hover && 'transition hover:shadow-lift', className)} {...rest}>{children}</div>;
+  return <div className={cn('rounded-2xl border border-black/[0.05] bg-paper-0 p-6 shadow-soft dark:border-white/[0.07] dark:bg-paper-900', hover && 'transition-shadow hover:shadow-lift', className)} {...rest}>{children}</div>;
 }
 
 export function SectionTitle({ children, className, action }: { children: ReactNode; className?: string; action?: ReactNode }) {
   return (
     <div className={cn('mb-3 flex items-baseline justify-between', className)}>
-      <h2 className="font-serif text-base font-semibold tracking-wide text-ink-800 dark:text-paper-100">{children}</h2>
+      <h2 className="text-base font-semibold tracking-tight text-ink-800 dark:text-paper-100">{children}</h2>
       {action}
     </div>
   );
@@ -64,7 +64,7 @@ export function Badge({ children, tone = 'neutral', dot, className }: { children
     ai: 'bg-tea-50 text-tea-700 dark:bg-tea-800/40 dark:text-tea-200',
     amber: 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
     red: 'bg-cinnabar-50 text-cinnabar-700 dark:bg-cinnabar-700/30 dark:text-cinnabar-100',
-    blue: 'bg-tea-100 text-tea-800 dark:bg-tea-800/40 dark:text-tea-100',
+    blue: 'bg-accent-50 text-accent-700 dark:bg-accent-500/20 dark:text-accent-100',
   };
   const dots: Record<Tone, string> = { neutral: 'bg-ink-400', green: 'bg-tea-500', ai: 'bg-tea-500', amber: 'bg-amber-500', red: 'bg-cinnabar-500', blue: 'bg-tea-600' };
   return (
@@ -92,7 +92,7 @@ function focusableIn(root: HTMLElement): HTMLElement[] {
  * 打开时把焦点收进来、Tab 在框内循环、Esc 关闭，关闭后焦点还给原来那个元素——
  * 否则键盘用户一关框，焦点就掉回 body，得从头 Tab 一遍。
  */
-export function Dialog({ open, onClose, title, children, width = 'max-w-lg', subtitle }: { open: boolean; onClose: () => void; title: string; children: ReactNode; width?: string; subtitle?: string }) {
+export function Dialog({ open, onClose, title, children, width = 'max-w-lg', subtitle, placement = 'center' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; width?: string; subtitle?: string; placement?: 'center' | 'right' }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -131,7 +131,7 @@ export function Dialog({ open, onClose, title, children, width = 'max-w-lg', sub
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/30 p-4 backdrop-blur-[2px]" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className={cn('dialog-overlay fixed inset-0 z-50 flex bg-black/30 backdrop-blur-sm', placement === 'right' ? 'items-stretch justify-end' : 'items-center justify-center p-4')} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         ref={panelRef}
         role="dialog"
@@ -139,16 +139,16 @@ export function Dialog({ open, onClose, title, children, width = 'max-w-lg', sub
         aria-labelledby={titleId}
         aria-describedby={subtitle ? subtitleId : undefined}
         tabIndex={-1}
-        className={cn('flex max-h-[90vh] w-full flex-col rounded-3xl bg-paper-50 shadow-lift outline-none dark:bg-paper-900', width)}
+        className={cn('flex w-full flex-col border border-black/[0.08] bg-paper-50 shadow-lift outline-none dark:border-white/10 dark:bg-paper-900', placement === 'right' ? 'h-full min-h-0' : 'max-h-[90vh] rounded-3xl', width)}
       >
         <div className="flex items-start justify-between px-7 pt-6 pb-3">
           <div>
-            <h2 id={titleId} className="font-serif text-lg font-semibold tracking-wide">{title}</h2>
+            <h2 id={titleId} className="text-lg font-semibold tracking-tight">{title}</h2>
             {subtitle && <p id={subtitleId} className="mt-0.5 text-xs text-ink-500">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-ink-400 hover:bg-paper-200 hover:text-ink-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800" aria-label={t.a11y.closeDialog}><X size={16} /></button>
+          <IconButton onClick={onClose} label={t.a11y.closeDialog}><X size={16} /></IconButton>
         </div>
-        <div className="overflow-y-auto px-7 pb-7">{children}</div>
+        <div className={placement === 'right' ? 'min-h-0 flex-1 overflow-hidden' : 'overflow-y-auto px-7 pb-7'}>{children}</div>
       </div>
     </div>
   );
@@ -164,7 +164,7 @@ export function IconButton({ label, className, children, ...props }: ButtonHTMLA
       type="button"
       aria-label={label}
       title={label}
-      className={cn('rounded-full p-1.5 text-ink-400 transition hover:bg-paper-200 hover:text-ink-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800 dark:hover:text-paper-100', className)}
+      className={cn('inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-paper-200 hover:text-ink-800 focus-visible:ring-2 focus-visible:ring-accent-500/60 dark:hover:bg-paper-800 dark:hover:text-paper-100', className)}
       {...props}
     >
       {children}
@@ -198,15 +198,15 @@ export function deleteLabel(name: string): string {
 }
 
 export function Spinner({ className }: { className?: string }) {
-  return <span className={cn('inline-block h-4 w-4 animate-spin rounded-full border-2 border-paper-300 border-t-tea-600', className)} />;
+  return <span aria-hidden="true" className={cn('inline-block shrink-0 h-4 w-4 animate-spin rounded-full border-2 border-paper-300 border-t-tea-600', className)} />;
 }
 
 export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-      {icon && <div className="mb-1 text-paper-400">{icon}</div>}
-      <p className="font-serif text-base text-ink-700 dark:text-paper-100">{title}</p>
-      {description && <p className="max-w-xs text-sm leading-relaxed text-ink-400">{description}</p>}
+    <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-3xl border border-black/[0.05] bg-paper-0 px-6 py-16 text-center dark:border-white/[0.07] dark:bg-paper-900">
+      {icon && <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent-50 text-accent-600 dark:bg-accent-500/15 dark:text-accent-100">{icon}</div>}
+      <p className="text-xl font-semibold tracking-tight text-ink-900 dark:text-paper-100">{title}</p>
+      {description && <p className="max-w-sm text-sm leading-relaxed text-ink-500">{description}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

@@ -1,0 +1,164 @@
+{
+  "label": "REAL model responses / TEST fictional input / native UI observations",
+  "capturedAt": "2026-10-10T05:07:22.800280+00:00",
+  "bundleId": "com.thewater.assistant-narrow20261009",
+  "logicalWindowSize": [
+    1000,
+    760
+  ],
+  "observations": {
+    "rightAlignedFullHeightDrawer": true,
+    "drawerWidthLogicalPx": 448,
+    "sharedCreationHistoryVisible": true,
+    "onlyOneAssistantHeading": true,
+    "inputAndResultControlsVisible": true,
+    "escapeClosesDrawer": true,
+    "pureDiscussionReturnedOneSentenceWithoutMutation": true
+  },
+  "assistant_runs": [
+    {
+      "id": "0W7yD5ohOpH29QunPN1dc",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "novel_id": "raleh6USyAMLc3FJUN3d-",
+      "message_id": "r_KmLGfDyN6ptbM_2pt3i",
+      "context_json": "{\"novelId\":\"raleh6USyAMLc3FJUN3d-\",\"chapterId\":null,\"selection\":null,\"objectIds\":[],\"sourceIds\":[]}",
+      "state": "completed",
+      "goal": "",
+      "constraints_json": "[]",
+      "job_id": null,
+      "error": null,
+      "created_at": 1791608653538,
+      "updated_at": 1791608655808
+    },
+    {
+      "id": "1L8HpV5RbtWrqtrtNG9jv",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "novel_id": "raleh6USyAMLc3FJUN3d-",
+      "message_id": "vgcIEubYkYqNkiISbAm5Y",
+      "context_json": "{\"novelId\":\"raleh6USyAMLc3FJUN3d-\",\"chapterId\":null,\"selection\":null,\"objectIds\":[],\"sourceIds\":[]}",
+      "state": "completed",
+      "goal": "",
+      "constraints_json": "[]",
+      "job_id": null,
+      "error": null,
+      "created_at": 1791608788513,
+      "updated_at": 1791608790582
+    }
+  ],
+  "assistant_operations": [
+    {
+      "complete_after": 1,
+      "id": "0W7yD5ohOpH29QunPN1dc:0",
+      "run_id": "0W7yD5ohOpH29QunPN1dc",
+      "sequence": 0,
+      "name": "create_work",
+      "parameters_json": "{\"title\":\"TEST 窄窗口\",\"premise\":\"两人核对邮戳后归还信封。\",\"targetChars\":800,\"requirements\":{\"genre\":\"短篇小说\",\"mustHave\":[\"两人核对邮戳\",\"归还信封\"],\"language\":\"中文\",\"extra\":\"仅创建作品资料，不生成规划或正文。\",\"docType\":\"short-story\"}}",
+      "intent": "explicit_edit",
+      "state": "completed",
+      "novel_id": "raleh6USyAMLc3FJUN3d-",
+      "before_revision": 0,
+      "after_revision": 1,
+      "result_json": "{\"state\":\"completed\",\"summary\":\"create_work\",\"novelId\":\"raleh6USyAMLc3FJUN3d-\",\"objectIds\":[\"raleh6USyAMLc3FJUN3d-\"],\"location\":\"/studio/raleh6USyAMLc3FJUN3d-/plan\"}",
+      "error": null,
+      "created_at": 1791608655789,
+      "updated_at": 1791608655793
+    }
+  ],
+  "assistant_revisions": [
+    {
+      "novel_id": "raleh6USyAMLc3FJUN3d-",
+      "revision": 1
+    }
+  ],
+  "ai_messages": [
+    {
+      "id": "r_KmLGfDyN6ptbM_2pt3i",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "seq": 1,
+      "role": "user",
+      "content": "请新建一部中文短篇小说，标题“TEST 窄窗口”，预计800字，梗概为两人核对邮戳后归还信封。仅创建作品资料，不生成规划或正文。",
+      "context": null,
+      "usage": null,
+      "model": null,
+      "created_at": 1791608653538
+    },
+    {
+      "id": "0W7yD5ohOpH29QunPN1dc:answer:1",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "seq": 2,
+      "role": "assistant",
+      "content": "新建作品 · 已完成",
+      "context": null,
+      "usage": null,
+      "model": null,
+      "created_at": 1791608655808
+    },
+    {
+      "id": "vgcIEubYkYqNkiISbAm5Y",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "seq": 3,
+      "role": "user",
+      "content": "只讨论这个构思是否适合短篇，请用一句话回答，不做任何修改。",
+      "context": null,
+      "usage": null,
+      "model": null,
+      "created_at": 1791608788513
+    },
+    {
+      "id": "1L8HpV5RbtWrqtrtNG9jv:answer:0",
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "seq": 4,
+      "role": "assistant",
+      "content": "适合：单一动作、双人视角、800字内可完成一次核对与归还的闭合小场景，但需要靠邮戳细节或两人关系制造张力，否则容易平淡。",
+      "context": null,
+      "usage": null,
+      "model": null,
+      "created_at": 1791608790582
+    }
+  ],
+  "usage_events": [
+    {
+      "id": "heWoseD5NZacpJb8ZdxXA",
+      "novel_id": null,
+      "job_id": null,
+      "step_id": null,
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "purpose": "planning",
+      "provider_id": "0G1L0awyGW8pdgzkhgnJF",
+      "provider_kind": "openai_compatible",
+      "model": "deepseek-chat",
+      "input_tokens": 15419,
+      "output_tokens": 144,
+      "cost_cny": 0.03199,
+      "price_id": "openai_compatible:deepseek-chat",
+      "created_at": 1791608655783
+    },
+    {
+      "id": "QJYow13O31u8tjgxT7y3d",
+      "novel_id": "raleh6USyAMLc3FJUN3d-",
+      "job_id": null,
+      "step_id": null,
+      "conversation_id": "assistant:M0CFByjpYY_-tNjjAoyLi",
+      "purpose": "planning",
+      "provider_id": "0G1L0awyGW8pdgzkhgnJF",
+      "provider_kind": "openai_compatible",
+      "model": "deepseek-chat",
+      "input_tokens": 15777,
+      "output_tokens": 47,
+      "cost_cny": 0.03193,
+      "price_id": "openai_compatible:deepseek-chat",
+      "created_at": 1791608790573
+    }
+  ],
+  "sourceSha256": {
+    "packages/shared/src/assistant.ts": "0fab49771aeb5fd6149b4675e28ca1f07a52b50d476a25a22480ca6b22a29391",
+    "apps/desktop/src-tauri/migrations/0012_assistant.sql": "2fe072742074768aedf26db18610f5cded847bea4ab97a3f66ea3a7c617009a7",
+    "apps/desktop/src/assistant/runtime.ts": "cbe00e9871b519b326af79e608477e3868f6bf6bde4fb595e2896c78fb80d09d",
+    "apps/desktop/src/assistant/repository.ts": "9cb32a23ecac06c8a0175194d6dd38058a6a979c75212b843b9ba795cdd4cee0",
+    "apps/desktop/src/assistant/operations.ts": "b16e1354f70fba15233b7d7a4623a7adffe91c97d37de73a6388c4524deebee1",
+    "apps/desktop/src/assistant/AssistantPanel.tsx": "d33acf1c9ba3ece0973b334920e8bae6c4b93cb0403ff79fd66f5904e1742aef",
+    "apps/desktop/src/assistant/AssistantDock.tsx": "3ae3be3f18f9a2377f92be7bc746b61e93e676ccef65059c6eb7e2b6c079072f",
+    "apps/desktop/src/llm/prompts/evidence.ts": "fec3b09d42d9a4ac0b54cf2a1434404055467eebc1f234ab0a4bb055135c9e7b",
+    "apps/desktop/src/components/ui.tsx": "36a07fde5ce66e710cdc21e9a7b4ea6cd5f4adb1125a89defc677b15212ee2f6"
+  }
+}

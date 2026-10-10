@@ -4,6 +4,22 @@
 >
 > 本目录是**规范与模版**，不是代码。落地到代码的映射见 [§7 落地到 The-Water](#7-落地到-the-water)。
 
+题材差异与混合题材按[题材准备与试写](templates/genre-preparation.md)执行：悬疑按作品承诺区分公平程度，都市允许已确认异能，幻想不预设统一境界，新增日常／治愈。题材指导不等于本书事实，全部所选题材规则进入规划与正文。
+
+情节设计按[因果、人物与余味指南](templates/plot-design.md)执行：区分题材体验与主题问题，将节点连接为条件、行动、结果与持续后果；反转同时解释过去并影响未来，结尾兑现已建立的重要承诺。`plotDesign.ts` 为规划、正文和审稿提供同源指导，不用悲剧、反转数量、晦涩或故意落空衡量文学完成度。
+
+人物设计按[角色卡的风格、复杂动机与自我保护指南](templates/character-card.md#风格复杂动机与自我保护)落实到现有字段，并通过[场景选择与后果](templates/scene-card.md)进入正文。`characterDesign.ts` 统一提供规划、写作与审稿指导，覆盖大纲、各范围故事候选、滚动场景、正文/改写/篇幅调整、创作助手及工作台诊断。人物可有多重真实动机和关系差异，不默认添加创伤，不强制治愈；审稿按原文和已确认资料判断，文学层次建议本身不构成阻断。自动化测试只能证明指导接入及既有门禁契约，不能证明生成的文学质量提高。
+
+长篇生成现按[阅读体验与因果兑现指南](templates/long-webnovel.md)执行：创作说明可编辑体验、独特方式、限制、首篇选择与后果；大纲、章节表、场景规划和正文共用指南，新大纲必须给出故事发动机制、结束条件及主要人物的恐惧、信念、应对习惯和独立目标。场景明确读者关切、人物选择、理由、后果与前后变化。小说短稿不再自动补描写凑字数；审稿将事实冲突、需要修订的故事推进和个人文风偏好分开处理。旧的固定黄金三章、统一爽点/悬念节奏不再作为长篇通用硬性要求。契约测试不代表文学质量或追读率提升。
+
+当前长篇工作台的版本、门禁、记忆、共享与迁移契约见 [workbench.md](workbench.md)；真实生成及验收证据见 [evaluation/README.md](evaluation/README.md)。与旧行为描述冲突时，以工作台契约及实现为准。
+
+作者掌舵的地图、双时间线、正文关联、范围委托、剧情试验与续作流程见 [故事工作台](story-workspace.md)，其中记录了迁移、共享边界和本次功能验收证据。
+
+对话式新建、规划、写作、修改、审查、导出和可撤销执行见 [统一创作助手](unified-assistant.md)，包含 44 项操作清单、迁移与恢复契约，以及 TEST / SIMULATED 和真实模型验收的边界。
+
+四种范围的候选生成、比较、保留重抽、作者选择与原子采纳见 [故事线抽卡](story-options.md)；流程验证与文学质量边界分别记录。
+
 ## 目录
 
 1. [调研结论：GitHub 写作仓库吸收了什么](#1-调研结论)
@@ -119,13 +135,13 @@
 | 层 | 内容 | 落点 |
 |---|---|---|
 | L0 通用 | AI 味词表、中文排版、钩子类型、场景卡 schema、文章类型框架 | `docs/writing/lexicon/*.json` → `packages/shared/src/lexicon.ts`；`novel/docTypes.ts` |
-| L1 题材包 | 术语与规则条目（境界体系 / 技术上限 / 江湖称谓…）、题材禁用词与句式、桥段的用与忌、大纲提示、写作规则、题材质检项、风格靶区间、推荐预设 | `apps/desktop/src/novel/genrePacks.ts`；`NovelRequirements.genrePackIds`（可多选） |
+| L1 题材包 | 条件性创作指导（境界体系 / 技术上限 / 江湖称谓…），并非本书事实；可配置禁词与句式接口、桥段的用与忌、大纲提示、写作规则、题材质检项、风格靶区间、推荐预设 | `apps/desktop/src/novel/genrePacks.ts`；`NovelRequirements.genrePackIds`（可多选） |
 | L2 作品 | storyline / bible / StyleProfile / 自定义 lorebook 条目 | 数据库，永远优先 |
 
 **合并规则是确定性的**，否则用户会遇到「我明明禁了这个词它还在写」：
 
 - **触发**：L1 条目复用作品层的 lorebook 结构（`triggerKeys` + `priority` + `constant`），合并后一起走命中 → 排序 → token 预算截断（`context.ts` 的 `mergeLoreSettings` / `triggeredSettings`）。题材条目优先级缺省 40–70，作品条目缺省 50。
-- **覆盖**：L2 同名条目覆盖 L1，L1 那条直接丢弃；`requirements.disabledLore` 可以按 id 关掉任意题材条目（写「现代武侠」就关掉「不用现代口语」那条）。
+- **覆盖**：L2 同名条目覆盖 L1，L1 那条直接丢弃；`requirements.disabledLore` 可以按 id 关掉任意题材条目（不适用的准备条目可关闭，禁词以作品要求为准）。
 - **多包冲突**（科幻 + 悬疑）：禁用词、句式、桥段、质检项**取并集**；数值靶区间**取交集**，交集为空时后选的包胜出并在向导里提示。
 - **风格靶值**：题材层只填作品没写的项（`applyGenreToProfile`），且一律是软项（`hard: []`），不会触发自动重写。
 
@@ -134,14 +150,14 @@
 | 用途 | L0 | L1 | L2 |
 |---|---|---|---|
 | 正文 system prompt | 文章类型写法 | `genreBlock`：写作规则 + 禁忌词 | StyleProfile 摘要 + 二创声明 |
-| 大纲 prompt | 结构框架 | `genreOutlineBlock`：大纲提示 + 必须写进 settings 的题材设定 + 桥段用/忌 | 故事前提 |
+| 大纲 prompt | 结构框架 | `genreOutlineBlock`：大纲提示 + 条件性题材准备问题（仅实际采用的具体规则写入 settings） + 桥段用/忌 | 故事前提 |
 | 上下文注入 | — | 题材 lore 条目（触发词 / 常驻） | 人物、设定、时间线、示例段 |
-| 本地 lint | AI 味词表 | 题材禁用词（block）与句式 | 作品负面清单 |
+| 本地 lint | AI 味词表 | 显式禁用词接口（当前通用包不设硬禁词） | 作品负面清单 |
 | 审校 | 类型质检项 | 题材质检项 | 人物红线、既定事实 |
 
-**独立的设定校对通道**（`llm/prompts/consistencyReview.ts`）只查事实层：数值与等级、事件先后、称呼与辈分、设定规则；不评文风、不判 OOC（那是 `styleReview` 的事）。它不需要 StyleProfile，也不区分题材——题材只是决定喂给它哪些规则。没有可对照的材料（事实 < 3 条、无规则、无时间线、无称呼表）时不发起调用。
+**独立的设定校对通道**（`llm/prompts/consistencyReview.ts`）只查事实层：数值与等级、事件先后、称呼与辈分、设定规则；不评文风、不判 OOC（那是 `styleReview` 的事）。它不需要 StyleProfile，也不区分题材——只喂本书已确认规则；题材重点进入叙事审稿，不能单独作为事实冲突依据。没有可对照的材料（事实 < 3 条、无规则、无时间线、无称呼表）时不发起调用。
 
-内置六个题材包：仙侠 / 玄幻、都市 / 现实、科幻、悬疑 / 推理、言情 / 青春、历史 / 武侠。旧的 `requirements.genre` 单选字段保留，未显式选包时按别名自动映射，因此不需要数据库迁移。
+内置七个题材包：仙侠 / 玄幻、都市 / 现实、科幻、悬疑 / 推理、言情 / 青春、历史 / 武侠、日常 / 治愈。旧的 `requirements.genre` 单选字段保留，未显式选包时按别名自动映射，因此不需要数据库迁移。
 
 ---
 
@@ -303,7 +319,7 @@
 
 | 方案条目 | 代码落点 |
 |---|---|
-| 六个题材包（L1）：lore 条目、禁用词/句式、桥段、大纲提示、写作规则、质检项、风格靶区间；多选合并规则见 §3.1 | `apps/desktop/src/novel/genrePacks.ts`；`NovelRequirements.genrePackIds / disabledLore`（JSON 列，无需迁移） |
+| 七个题材包（L1）：lore 条目、禁用词/句式、桥段、大纲提示、写作规则、质检项、风格靶区间；多选合并规则见 §3.1 | `apps/desktop/src/novel/genrePacks.ts`；`NovelRequirements.genrePackIds / disabledLore`（JSON 列，无需迁移） |
 | 三层词条合并：作品层同名覆盖题材层，题材条目只经触发词/常驻进上下文 | `llm/prompts/context.ts` 的 `mergeLoreSettings`，`selectRelevantBible` 第五参 |
 | 题材层进 prompt：正文 system 的 `genreBlock`、大纲的 `genreOutlineBlock` | `llm/prompts/base.ts`、`llm/prompts/outline.ts` |
 | 题材禁用词进本地 lint（block 级），与作品负面清单去重 | `novel/lint.ts` 的 `genre-avoid-word` / `genre-avoid-pattern` 规则 |
@@ -316,3 +332,5 @@
 - 不用纯向量检索替代 lorebook：可解释性与可编辑性优先。
 - 不把整张 metrics 表塞进 prompt：模型读不懂数字表，只注入 3-5 条翻译成人话的约束。
 - 不为每个题材建独立 agent：题材是数据，职能才是通道（理由见 §3.1）。
+
+开发者后端模型服务已接入 Pi，默认无需个人供应商密钥；配置、验收及尚未迁移的章节编排边界见 [server-harness.md](server-harness.md)。本机开发服务已启动，未部署外部生产服务。

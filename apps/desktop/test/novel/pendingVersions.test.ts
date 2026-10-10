@@ -1,3 +1,5 @@
+import { stageTestChapter } from '../helpers/writing';
+import { getDb } from '@/db/db';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDb } from '../helpers/testDb';
 import { createNovel } from '@/db/repos/novelsRepo';
@@ -7,17 +9,32 @@ import {
   sealChapterSessions, sealVersionSession, setChapterStatus, setVersionPinned, upsertChapterPlan,
 } from '@/db/repos/chaptersRepo';
 import { defaultRequirements } from '@/novel/types';
+import { collectExportChapters } from '@/novel/export';
 
-const novelOf = () => createNovel({ title: 't', premise: '', requirements: defaultRequirements(), targetChars: 0 });
+const novelOf = () => createNovel({ title: 'TEST pending versions', premise: '', requirements: defaultRequirements(), targetChars: 0 });
 
 beforeEach(() => { useTestDb(); });
 
 describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
-  it('没开会话时照旧：新版本直接是 accepted', async () => {
+  it('TEST export preview and output share the committed or draft chapter list', async () => {
+    const n = await novelOf();
+    const first = await upsertChapterPlan(n.id,{chapterNo:1});
+    const second = await upsertChapterPlan(n.id,{chapterNo:2});
+    const empty = await upsertChapterPlan(n.id,{chapterNo:3});
+    await createVersion({chapterId:first.id,content:'TEST committed chapter',source:'imported',status:'final'});
+    await beginRewriteSession([first.id]);
+    await createVersion({chapterId:first.id,content:'TEST unaccepted revision',source:'rewritten'});
+    await createVersion({chapterId:second.id,content:'TEST uncommitted second chapter',source:'generated'});
+    await createVersion({chapterId:empty.id,content:' ',source:'generated'});
+    const committed = await collectExportChapters(n.id);
+    expect(committed.map(c=>c.content)).toEqual(['TEST committed chapter']);
+    expect((await collectExportChapters(n.id,true)).map(c=>c.content)).toEqual(['TEST unaccepted revision','TEST uncommitted second chapter']);
+  });
+  it('TEST 新生成稿始终是候选，尚未提交', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
     const v = await createVersion({ chapterId: ch.id, content: '初稿正文', source: 'generated' });
-    expect(v.state).toBe('accepted');
+    expect(v.state).toBe('pending');
     expect(v.baselineVersionId).toBeNull();
     expect((await getChapter(ch.id))!.currentVersionId).toBe(v.id);
   });
@@ -25,13 +42,14 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
   it('会话开着时产出待采纳版本，但仍然置为 current（后面几步要读它）', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    const base = await createVersion({ chapterId: ch.id, content: '旧正文', source: 'generated', status: 'final' });
+    const base = await createVersion({ chapterId: ch.id, content: '旧正文', source: 'imported', status: 'final' });
     expect(await beginRewriteSession([ch.id], 'job1')).toBe(1);
 
     const rewritten = await createVersion({ chapterId: ch.id, content: '新正文', source: 'rewritten' });
     expect(rewritten.state).toBe('pending');
     expect(rewritten.baselineVersionId).toBe(base.id);
-    // 待采纳 ≠ 未生效：adjust_length / summarize 都读 current_version_id
+    // TEST: working pointer advances; committed pointer remains the baseline.
+    expect((await getChapter(ch.id))!.committedVersionId).toBe(base.id);
     expect((await getChapter(ch.id))!.currentVersionId).toBe(rewritten.id);
     // 同一次会话里后续步骤（扩写）产出的也是待采纳，基线不变
     const topup = await createVersion({ chapterId: ch.id, content: '新正文再长一点', source: 'topup' });
@@ -52,7 +70,7 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
   it('逐章采纳：产出转正，当前版本不动', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'generated', status: 'final' });
+    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'imported', status: 'final' });
     await beginRewriteSession([ch.id]);
     const rewritten = await createVersion({ chapterId: ch.id, content: '新正文', source: 'rewritten' });
 
@@ -61,6 +79,7 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
     expect(pending!.latest!.content).toBe('新正文');
     expect(pending!.produced).toHaveLength(1);
 
+    await stageTestChapter(ch.id);
     await resolveRewrite(ch.id, 'accept');
     const after = await getChapter(ch.id);
     expect(after!.currentVersionId).toBe(rewritten.id);
@@ -72,7 +91,7 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
   it('逐章丢弃 = 撤销这次改写：回到改写前的正文和状态', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    const base = await createVersion({ chapterId: ch.id, content: '旧正文', source: 'generated' });
+    const base = await createVersion({ chapterId: ch.id, content: '旧正文', source: 'imported' });
     await setChapterStatus(ch.id, 'final');
     await beginRewriteSession([ch.id]);
     const a = await createVersion({ chapterId: ch.id, content: '新正文', source: 'rewritten' });
@@ -93,13 +112,14 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
   it('换回一稿丢弃过的版本，它就不再顶着「已丢弃」', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'generated' });
+    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'imported' });
     await beginRewriteSession([ch.id]);
     const rewritten = await createVersion({ chapterId: ch.id, content: '新正文', source: 'rewritten' });
     await resolveRewrite(ch.id, 'discard');
     await restoreVersion(ch.id, rewritten.id);
-    expect((await getVersion(rewritten.id))!.state).toBe('accepted');
-    expect((await getChapter(ch.id))!.currentVersionId).toBe(rewritten.id);
+    expect((await getVersion(rewritten.id))!.state).toBe('discarded');
+    expect((await getChapter(ch.id))!.currentVersionId).not.toBe(rewritten.id);
+    expect((await getVersion((await getChapter(ch.id))!.currentVersionId!))!.content).toBe('新正文');
   });
 
   it('整本书一起处理：全部采纳 / 一键撤销', async () => {
@@ -114,6 +134,7 @@ describe('改写产出先落待采纳（§2.2 第 1 条）', () => {
     for (const ch of chapters) await createVersion({ chapterId: ch.id, content: '新正文', source: 'rewritten' });
     expect((await listPendingRewrites(n.id)).map((p) => p.chapter.chapterNo)).toEqual([1, 2, 3]);
 
+    await stageTestChapter(chapters[0]!.id);
     await resolveRewrite(chapters[0]!.id, 'accept');
     expect(await listPendingRewrites(n.id)).toHaveLength(2);
     expect(await resolveAllRewrites(n.id, 'discard')).toBe(2);
@@ -175,7 +196,7 @@ describe('会话级自动保存（§2.2 第 3 条）', () => {
   it('会话里的编辑在改写会话开着时同样是待采纳', async () => {
     const n = await novelOf();
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
-    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'generated' });
+    await createVersion({ chapterId: ch.id, content: '旧正文', source: 'imported' });
     await beginRewriteSession([ch.id]);
     const v = await saveSessionEdit({ chapterId: ch.id, sessionId: 's1', content: '边看边改' });
     expect(v.state).toBe('pending');
@@ -188,6 +209,8 @@ describe('版本清理（§2.2 第 2 条）', () => {
     const ch = await upsertChapterPlan(n.id, { chapterNo: 1 });
     const versions = [];
     for (let i = 0; i < 12; i++) versions.push(await createVersion({ chapterId: ch.id, content: `第${i}稿`, source: 'user_edit' }));
+    // TEST: explicitly discard superseded drafts before testing pruning.
+    await getDb().execute("UPDATE chapter_versions SET state='discarded' WHERE chapter_id=?", [ch.id]);
     return { novelId: n.id, chapterId: ch.id, versions };
   };
 
@@ -234,7 +257,7 @@ describe('版本清理（§2.2 第 2 条）', () => {
     const left = await listVersions(chapterId);
     // 剩下：改写产出（当前 + 待采纳）+ 改写基线
     expect(left).toHaveLength(2);
-    expect(left.map((v) => v.state).sort()).toEqual(['accepted', 'pending']);
+    expect(left.map((v) => v.state).sort()).toEqual(['discarded', 'pending']);
     expect(left.some((v) => v.content === '改写产出' && v.state === 'pending')).toBe(true);
   });
 });

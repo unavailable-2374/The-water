@@ -65,13 +65,13 @@ export function BrowsePage() {
 
   return (
     <div className="h-full overflow-y-auto bg-paper-50 dark:bg-paper-950">
-      <div className="mx-auto max-w-6xl px-10 py-10">
-        <header className="mb-6 flex items-end justify-between gap-6">
+      <div className="mx-auto max-w-6xl px-6 py-10 lg:px-12 lg:py-12">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h1 className="font-serif text-3xl font-semibold tracking-wide">{t.nav.public}</h1>
-            <p className="mt-1 text-sm text-ink-500">{t.publicArea.browseSubtitle}</p>
+            <h1 className="page-heading text-[32px] font-bold leading-tight">{t.nav.public}</h1>
+            <p className="mt-2 text-sm text-ink-500">{t.publicArea.browseSubtitle}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <PublicTabs />
             {account ? (
               <button

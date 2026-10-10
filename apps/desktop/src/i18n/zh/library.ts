@@ -58,7 +58,7 @@ export const library = {
     listLabel: '回收站里的条目',
     loading: '正在读取回收站…',
     noPremise: '没有写下故事前提',
-    docKind: 'PDF 文档',
+    docKind: '阅读文档',
     deletedAt: '{time} 删除',
     daysLeft: '还剩 {days} 天',
     expiring: '即将清空',

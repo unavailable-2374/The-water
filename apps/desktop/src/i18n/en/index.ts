@@ -1,3 +1,6 @@
+import { outlineReview } from './outlineReview';
+import { assistant } from './assistant';
+import { storyOptions } from './storyOptions';
 /**
  * English dictionary.
  *
@@ -15,7 +18,10 @@ import { publicArea } from './publicArea';
 import { reader } from './reader';
 import { settings } from './settings';
 import { studio } from './studio';
+import { storyWorkspace } from './storyWorkspace';
 
 export const en: Locale = {
-  a11y, app, chat, common, community, error, jobs, library, nav, novelStatus, onboarding, publicArea, reader, settings, studio,
+  outlineReview,
+  storyOptions,
+  assistant, a11y, app, chat, common, community, error, jobs, library, nav, novelStatus, onboarding, publicArea, reader, settings, studio, storyWorkspace,
 };

@@ -27,6 +27,7 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
   const [serverUrl, setServer] = useState(DEFAULT_SERVER_URL);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -72,9 +73,10 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
     }
     setBusy(true);
     try {
-      const account = mode === 'login' ? await login(serverUrl, email, password) : await register(serverUrl, email, password, displayName, wantedHandle);
+      const account = mode === 'login' ? await login(serverUrl, email, password, remember) : await register(serverUrl, email, password, displayName, wantedHandle, remember);
       await refresh();
-      toast.success(fmt(t.settings.loggedInAs, { name: account.displayName }));
+      if (account.rememberFailed) toast.info(t.settings.rememberLoginFailed);
+      else toast.success(fmt(t.settings.loggedInAs, { name: account.displayName }));
       onDone?.();
     } catch (e) {
       toast.error(describeError(e));
@@ -128,6 +130,13 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
           </Field>
         </>
       )}
+      <div className="space-y-1">
+        <label className="flex items-center gap-2 text-sm text-ink-700 dark:text-paper-100">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} disabled={busy} aria-describedby="remember-login-hint" className="h-4 w-4 accent-accent-600" />
+          {t.settings.rememberLogin}
+        </label>
+        <p id="remember-login-hint" className="text-xs text-ink-400">{t.settings.rememberLoginHint}</p>
+      </div>
       <div className="flex items-center justify-between pt-1">
         {mode === 'login' ? (
           <button type="button" className="text-xs text-ink-400 underline-offset-2 hover:text-ink-700 hover:underline dark:hover:text-paper-100" onClick={() => setForgotOpen(true)}>
@@ -155,7 +164,7 @@ export function AccountPanel() {
     return (
       <div className="max-w-md space-y-6">
         <header>
-          <h1 className="font-serif text-2xl font-semibold tracking-wide">{t.settings.account}</h1>
+          <h1 className="font-sans text-2xl font-semibold tracking-tight">{t.settings.account}</h1>
           <p className="mt-1 text-sm leading-relaxed text-ink-500">{t.settings.accountLoginDesc}</p>
         </header>
         <Card>

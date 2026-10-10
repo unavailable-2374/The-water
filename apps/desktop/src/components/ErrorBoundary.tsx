@@ -46,7 +46,7 @@ export function ErrorPanel({ error, scope, componentStack, onRetry, compact, ext
       <div role="alert" aria-live="assertive" className="w-full max-w-lg rounded-2xl bg-paper-0 p-7 shadow-soft dark:bg-paper-900">
         <div className="flex items-center gap-2.5 text-cinnabar-600">
           <AlertTriangle size={20} strokeWidth={1.75} aria-hidden="true" />
-          <h2 className="font-serif text-lg font-semibold tracking-wide">{scope ? `${scope}${t.error.titleSuffix}` : t.error.title}</h2>
+          <h2 className="font-sans text-lg font-semibold tracking-tight">{scope ? `${scope}${t.error.titleSuffix}` : t.error.title}</h2>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-ink-500">{t.error.desc}</p>
         <pre tabIndex={0} className="mt-4 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-paper-100 p-3 text-xs leading-relaxed text-ink-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:bg-paper-950 dark:text-ink-300">{errorMessageOf(error)}</pre>

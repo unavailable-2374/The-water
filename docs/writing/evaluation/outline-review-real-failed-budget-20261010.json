@@ -1,0 +1,14 @@
+{
+  "label": "REAL model judgments on TEST fictional outlines. Not an objective quality score.",
+  "date": "2026-10-10T16:07:40.889Z",
+  "cases": [],
+  "status": "failed",
+  "error": "LLMError: 独立大纲审查 / Independent outline review: 模型输出的 JSON 3 次校验失败：输出预算耗尽，JSON 未完整返回；请增加最大输出或推理预留",
+  "usage": [
+    {
+      "model": "deepseek-4.1-flash",
+      "input_tokens": 10626,
+      "output_tokens": 56987
+    }
+  ]
+}

@@ -9,3 +9,11 @@ export * from './incentive';
 export * from './community';
 export * from './bundle';
 export * from './api';
+export * from './writing';
+export * from './storyGraph';
+export * from './creationMaterials';
+export * from './harness';
+export * from './assistant';
+export * from './storyOptions';
+
+export * from './outlineReview';

@@ -24,7 +24,7 @@ export const WORD_BUDGET = {
   /** 自动排章节数的下限。太小会让长篇被压成几章。 */
   minChapters: 3,
   /** 自动排章节数的上限。调大 → 单本任务步骤数线性增长，费用与耗时同步上升。 */
-  maxChapters: 150,
+  maxChapters: 500,
   /** 重分配预算时，单章目标不得低于此值。低于这个字数的章节读起来像残章。 */
   minChapterTarget: 500,
   /** 目标高于这个值的章节拆成前后两半写。调大 → 少拆分但更容易触到模型输出上限而被截断。 */
@@ -40,7 +40,7 @@ export const WORD_BUDGET = {
   /** 重分配剩余预算时，单章新目标相对原目标的夹紧幅度（±30%）。调大 → 后面的章节长短起伏更大。 */
   redistributeClamp: 0.3,
   /** 输出上限公式 min(maxOutputTokens, ceil(target×倍率)+余量) 中的倍率。 */
-  maxTokensRatio: 1.6,
+  maxTokensRatio: 3.2,
   /** 上述公式的固定余量 token。 */
   maxTokensSlack: 400,
 } as const;
@@ -167,7 +167,7 @@ export interface StyleCheckConfig {
 }
 
 export const DEFAULT_STYLE_CHECK: StyleCheckConfig = {
-  maxRevisions: 1,
+  maxRevisions: 2,
   defaultFidelity: 0.75,
   llmScoreWeight: 0.6,
   maxInstructions: 12,

@@ -20,19 +20,11 @@ export function NotificationNavLink({ className }: { className?: string }) {
   return (
     <NavLink
       to="/public/notifications"
-      className={({ isActive }) =>
-        cn(
-          'mb-0.5 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition',
-          isActive
-            ? 'bg-paper-0 font-medium text-ink-900 shadow-soft dark:bg-paper-800 dark:text-paper-50'
-            : 'text-ink-600 hover:bg-paper-200/60 dark:text-ink-300 dark:hover:bg-paper-800/60',
-          className,
-        )
-      }
+      className={cn('nav-item', className)}
     >
-      {({ isActive }) => (
+      {() => (
         <>
-          <Bell size={16} strokeWidth={1.75} aria-hidden="true" className={isActive ? 'text-tea-600' : 'text-ink-400'} />
+          <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
           {t.community.notifications}
           {badge && (
             <span aria-label={fmt(t.community.unreadCountLabel, { n: badge })} className="ml-auto min-w-[18px] rounded-full bg-cinnabar-500 px-1.5 text-center font-serif text-[10px] leading-[18px] text-paper-0">

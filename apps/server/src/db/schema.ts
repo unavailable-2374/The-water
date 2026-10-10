@@ -1,5 +1,5 @@
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import type { StoryBible, StorylineDoc } from '@the-water/shared';
+import type { CreationMaterials, StoryBible, StorylineDoc } from '@the-water/shared';
 
 /**
  * 列类型词汇受限：text / integer / integer{boolean} / integer{timestamp_ms} / text{json}。
@@ -7,6 +7,28 @@ import type { StoryBible, StorylineDoc } from '@the-water/shared';
  */
 const ts = (name?: string) => (name ? integer(name, { mode: 'timestamp_ms' }) : integer({ mode: 'timestamp_ms' }));
 const bool = () => integer({ mode: 'boolean' });
+
+/** Private inference payloads: never joined into public bundles or account exports. */
+export const writingTasks = sqliteTable('writing_tasks', {
+  id: text().primaryKey(),
+  userId: text().notNull().references(() => users.id, { onDelete: 'cascade' }),
+  idempotencyKey: text().notNull(),
+  requestHash: text().notNull(),
+  request: text({ mode: 'json' }).$type<import('@the-water/shared').HarnessRequest | null>(),
+  binding: text({ mode: 'json' }).$type<import('@the-water/shared').HarnessRequest['binding']>(),
+  sessionKey: text(),
+  status: text({ enum: ['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted'] }).notNull(),
+  provider: text().notNull(), model: text().notNull(),
+  error: text({ mode: 'json' }).$type<import('@the-water/shared').HarnessTask['error']>(),
+  usage: text({ mode: 'json' }).$type<import('@the-water/shared').HarnessTask['usage']>(),
+  workerId: text(), leaseUntil: integer(),
+  createdAt: integer().notNull(), expiresAt: integer().notNull(),
+}, t => [uniqueIndex('writing_tasks_key_uq').on(t.userId, t.idempotencyKey), index('writing_tasks_queue_idx').on(t.status, t.createdAt)]);
+
+export const writingTaskEvents = sqliteTable('writing_task_events', {
+  taskId: text().notNull().references(() => writingTasks.id, { onDelete: 'cascade' }),
+  seq: integer().notNull(), event: text({ mode: 'json' }).$type<import('zod').z.infer<typeof import('@the-water/shared').HarnessEventSchema>>().notNull(),
+}, t => [primaryKey({ columns: [t.taskId, t.seq] })]);
 
 export const users = sqliteTable(
   'users',
@@ -126,6 +148,7 @@ export const novelVersions = sqliteTable(
     status: text({ enum: ['draft', 'committed', 'aborted'] }).notNull().default('draft'),
     baseVersionId: text(),
     idempotencyKey: text(),
+    creationMaterials: text({ mode: 'json' }).$type<CreationMaterials | null>(),
     storyline: text({ mode: 'json' }).$type<StorylineDoc>().notNull(),
     storylineHash: text().notNull(),
     bible: text({ mode: 'json' }).$type<StoryBible | null>(),
@@ -610,3 +633,15 @@ export type HandleHistoryRow = typeof handleHistory.$inferSelect;
 export type RateLimitCounterRow = typeof rateLimitCounters.$inferSelect;
 export type CacheEntryRow = typeof cacheEntries.$inferSelect;
 export type NovelsFtsPendingRow = typeof novelsFtsPending.$inferSelect;
+
+/** Pi SDK session log. Namespaced by account, work, branch, channel and author-context epoch. */
+export const writingMemorySessions = sqliteTable('writing_memory_sessions', {
+  key: text().primaryKey(),
+  userId: text().notNull().references(()=>users.id,{onDelete:'cascade'}),
+  sessionKey: text().notNull(),
+  revision: integer().notNull().default(0),
+  chapterNo: integer().notNull(),
+  versionKey: text().notNull(),
+  entries: text({mode:'json'}).$type<import('@earendil-works/pi-coding-agent').FileEntry[]>().notNull(),
+  updatedAt: integer().notNull(), expiresAt: integer().notNull(),
+}, t=>[index('writing_memory_sessions_expires_idx').on(t.expiresAt), index('writing_memory_sessions_scope_idx').on(t.sessionKey,t.chapterNo)]);

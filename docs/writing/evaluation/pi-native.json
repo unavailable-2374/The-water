@@ -1,0 +1,47 @@
+{
+  "recordedAt": "2026-10-08T23:03:32.308815+00:00",
+  "label": "REAL Pi backend and native TEST WebView; TEST input, not writing quality",
+  "capabilities": {
+    "enabled": true,
+    "engine": "pi",
+    "protocolVersion": 1,
+    "provider": "lunaroute",
+    "model": "deepseek-4.1-flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 262144,
+    "reasoningTokens": 32000,
+    "reasoningEffort": "low",
+    "jsonMode": "json_schema",
+    "retentionHours": 24
+  },
+  "task": {
+    "id": "01a11dc1-51ad-7000-97fd-f7ecb5ffb6a4",
+    "status": "completed",
+    "provider": "lunaroute",
+    "model": "deepseek-4.1-flash",
+    "usage": {
+      "inputTokens": 63,
+      "outputTokens": 48
+    }
+  },
+  "events": [
+    {
+      "type": "delta",
+      "text": "Pi "
+    },
+    {
+      "type": "delta",
+      "text": "后端已启用。"
+    },
+    {
+      "type": "usage",
+      "inputTokens": 63,
+      "outputTokens": 48
+    },
+    {
+      "type": "done",
+      "finishReason": "stop"
+    }
+  ],
+  "nativeObservedOutput": "Pi 后端已启用。"
+}

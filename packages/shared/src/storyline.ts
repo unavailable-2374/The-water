@@ -109,18 +109,18 @@ export function emptyStoryline(): StorylineDoc {
 // ---- Story bible ----
 
 export const BibleCharacterStateSchema = z.object({
-  name: z.string().max(50).default(''),
-  state: z.string().max(2000).default(''),
+  name: z.string().default(''),
+  state: z.string().default(''),
   location: z.string().max(200).default(''),
-  knowledge: z.string().max(2000).default(''),
-  relationships: z.array(z.string().max(300)).max(50).default([]),
+  knowledge: z.string().default(''),
+  relationships: z.array(z.string().max(300)).default([]),
 });
 
 export const StoryBibleSchema = z.object({
   characters: z.record(z.string(), BibleCharacterStateSchema).default({}),
-  timeline: z.array(z.object({ chapterNo: z.number().int(), event: z.string().max(500) })).max(5000).default([]),
-  facts: z.array(z.string().max(500)).max(1000).default([]),
-  openThreads: z.array(z.string().max(500)).max(500).default([]),
+  timeline: z.array(z.object({ chapterNo: z.number().int(), event: z.string() })).default([]),
+  facts: z.array(z.string()).default([]),
+  openThreads: z.array(z.string()).default([]),
   arcSummaries: z.record(z.string(), z.string().max(4000)).default({}),
   styleNotes: z.string().max(4000).default(''),
 });

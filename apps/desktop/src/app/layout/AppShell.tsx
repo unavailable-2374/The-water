@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { Link, Outlet, useLocation } from 'react-router';
 import { BookOpen, Feather, Compass, MessageSquare, Settings, type LucideIcon } from 'lucide-react';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui';
@@ -30,37 +30,34 @@ export function AppShell() {
   const immersive = isImmersiveRoute(loc.pathname);
   const active = activeNavKey(loc.pathname, loc.search);
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-paper-50 dark:bg-paper-950">
       {!immersive && (
-        <nav aria-label={t.nav.sidebar} className="flex w-52 flex-col border-r border-paper-300/60 bg-paper-100/80 px-3 py-5 dark:border-paper-800 dark:bg-paper-900/80">
-          <div className="mb-6 flex items-center gap-2 px-2">
-            <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-xl bg-tea-600 font-serif text-lg font-semibold text-paper-0 shadow-soft">{t.app.mark}</span>
+        <nav aria-label={t.nav.sidebar} className="app-sidebar m-3 mr-0 flex w-[224px] shrink-0 flex-col rounded-[22px] px-3 py-5 shadow-soft">
+          <div className="mb-9 flex items-center gap-3 px-2 pt-1">
+            <img src="/logo.svg" alt="" aria-hidden="true" width={40} height={40} className="h-10 w-10 shrink-0 shadow-soft" />
             <div>
-              <div className="font-serif text-sm font-semibold tracking-wide">{t.app.name}</div>
-              <div className="text-[10px] text-ink-400">{t.app.tagline}</div>
+              <div className="text-[15px] font-semibold tracking-tight">{t.app.name}</div>
+              <div className="mt-0.5 text-[11px] text-ink-500">{t.app.tagline}</div>
             </div>
           </div>
           {groups.map((g, gi) => {
             const title = g.title();
             return (
-              <div key={g.id} className={cn('mb-4', gi === groups.length - 1 && 'mt-auto mb-0')}>
-                {title && <div className="mb-1 px-2 text-[10px] font-medium tracking-widest text-ink-400">{title}</div>}
+              <div key={g.id} className={cn('mb-6', gi === groups.length - 1 && 'mt-auto mb-0 border-t border-paper-300/50 pt-3 dark:border-paper-800')}>
+                {title && <div className="mb-2 px-3 text-[11px] font-medium text-ink-500">{title}</div>}
                 {g.items.map(({ key, to, label, icon: Icon }) => {
                   const on = active === key;
                   return (
-                    <NavLink
+                    <Link
                       key={key}
                       to={to}
-                      // 高亮由 activeNavKey 统一判定，所以关掉 NavLink 自带的 isActive。
+                      // Query-aware selection is owned by activeNavKey, not pathname matching.
                       aria-current={on ? 'page' : undefined}
-                      className={cn(
-                        'mb-0.5 flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50',
-                        on ? 'bg-paper-0 font-medium text-ink-900 shadow-soft dark:bg-paper-800 dark:text-paper-50' : 'text-ink-600 hover:bg-paper-200/60 dark:text-ink-300 dark:hover:bg-paper-800/60',
-                      )}
+                      className="nav-item"
                     >
-                      <Icon size={16} strokeWidth={1.75} aria-hidden="true" className={on ? 'text-tea-600' : 'text-ink-400'} />
+                      <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
                       {label()}
-                    </NavLink>
+                    </Link>
                   );
                 })}
                 {/* 「发现」组末尾挂通知入口，小红点与未登录隐藏都在组件内部。 */}

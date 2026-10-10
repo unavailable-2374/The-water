@@ -99,9 +99,9 @@ export interface RecordUsageInput {
 export async function recordUsage(input: RecordUsageInput): Promise<UsageEvent | null> {
   const inTok = Math.max(0, Math.round(input.usage.inputTokens || 0));
   const outTok = Math.max(0, Math.round(input.usage.outputTokens || 0));
-  if (inTok === 0 && outTok === 0) return null;
+  if (inTok === 0 && outTok === 0 && !input.usage.incomplete) return null;
   const [prices, rate] = await Promise.all([effectivePrices(), getUsdToCnyRate()]);
-  const price = matchPrice(prices, input.model, input.providerKind);
+  const price = input.usage.incomplete ? null : matchPrice(prices, input.model, input.providerKind);
   const cost = costOfUsage({ inputTokens: inTok, outputTokens: outTok }, price, rate);
   const id = nanoid();
   await getDb().execute(
@@ -118,7 +118,7 @@ export async function recordUsage(input: RecordUsageInput): Promise<UsageEvent |
 // ---------------------------------------------------------------------------
 
 export interface UsageFilter { novelId?: string; jobId?: string; stepId?: string; purpose?: UsagePurpose; since?: number; until?: number }
-export interface UsageTotals { calls: number; inputTokens: number; outputTokens: number; costCny: number }
+export interface UsageTotals { calls: number; inputTokens: number; outputTokens: number; costCny: number; unpricedCalls?: number }
 
 const emptyTotals = (): UsageTotals => ({ calls: 0, inputTokens: 0, outputTokens: 0, costCny: 0 });
 
@@ -136,10 +136,10 @@ function whereOf(f: UsageFilter): { sql: string; params: unknown[] } {
 
 export async function usageTotals(filter: UsageFilter = {}): Promise<UsageTotals> {
   const { sql, params } = whereOf(filter);
-  const r = await selectOne<{ calls: number; i: number | null; o: number | null; c: number | null }>(
-    `SELECT COUNT(*) AS calls, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c FROM usage_events ${sql}`, params,
+  const r = await selectOne<{ calls: number; i: number | null; o: number | null; c: number | null; u: number | null }>(
+    `SELECT COUNT(*) AS calls, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c, SUM(CASE WHEN price_id IS NULL THEN 1 ELSE 0 END) AS u FROM usage_events ${sql}`, params,
   );
-  return { calls: num(r?.calls), inputTokens: num(r?.i), outputTokens: num(r?.o), costCny: num(r?.c) };
+  return { calls: num(r?.calls), inputTokens: num(r?.i), outputTokens: num(r?.o), costCny: num(r?.c), unpricedCalls: num(r?.u) };
 }
 
 export interface UsageGroup extends UsageTotals { key: string }
@@ -153,21 +153,21 @@ export async function usageByModel(filter: UsageFilter = {}): Promise<UsageGroup
 
 async function groupBy(column: 'purpose' | 'model', filter: UsageFilter): Promise<UsageGroup[]> {
   const { sql, params } = whereOf(filter);
-  const rows = await getDb().select<{ k: string; calls: number; i: number | null; o: number | null; c: number | null }>(
-    `SELECT ${column} AS k, COUNT(*) AS calls, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c
+  const rows = await getDb().select<{ k: string; calls: number; i: number | null; o: number | null; c: number | null; u: number | null }>(
+    `SELECT ${column} AS k, COUNT(*) AS calls, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c, SUM(CASE WHEN price_id IS NULL THEN 1 ELSE 0 END) AS u
        FROM usage_events ${sql} GROUP BY ${column} ORDER BY c DESC`, params,
   );
-  return rows.map((r) => ({ key: r.k ?? '', calls: num(r.calls), inputTokens: num(r.i), outputTokens: num(r.o), costCny: num(r.c) }));
+  return rows.map((r) => ({ key: r.k ?? '', calls: num(r.calls), inputTokens: num(r.i), outputTokens: num(r.o), costCny: num(r.c), unpricedCalls: num(r.u) }));
 }
 
 /** 最近 `months` 个自然月的用量，新的在前。key 形如 2026-09。 */
 export async function usageByMonth(months = 6): Promise<UsageGroup[]> {
-  const rows = await getDb().select<{ k: string; calls: number; i: number | null; o: number | null; c: number | null }>(
+  const rows = await getDb().select<{ k: string; calls: number; i: number | null; o: number | null; c: number | null; u: number | null }>(
     `SELECT strftime('%Y-%m', created_at / 1000, 'unixepoch', 'localtime') AS k, COUNT(*) AS calls,
-            SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c
+            SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(cost_cny) AS c, SUM(CASE WHEN price_id IS NULL THEN 1 ELSE 0 END) AS u
        FROM usage_events GROUP BY k ORDER BY k DESC LIMIT ?`, [Math.max(1, months)],
   );
-  return rows.map((r) => ({ key: r.k ?? '', calls: num(r.calls), inputTokens: num(r.i), outputTokens: num(r.o), costCny: num(r.c) }));
+  return rows.map((r) => ({ key: r.k ?? '', calls: num(r.calls), inputTokens: num(r.i), outputTokens: num(r.o), costCny: num(r.c), unpricedCalls: num(r.u) }));
 }
 
 /** 本月起点（本地时区）的时间戳。 */

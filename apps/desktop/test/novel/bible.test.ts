@@ -49,12 +49,12 @@ describe('applyBibleDelta', () => {
     expect(after.arcSummaries).toEqual({ a1: '来信弧总结' });
     expect(applyBibleDelta(before, delta, 3, doc, null).arcSummaries).toEqual({});
   });
-  it('caps timeline and facts', () => {
+  it('TEST preserves complete timeline and facts', () => {
     const big = { ...makeBible(), timeline: Array.from({ length: 5000 }, (_, i) => ({ chapterNo: 1, event: `e${i}` })), facts: Array.from({ length: 1000 }, (_, i) => `f${i}`) };
     const out = applyBibleDelta(big, delta, 9, doc, null);
-    expect(out.timeline).toHaveLength(5000);
+    expect(out.timeline).toHaveLength(5001);
     expect(out.timeline.at(-1)!.chapterNo).toBe(9);
-    expect(out.facts).toHaveLength(1000);
+    expect(out.facts).toHaveLength(1002);
     expect(out.facts.at(-1)).toBe('信件邮戳来自邻市');
   });
 });

@@ -1,0 +1,20 @@
+{
+  "label": "TEST fictional inputs, REAL model outputs",
+  "manuscripts": {
+    "A": {
+      "sha256": "a62a864e676701ec03b33cb3241e68f5c05ee6717d17966c3f235906c2211aac"
+    },
+    "B": {
+      "sha256": "847b6e301d2f4faf83b4b337e47e6efb49ff662a2cabdbba22bc4ae46ee2ef4c"
+    }
+  },
+  "sealedMappingSha256": "4b4e0d98c5042838ccbad740b4cbbb9990f8bf79a3b9c670eb562e3e559fb493",
+  "ratings": {
+    "file": "ratings.json",
+    "source": "User conversation reply before unblinding"
+  },
+  "unblindedMapping": {
+    "file": "unblinded-mapping.json",
+    "revealedAfterReceivingRatings": true
+  }
+}

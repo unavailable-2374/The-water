@@ -37,7 +37,7 @@ export function ImportTextPage() {
   return (
     <div className="h-full overflow-y-auto bg-paper-50 dark:bg-paper-950">
       <div className="mx-auto max-w-2xl px-8 py-12">
-        <h1 className="font-serif text-3xl font-semibold tracking-wide">{t.studio.importText.title}</h1>
+        <h1 className="font-sans text-3xl font-semibold tracking-tight">{t.studio.importText.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-500">{t.studio.importText.desc}</p>
         <Card className="mt-8 space-y-5 p-7">
           <Field label={t.studio.importText.novelTitle}><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t.studio.importText.titlePlaceholder} /></Field>

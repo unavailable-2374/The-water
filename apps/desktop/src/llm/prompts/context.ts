@@ -55,7 +55,7 @@ export interface ContextBudgetInput {
 
 export function buildContextBudget(input: ContextBudgetInput): number {
   const safety = input.safety ?? CONTEXT_SAFETY_TOKENS;
-  const raw = input.caps.contextWindow - input.maxTokens - safety - (input.reserved ?? 0);
+  const raw = input.caps.contextWindow - input.maxTokens - (input.caps.reasoningTokens ?? 0) - safety - (input.reserved ?? 0);
   return Math.max(0, Math.floor(raw * (input.scale ?? 1)));
 }
 

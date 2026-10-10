@@ -33,7 +33,7 @@ const outline: OutlineDoc = OutlineDocSchema.parse({
     { arcIndex: 0, title: '雨夜来信', characterNames: ['沈默'], settingNames: ['钟表铺'], suggestedChapterNo: 1 },
     { arcIndex: 0, title: '钟停了', characterNames: ['老沈'], settingNames: ['未知地点'] },
     { arcIndex: 1, title: '警官登门', characterNames: ['周警官', '沈默'], suggestedChapterNo: 3 },
-    { arcIndex: 7, title: '真相大白', characterNames: ['林晚'], suggestedChapterNo: 4 },
+    { arcIndex: 1, title: '真相大白', characterNames: ['林晚'], suggestedChapterNo: 4 },
   ],
 });
 
@@ -42,8 +42,9 @@ describe('schemas', () => {
     expect(outline.settings[1]!.kind).toBe('other');
     expect(outline.characters[1]!.aliases).toEqual([]);
     expect(outline.beats[1]!.suggestedChapterNo).toBeNull();
-    expect(outline.beats[3]!.arcIndex).toBe(7);
-    expect(OutlineDocSchema.parse({}).characters).toEqual([]);
+    expect(outline.beats[3]!.arcIndex).toBe(1);
+    expect(OutlineDocSchema.safeParse({}).success).toBe(false);
+    expect(OutlineDocSchema.parse({ logline: 'TEST supplied story logline', arcs: [{ title: 'TEST arc', startChapterNo: 1, endChapterNo: 5 }] }).characters).toEqual([]);
   });
   it('ChapterTableSchema parses minimal rows', () => {
     const rows = ChapterTableSchema.parse([{ chapterNo: 1, targetChars: 'abc' }, { chapterNo: 2, povCharacter: 3 }]);
@@ -111,7 +112,7 @@ describe('toStorylineDoc', () => {
     const [b1, b2, b3, b4] = doc.beats;
     expect(b1!.arcId).toBe(doc.arcs[0]!.id);
     expect(b3!.arcId).toBe(doc.arcs[1]!.id);
-    expect(b4!.arcId).toBeNull(); // arcIndex out of range
+    expect(b4!.arcId).toBe(doc.arcs[1]!.id);
     expect(b1!.settingIds).toEqual([doc.settings[0]!.id]);
     expect(b2!.settingIds).toEqual([]); // unknown setting dropped
     expect(b3!.characterIds).toHaveLength(2);

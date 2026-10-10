@@ -1,16 +1,26 @@
+import { writeAtomic, type AtomicWriter } from '@/db/db';
+import { getRun as getAssistantRun } from '@/assistant/repository';
+import { estimateMessagesTokens } from '@/llm/tokens';
+import { assistantJobWriter } from './assistant';
+import { topicMemoryScope } from './topicMemory';
+import { upgradeLegacyJobs } from '@/db/repos/jobsRepo';
+import { AwaitingReviewError } from './awaitingReview';
+import { reconcileGenerationPlan } from './reconcilePlan';
+import { assertJobMayResume } from './planningAdmission';
 import { getSetting } from '@/db/repos/settingsRepo';
 import {
-  getJob, listJobs, listSteps, markInterrupted, nextPendingStep, setJobStatus, stepCounts, stepDone, stepFailed, stepPartial, stepReset, stepSkipped, stepStarted, updateProgress, getStep,
+  getJob, listJobs, listSteps, markInterrupted, nextPendingStep, setJobStatus, stepCounts, stepDone, stepFailed, stepPartial, stepReset, stepSkipped, stepStarted, updateProgress, getStep, setStepInput, isRequiredStep,
   type Job, type JobStatus, type JobStep,
 } from '@/db/repos/jobsRepo';
 import { getNovel, updateNovel } from '@/db/repos/novelsRepo';
-import { listChapters, novelCharCount, setChapterStatus } from '@/db/repos/chaptersRepo';
-import { recordUsage as recordUsageEvent } from '@/db/repos/usageRepo';
+import { getChapter, listChapters, novelCharCount, setChapterStatus } from '@/db/repos/chaptersRepo';
+import { assertBudget, recordUsage as recordUsageEvent } from '@/db/repos/usageRepo';
 import { providerById, providerForPurpose } from '@/llm/registry';
 import { isTimeoutError } from '@/llm/timeout';
 import { LLMError, type LLMProvider, type Usage } from '@/llm/types';
 import { transition } from './machine';
-import { emitJobEvent } from './events';
+import { emitJobEvent, onJobEvent } from './events';
+import { recoverAcceptedPlanJobs } from '@/db/repos/planJobCompletion';
 import { STEP_HANDLERS } from './steps';
 import { basePurposeOf, pickProviderId, providerMapOf, STEP_PURPOSE, type StepProviderMap, type StepPurpose } from './purposes';
 import { DEFAULT_STEP_AUTO_RETRIES, decideStepFailure, isRetryableStepError } from './stepRetry';
@@ -21,6 +31,7 @@ const controllers = new Map<string, AbortController>();
 /** 正在推进的任务：jobId → 该任务这一轮的执行 Promise 与它占用的供应商槽位。 */
 const inFlight = new Map<string, { providerId: string | null; novelId: string; task: Promise<void> }>();
 let loopRunning = false;
+let suspendedForRestore=false;
 let wake: (() => void) | null = null;
 
 async function emitJob(id: string): Promise<void> {
@@ -34,21 +45,26 @@ async function emitStep(id: string): Promise<void> {
 
 /** Called once at boot: recover interrupted jobs and (optionally) resume them. */
 export async function startJobRunner(): Promise<void> {
+  await upgradeLegacyJobs();
+  await recoverAcceptedPlanJobs();
   const interrupted = await markInterrupted();
   const auto = await getSetting<boolean>('autoResumeJobs', true);
   for (const j of interrupted) {
-    if (auto && j.interrupted) await setJobStatus(j.id, 'running', { interrupted: false });
+    if (auto && j.interrupted && !j.params.assistantRunId) await setJobStatus(j.id, 'running', { interrupted: false });
     await emitJob(j.id);
   }
   // queued jobs also start
-  for (const j of await listJobs({ statuses: ['queued'] })) await setJobStatus(j.id, 'running');
+  for (const j of await listJobs({ statuses: ['queued'] })) if(await assistantMayRun(j)) await setJobStatus(j.id, 'running');
   kick();
 }
 
 export function kick(): void {
+  if(suspendedForRestore) return;
   if (wake) { wake(); wake = null; }
   if (!loopRunning) void loop();
 }
+
+onJobEvent((event) => { if (event.type === 'plan:resolved' || (event.type==='job:updated' && event.job.status==='queued')) kick(); });
 
 function nextWake(): Promise<void> {
   return new Promise<void>((resolve) => { wake = resolve; });
@@ -63,8 +79,10 @@ async function loop(): Promise<void> {
   loopRunning = true;
   try {
     for (;;) {
+      if(suspendedForRestore) break;
       // Jobs created at runtime start as 'queued'; promote them here (boot does the same in startJobRunner).
       for (const q of await listJobs({ statuses: ['queued'] })) {
+        if(!await assistantMayRun(q)) continue;
         await setJobStatus(q.id, transition('queued', 'start'));
         await emitJob(q.id);
       }
@@ -79,6 +97,7 @@ async function loop(): Promise<void> {
       ]);
       const starts = planPoolStarts(candidates, active, limits, (id) => novelOf.get(id) ?? null);
       for (const id of starts) {
+        if(suspendedForRestore) break;
         const job = candidates.find((j) => j.id === id)!;
         const entry = {
           providerId: job.providerId,
@@ -105,9 +124,7 @@ async function loop(): Promise<void> {
 
 async function resolveStepProvider(job: Pick<Job, 'params' | 'providerId'>, purpose: StepPurpose, global: StepProviderMap): Promise<LLMProvider> {
   const id = pickProviderId(purpose, { job: providerMapOf(job.params), global, jobProviderId: job.providerId });
-  if (id) {
-    try { return await providerById(id); } catch { /* 供应商被删了 → 回落到默认 */ }
-  }
+  if (id) return providerById(id);
   return (await providerForPurpose(basePurposeOf(purpose))).provider;
 }
 
@@ -127,23 +144,32 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+async function assistantMayRun(job:Job):Promise<boolean> {
+  if(typeof job.params.assistantRunId!=='string') return true;
+  const run=await getAssistantRun(job.params.assistantRunId);
+  if(run?.state==='waiting_job' && run.jobId===job.id) return true;
+  await setJobStatus(job.id,run?.state==='cancelled'?'cancelled':'paused');
+  return false;
+}
+
 async function processOne(job: Job): Promise<void> {
+  if(job.status==='running' && !await assistantMayRun(job)) {await emitJob(job.id);return;}
   if (job.status === 'pausing') { await finalize(job.id, 'paused'); return; }
   if (job.status === 'cancelling') { await finalize(job.id, 'cancelled'); return; }
   const step = await nextPendingStep(job.id);
   if (!step) {
-    const failed = (await listSteps(job.id)).some((s) => s.status === 'failed');
+    const failed = (await listSteps(job.id)).some((s) => s.status === 'failed' || s.status === 'skipped' && isRequiredStep(s.kind));
     await finalize(job.id, failed ? 'failed' : 'completed');
     return;
   }
   const handler = STEP_HANDLERS[step.kind];
-  if (!handler) { await stepSkipped(step.id); await emitStep(step.id); return; }
+  if (!handler) { await stepFailed(step.id, `Missing step handler: ${step.kind}`); await setJobStatus(job.id,'failed',{error:`Missing step handler: ${step.kind}`}); await emitStep(step.id); await emitJob(job.id); return; }
 
   const ac = new AbortController();
   controllers.set(job.id, ac);
   await stepStarted(step.id);
   const started = (await getStep(step.id)) ?? step;
-  await updateProgress(job.id, { currentStepId: step.id, message: '' });
+  await updateProgress(job.id, { currentStepId: step.id, message: '', charsSoFar: await novelCharCount(job.novelId) });
   await emitStep(step.id);
   await emitJob(job.id);
 
@@ -157,13 +183,34 @@ async function processOne(job: Job): Promise<void> {
     const hit = providerCache.get(p);
     if (hit) return hit;
     const resolved = await resolveStepProvider(job, p, globalMap);
-    providerCache.set(p, resolved);
-    return resolved;
+    const topicTree=resolved.id==='server:lunaroute' ? await topicMemoryScope(job,started,p) : undefined;
+    const bound: LLMProvider = { id: resolved.id, model: resolved.model, kind: resolved.kind, caps: resolved.caps,
+      stream: async function* (request) {
+        // Admission alone cannot enforce a budget across a long-running work.
+        await assertBudget(job.novelId);
+        request.signal?.throwIfAborted();
+        const { storyDirectionContext } = await import('@/db/repos/storyOptionsRepo');
+        const directions = await storyDirectionContext(job.novelId);
+        const messages=[...request.messages, ...(directions ? [{role:'user' as const,content:directions}] : []), ...(job.params.assistantRunId ? [{role:'user' as const,content:`Author's authorized task goal: ${String(job.params.assistantGoal??'')}\nTask constraints: ${JSON.stringify(job.params.assistantConstraints??[])}`}] : [])];
+        if((job.params.assistantRunId || directions) && estimateMessagesTokens(messages,resolved.caps.cjkTokenRatio)+request.maxTokens+(resolved.caps.reasoningTokens??0)+1500>resolved.caps.contextWindow) throw new Error('Required task constraints exceed the model window');
+        yield* resolved.stream({ ...request,messages, ...(topicTree?{topicTree}:{}), binding: {
+        operationId: `${job.id}:${started.id}:${p}`,
+        candidateVersionId: typeof started.input.candidateVersionId === 'string' ? started.input.candidateVersionId : null,
+        contentHash: typeof started.input.candidateHash === 'string' ? started.input.candidateHash : null,
+        dependencyHash: typeof started.input.dependencyHash === 'string' ? started.input.dependencyHash : null,
+      } });
+      },
+    };
+    providerCache.set(p, bound);
+    return bound;
   };
-  const provider = await providerFor(purpose);
+  let provider:LLMProvider;
+  try { provider=await providerFor(purpose); }
+  catch(error) { controllers.delete(job.id); await stepFailed(step.id,describeStepError(error)); await setJobStatus(job.id,'failed',{error:describeStepError(error)}); await emitStep(step.id); await emitJob(job.id); return; }
   let seedTaken = false;
 
   const ctx: StepContext = {
+    commit: assistantJobWriter(job,started,ac.signal),
     job,
     step: started,
     purpose,
@@ -199,6 +246,28 @@ async function processOne(job: Job): Promise<void> {
     await updateProgress(job.id, { done: counts.done, total: counts.total, currentStepId: null, charsSoFar: await novelCharCount(job.novelId) });
     emitJobEvent({ type: 'step:delta', jobId: job.id, stepId: step.id, text: '' });
   } catch (e) {
+    if(e instanceof LLMError && e.usage) {
+      const entry=[...providerCache.entries()].find(([,p])=>p.id===e.providerId);
+      await ctx.recordUsage(e.usage,{purpose:entry?.[0] ?? purpose,provider:entry?.[1] ?? provider});
+    }
+    const failureMessage=e instanceof Error ? e.message:String(e);
+    if (e instanceof AwaitingReviewError || failureMessage.startsWith('Concurrent modification:')) {
+      if (e instanceof AwaitingReviewError) {
+        const current = await getStep(step.id);
+        if (current) await setStepInput(step.id, {...current.input, awaitingAction:e.action ?? null});
+      }
+      if(pendingText) await stepPartial(step.id,pendingText);
+      await stepFailed(step.id, failureMessage);
+      await setJobStatus(job.id, 'awaiting_review', { error: failureMessage });
+      await updateProgress(job.id, { message: failureMessage });
+      // Approval can arrive just before the handler records its review checkpoint.
+      const proposalId = (await getStep(step.id))?.input.planProposalId;
+      if (typeof proposalId === 'string') await recoverAcceptedPlanJobs(proposalId);
+      else if (step.kind === 'scene_plan') await recoverAcceptedPlanJobs();
+      await emitStep(step.id);
+      await emitJob(job.id);
+      return;
+    }
     const aborted = (e instanceof LLMError && e.kind === 'aborted') || (e instanceof Error && e.name === 'AbortError') || ac.signal.aborted;
     if (aborted) {
       await stepReset(step.id);
@@ -233,7 +302,7 @@ async function processOne(job: Job): Promise<void> {
 export function describeStepError(e: unknown): string {
   if (isTimeoutError(e)) return '供应商长时间没有返回内容（已超时）';
   if (e instanceof LLMError) {
-    if (e.kind === 'auth') return `API Key 无效或没有权限：${e.message}`;
+    if (e.kind === 'auth') return `身份验证失败：${e.message}`;
     if (e.kind === 'context_length') return `上下文超出模型窗口：${e.message}`;
     if (e.kind === 'rate_limit') return `触发了供应商限流：${e.message}`;
   }
@@ -243,6 +312,13 @@ export function describeStepError(e: unknown): string {
 async function finalize(jobId: string, status: JobStatus): Promise<void> {
   const job = await getJob(jobId);
   if (!job) return;
+  if(status==='completed' && typeof job.params.assistantRunId==='string') {
+    const run=await getAssistantRun(job.params.assistantRunId);
+    if(run?.state!=='waiting_job') {
+      await setJobStatus(jobId,run?.state==='cancelled'?'cancelled':'paused');
+      await emitJob(jobId);return;
+    }
+  }
   if (job.status !== status) await setJobStatus(jobId, status);
   // 规划任务（大纲 / 章节表）跑完时小说还没开始写，状态该留在 planning。
   const isPlanning = (job.params as { stage?: unknown }).stage === 'plan';
@@ -250,30 +326,59 @@ async function finalize(jobId: string, status: JobStatus): Promise<void> {
     const novel = await getNovel(job.novelId);
     if (novel) {
       const chapters = await listChapters(novel.id);
-      const allWritten = chapters.length > 0 && chapters.every((c) => c.currentVersionId);
-      await updateNovel(novel.id, { status: allWritten ? 'complete' : 'writing' });
+      const allWritten = chapters.length > 0 && chapters.every((c) => c.committedVersionId && c.currentVersionId === c.committedVersionId && c.memoryStatus === 'valid');
+      const lastStep=(await listSteps(job.id)).at(-1);
+      const commit=lastStep ? assistantJobWriter(job,lastStep,new AbortController().signal) : undefined;
+      await updateNovel(novel.id, { status: allWritten ? 'complete' : 'writing' },commit);
     }
   }
   await emitJob(jobId);
 }
 
-export async function pauseJob(id: string): Promise<void> {
+export async function pauseJob(id: string, commit:AtomicWriter=writeAtomic): Promise<void> {
   const job = await getJob(id);
-  if (!job || job.status !== 'running') return;
-  await setJobStatus(id, transition(job.status, 'pause'));
+  if (!job) throw new Error('Task is unavailable');
+  if (['queued','awaiting_review'].includes(job.status)) {
+    await setJobStatus(id,'paused',{},commit);
+    await emitJob(id);
+    return;
+  }
+  if (job.status !== 'running') {await commit([]);return;}
+  await setJobStatus(id, transition(job.status, 'pause'),{},commit);
   controllers.get(id)?.abort();
   await emitJob(id);
   kick();
 }
 
-export async function resumeJob(id: string): Promise<void> {
+async function resetReviewChain(step: JobStep): Promise<void> {
+  const chain = ['style_check','summarize','commit_chapter'];
+  const steps = await listSteps(step.jobId);
+  const targets = chain.includes(step.kind) ? steps.filter(s => s.chapterId === step.chapterId && chain.includes(s.kind)) : [step];
+  for (const s of targets) {
+    await setStepInput(s.id, { ...s.input, dependencyHash:null, candidateVersionId:null, candidateHash:null });
+    await stepReset(s.id);
+  }
+}
+
+export async function resumeJob(id: string, commit:AtomicWriter=writeAtomic): Promise<void> {
   const job = await getJob(id);
-  if (!job) return;
-  if (job.status === 'paused') await setJobStatus(id, transition('paused', 'resume'), { interrupted: false });
-  else if (job.status === 'failed') {
-    for (const s of await listSteps(id)) if (s.status === 'failed') await stepReset(s.id);
-    await setJobStatus(id, transition('failed', 'retry'), { error: null });
-  } else return;
+  if (!job) throw new Error('Task is unavailable');
+  if (['paused', 'failed', 'awaiting_review'].includes(job.status)) assertJobMayResume(job, await listJobs({ novelId: job.novelId }));
+  if (['paused', 'failed', 'awaiting_review'].includes(job.status)) await reconcileGenerationPlan(job);
+  if (job.status === 'paused') {
+    // Explicit resume after an author edit starts a fresh mandatory review chain.
+    // Never carry the previous candidate's review or fact extraction forward.
+    for (const step of await listSteps(id)) {
+      if (step.status !== 'pending' || !step.chapterId || !['style_check','summarize','commit_chapter'].includes(step.kind) || !step.input.dependencyHash) continue;
+      const chapter = await getChapter(step.chapterId);
+      if (chapter && step.input.candidateVersionId !== chapter.currentVersionId) await resetReviewChain(step);
+    }
+    await setJobStatus(id, transition('paused', 'resume'), { interrupted: false },commit);
+  }
+  else if (job.status === 'failed' || job.status === 'awaiting_review') {
+    for (const s of await listSteps(id)) if (s.status === 'failed') await resetReviewChain(s);
+    await setJobStatus(id, transition('failed', 'retry'), { error: null },commit);
+  } else {await commit([]);return;}
   await emitJob(id);
   kick();
 }
@@ -281,7 +386,10 @@ export async function resumeJob(id: string): Promise<void> {
 export async function skipFailedStep(id: string): Promise<void> {
   const job = await getJob(id);
   if (!job || job.status !== 'failed') return;
-  for (const s of await listSteps(id)) if (s.status === 'failed') await stepSkipped(s.id);
+  assertJobMayResume(job, await listJobs({ novelId: job.novelId }));
+  const failed = (await listSteps(id)).filter(s => s.status === 'failed');
+  if (failed.some(s => isRequiredStep(s.kind))) throw new Error('必需审查和提交步骤不能跳过');
+  for (const s of failed) await stepSkipped(s.id);
   await setJobStatus(id, 'running', { error: null });
   await emitJob(id);
   kick();
@@ -294,7 +402,7 @@ export async function skipFailedStep(id: string): Promise<void> {
 /** 该步骤现在能不能单独重试 / 跳过。 */
 export function canActOnStep(job: Pick<Job, 'status'>, step: Pick<JobStep, 'status'>): boolean {
   if (step.status !== 'failed' && step.status !== 'skipped') return false;
-  return ['failed', 'paused', 'completed', 'running'].includes(job.status);
+  return ['failed', 'paused', 'completed', 'running', 'awaiting_review'].includes(job.status);
 }
 
 /** 把一个失败（或已跳过）的步骤放回队列，只重跑它。 */
@@ -303,7 +411,8 @@ export async function retryStep(stepId: string): Promise<void> {
   if (!step) return;
   const job = await getJob(step.jobId);
   if (!job || !canActOnStep(job, step)) return;
-  await stepReset(stepId);
+  assertJobMayResume(job, await listJobs({ novelId: job.novelId }));
+  await resetReviewChain(step);
   const stillFailed = (await listSteps(job.id)).some((s) => s.status === 'failed');
   if (!['running', 'pausing', 'cancelling'].includes(job.status)) {
     await setJobStatus(job.id, 'running', { error: stillFailed ? job.error : null });
@@ -333,16 +442,43 @@ export async function skipStep(stepId: string): Promise<void> {
   kick();
 }
 
-export async function cancelJob(id: string): Promise<void> {
+export async function cancelJob(id: string, commit:AtomicWriter=writeAtomic): Promise<void> {
   const job = await getJob(id);
-  if (!job) return;
-  if (job.status === 'running') { await setJobStatus(id, 'cancelling'); controllers.get(id)?.abort(); }
-  else if (['queued', 'paused', 'failed', 'pausing'].includes(job.status)) { await setJobStatus(id, 'cancelled'); controllers.get(id)?.abort(); }
-  else return;
+  if (!job) throw new Error('Task is unavailable');
+  if (job.status === 'running') { await setJobStatus(id, 'cancelling',{},commit); controllers.get(id)?.abort(); }
+  else if (['queued', 'paused', 'failed', 'pausing', 'awaiting_review'].includes(job.status)) { await setJobStatus(id, 'cancelled',{},commit); controllers.get(id)?.abort(); }
+  else {await commit([]);return;}
   await emitJob(id);
   kick();
 }
 
 export function isJobActive(id: string): boolean {
   return controllers.has(id);
+}
+
+/** Drain this job only; unrelated work can keep running. */
+export async function waitForJobIdle(id:string):Promise<void> {
+  const task=inFlight.get(id)?.task;
+  if(task) await task;
+  const job=await getJob(id);
+  if(job?.status==='pausing') await finalize(id,'paused');
+  else if(job?.status==='cancelling') await finalize(id,'cancelled');
+}
+
+/** Stop scheduling and drain in-flight database writes before replacing the database. */
+export async function suspendJobRunnerForRestore():Promise<void> {
+  suspendedForRestore=true;
+  for(const job of await listJobs({statuses:['running','queued']})) await setJobStatus(job.id,'pausing');
+  for(const controller of controllers.values()) controller.abort();
+  if(wake) {wake();wake=null;}
+  await Promise.all([...inFlight.values()].map(v=>v.task));
+  for(const job of await listJobs({statuses:['pausing']})) await setJobStatus(job.id,'paused');
+}
+
+/** Await the scheduler as well as request controllers before a DB owner closes its connection. */
+export async function waitForJobRunnerIdle():Promise<void> {
+  while(loopRunning || inFlight.size) {
+    if(inFlight.size) await Promise.all([...inFlight.values()].map(v=>v.task));
+    else await new Promise(resolve=>setTimeout(resolve,10));
+  }
 }

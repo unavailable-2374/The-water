@@ -222,6 +222,10 @@ export const NovelBundleV1Schema = z.object({
   attribution: AttributionSchema.optional(),
 });
 export type NovelBundleV1 = z.infer<typeof NovelBundleV1Schema>;
+export const NovelBundleV2Schema = NovelBundleV1Schema.extend({ bundleVersion: z.literal(2), creationMaterials: CreationMaterialsSchema });
+export const NovelBundleSchema = z.discriminatedUnion('bundleVersion', [NovelBundleV1Schema, NovelBundleV2Schema]);
+export type NovelBundle = z.infer<typeof NovelBundleSchema>;
+
 
 /** fork 后桌面端本地记录的溯源信息。 */
 export const NovelOriginSchema = z.object({
@@ -238,3 +242,4 @@ export const NovelOriginSchema = z.object({
   forkedAt: z.string(),
 });
 export type NovelOrigin = z.infer<typeof NovelOriginSchema>;
+import { CreationMaterialsSchema } from './creationMaterials';

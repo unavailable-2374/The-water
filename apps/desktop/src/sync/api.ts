@@ -4,7 +4,9 @@
  * error envelope. Uses the Tauri HTTP plugin so requests are not subject to WebView CORS.
  */
 import { fetch } from '@tauri-apps/plugin-http';
+import { detachAbortAfterHeaders } from '@/llm/timeout';
 import { z } from 'zod';
+import { HarnessCapabilitiesSchema, HarnessPageSchema, HarnessTaskSchema, type HarnessRequest } from '@the-water/shared';
 import {
   ApiErrorSchema,
   AccountExportResponseSchema,
@@ -30,7 +32,7 @@ import {
   LikeResponseSchema,
   LineageResponseSchema,
   MeResponseSchema,
-  NovelBundleV1Schema,
+  NovelBundleSchema,
   NovelListResponseSchema,
   NovelResponseSchema,
   OkResponseSchema,
@@ -102,6 +104,7 @@ type QueryValue = string | number | boolean | null | undefined;
 export type Query = Record<string, QueryValue>;
 
 interface RequestOptions<S extends z.ZodType> {
+  signal?: AbortSignal;
   body?: unknown;
   query?: Query;
   headers?: Record<string, string>;
@@ -132,14 +135,48 @@ export async function checkServer(baseUrl: string): Promise<HealthResponse> {
   return parsed.data;
 }
 
+// The plugin releases the request RID when headers arrive. Forward cancellation
+// only until then; afterwards cancel the live body reader, never the stale RID.
+async function responseText(res: Response, signal?: AbortSignal): Promise<string> {
+  if (!signal) return res.text();
+  if (signal.aborted) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new DOMException('Request aborted', 'AbortError');
+  }
+  if (!res.body) return '';
+  const reader = res.body.getReader();
+  let rejectAbort!: (reason: unknown) => void;
+  const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject; });
+  const onAbort = () => {
+    rejectAbort(new DOMException('Request aborted', 'AbortError'));
+    void reader.cancel().catch(() => undefined);
+  };
+  signal.addEventListener('abort', onAbort, { once: true });
+  const decoder = new TextDecoder();
+  let text = '';
+  try {
+    for (;;) {
+      const chunk = await Promise.race([reader.read(), aborted]);
+      if (chunk.done) return text + decoder.decode();
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+    reader.releaseLock();
+  }
+}
+
 export class PublicApi {
   readonly baseUrl: string;
+  private readonly fetchImpl: typeof fetch;
   constructor(
     baseUrl: string,
     private readonly getToken: TokenProvider,
     private readonly clientId: string,
+    fetchImpl: typeof fetch = fetch,
   ) {
     this.baseUrl = normalizeServerUrl(baseUrl);
+    this.fetchImpl = detachAbortAfterHeaders(fetchImpl) as typeof fetch;
   }
 
   async request<S extends z.ZodType>(method: Method, path: string, opts: RequestOptions<S>): Promise<z.output<S>> {
@@ -158,16 +195,22 @@ export class PublicApi {
 
     let res: Response;
     try {
-      res = await fetch(url.toString(), {
+      res = await this.fetchImpl(url.toString(), {
         method,
         headers,
         body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        signal: opts.signal,
       });
     } catch (e) {
       throw new ApiError('NETWORK', `无法连接服务器：${e instanceof Error ? e.message : String(e)}`, 0);
     }
 
-    const text = await res.text();
+    let text: string;
+    try {
+      text = await responseText(res, opts.signal);
+    } catch (e) {
+      throw new ApiError('NETWORK', `无法读取服务器响应：${e instanceof Error ? e.message : String(e)}`, 0);
+    }
     let json: unknown = null;
     if (text) {
       try {
@@ -193,6 +236,17 @@ export class PublicApi {
   }
 
   // ---- auth ----
+  writingCapabilities(signal?: AbortSignal) { return this.request('GET', '/writing/capabilities', { schema: HarnessCapabilitiesSchema, signal }); }
+  createWritingTask(body: HarnessRequest, key: string, signal?: AbortSignal) {
+    return this.request('POST', '/writing/tasks', { body, headers: { 'Idempotency-Key': key }, schema: HarnessTaskSchema, signal });
+  }
+  writingTask(id: string, after = 0, signal?: AbortSignal) {
+    return this.request('GET', `/writing/tasks/${enc(id)}`, { query: { after }, schema: HarnessPageSchema, signal });
+  }
+  cancelWritingTask(id: string, signal?: AbortSignal) {
+    return this.request('DELETE', `/writing/tasks/${enc(id)}`, { schema: HarnessTaskSchema, signal });
+  }
+
   register(body: { email: string; password: string; displayName: string; handle?: string; clientLabel?: string }) {
     return this.request('POST', '/auth/register', { body, schema: AuthResponseSchema });
   }
@@ -305,11 +359,12 @@ export class PublicApi {
   }
 
   // ---- forks / lineage ----
+  capabilities() { return this.request('GET', '/capabilities', { schema: z.object({ bundleVersions: z.array(z.number()), storyGraphVersion: z.number().optional(), creationMaterials: z.object({ version: z.number(), blockBytes: z.number(), totalBytes: z.number() }).optional() }) }); }
   createFork(id: string, versionId?: string) {
     return this.request('POST', `/novels/${enc(id)}/forks`, { body: versionId ? { versionId } : {}, schema: ForkResponseSchema });
   }
   getBundle(id: string, vid: string, forkId?: string) {
-    return this.request('GET', `/novels/${enc(id)}/versions/${enc(vid)}/bundle`, { query: { forkId }, schema: NovelBundleV1Schema });
+    return this.request('GET', `/novels/${enc(id)}/versions/${enc(vid)}/bundle`, { query: { forkId, bundleVersion: 2 }, schema: NovelBundleSchema });
   }
   myForks(query: { cursor?: string; limit?: number } = {}) {
     return this.request('GET', '/me/forks', { query, schema: ForkListResponseSchema });

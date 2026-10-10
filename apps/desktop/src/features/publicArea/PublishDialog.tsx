@@ -22,6 +22,7 @@ import { diffAgainstRemote, publishNovel, remoteVersionNumber, resumePublish, ty
 interface Props { novel: Novel; open: boolean; onClose: () => void; onPublished?: () => void }
 
 interface Form {
+  shareCreationMaterials: boolean;
   title: string; summary: string; tags: string; license: License; allowDerivatives: boolean;
   writingStatus: 'ongoing' | 'completed'; visibility: 'public' | 'unlisted'; changeNote: string;
 }
@@ -31,6 +32,7 @@ const LICENSES = Object.keys(LICENSE_LABELS) as License[];
 function initialForm(novel: Novel): Form {
   const locked = novel.origin && SHARE_ALIKE_LICENSES.includes(novel.origin.sourceLicense) ? novel.origin.sourceLicense : null;
   return {
+    shareCreationMaterials: false,
     title: novel.title,
     summary: novel.meta.logline || '',
     tags: novel.meta.themes.slice(0, LIMITS.TAGS_MAX_COUNT).join(', '),
@@ -94,7 +96,7 @@ export function PublishDialog({ novel, open, onClose, onPublished }: Props) {
   const [remoteVersion, setRemoteVersion] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ message: string; done: number; total: number } | null>(null);
   const [preparing, setPreparing] = useState(false);
-  // 待采纳的改写版本已经是 current，发布会把它们推上去；不拦，但要让作者知道。
+  // 发布只读取已提交版本；候选数量用于提示作者。
   const { data: pendingCount } = useAsyncData<number>(
     async () => (await listPendingRewrites(novel.id)).length,
     { key: `publishPending:${novel.id}`, enabled: open },
@@ -156,6 +158,7 @@ export function PublishDialog({ novel, open, onClose, onPublished }: Props) {
     const opts: PublishOptions = {
       title: f.title.trim(), summary: f.summary.trim(), tags: parseTags(f.tags), license: f.license,
       allowDerivatives: f.license === 'all-rights-reserved' ? false : f.allowDerivatives,
+      shareCreationMaterials: f.shareCreationMaterials,
       writingStatus: f.writingStatus, visibility: f.visibility, changeNote: f.changeNote.trim() || undefined,
     };
     setProgress({ message: t.publicArea.preparing, done: 0, total: 1 });
@@ -243,6 +246,7 @@ export function PublishDialog({ novel, open, onClose, onPublished }: Props) {
               </Select>
             </Field>
           </div>
+<label className="block text-sm"><input type="checkbox" checked={f.shareCreationMaterials} disabled={busy} onChange={e => set('shareCreationMaterials', e.target.checked)} /> {t.studio.workbench.share}<p className="mt-1 text-xs text-ink-500">{t.studio.workbench.private}</p></label>
           <Field label={t.publicArea.fieldChangeNote}><Input value={f.changeNote} onChange={(e) => set('changeNote', e.target.value)} maxLength={500} disabled={busy} placeholder={t.publicArea.changeNotePlaceholder} /></Field>
 
           {progress && (

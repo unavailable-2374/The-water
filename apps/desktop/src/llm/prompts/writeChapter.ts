@@ -1,6 +1,6 @@
 import type { ProviderCaps, PromptSpec } from '@/llm/types';
 import type { NovelRequirements } from '@/novel/types';
-import { askedTarget, maxTokensForChapter, minAcceptable } from '@/novel/wordBudget';
+import { maxTokensForChapter } from '@/novel/wordBudget';
 import { joinSections, section, sys, systemBase, user, type StyleExtras } from './base';
 
 export type ChapterHalf = 'first' | 'second';
@@ -19,20 +19,16 @@ export interface WriteChapterInput {
 }
 
 export function lengthRule(targetChars: number, half: ChapterHalf | null | undefined): { rule: string; partTarget: number } {
-  const asked = askedTarget(targetChars);
-  const min = minAcceptable(targetChars);
   if (!half) {
     return {
-      rule: `【篇幅】本章目标约 ${asked} 字（严格），不得少于 ${min} 字，不要为了凑字数而重复。`,
+      rule: `【篇幅】本章参考约 ${targetChars} 字，按章节设定与剧情需要展开或收缩。大章充分呈现关键选择与互动，小章也须完整推进，通常至少约 1000 字以避免零碎；这是创作参考，内容完整可合理短于参考，不为凑字数重复，也不因超过参考删掉必要内容。`,
       partTarget: targetChars,
     };
   }
   const partTarget = Math.round(targetChars / 2);
-  const partAsked = askedTarget(partTarget);
-  const partMin = minAcceptable(partTarget);
   const which = half === 'first' ? '前半部分' : '后半部分';
   return {
-    rule: `【篇幅】本章总目标约 ${asked} 字，本次只写${which}，约 ${partAsked} 字（严格），不得少于 ${partMin} 字，不要为了凑字数而重复。`,
+    rule: `【篇幅】本章总参考约 ${targetChars} 字，本次只写${which}，参考约 ${partTarget} 字。依场景完整性自然展开或收缩，不按一半配额切断事件、不为凑字数重复；技术分段不等于拆成两个零碎章节。`,
     partTarget,
   };
 }

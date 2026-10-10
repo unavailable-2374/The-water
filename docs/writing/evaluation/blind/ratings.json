@@ -1,0 +1,25 @@
+{
+  "label": "HUMAN user ratings of REAL outputs from TEST fictional input",
+  "recordedAt": "2026-10-08T20:40:06.586168+00:00",
+  "source": "User conversation reply received before unblinding",
+  "rawResponse": "A：情节2分，全文没交代背景不知道在干嘛；人物2分，对人物几乎没有刻画，心理/反应等都缺失，只有一些很表面的描述；连续性：3分，整体连贯；表达：3分，文笔很好，但是过于堆砌，没有轻重缓急，让人不知所云。B：情节3.5分，故事完整，衔接连贯，但是故事设定本身无趣，没有提及顾澄父亲蒙受冤屈经历了什么，以及为什么她要还父亲清白，很难共情；人物3.5分，有情绪上的描写和表达，人物形象相对丰富，但是由于情节的缺失，一切都有些突兀；连续性：4分，连贯性没有问题；表达：4分，有轻重缓急了。",
+  "scores": {
+    "A": {
+      "plot": 2,
+      "characters": 2,
+      "continuity": 3,
+      "expression": 3
+    },
+    "B": {
+      "plot": 3.5,
+      "characters": 3.5,
+      "continuity": 4,
+      "expression": 4
+    }
+  },
+  "explicitOverallPreference": null,
+  "confidence": null,
+  "verbatimManuscriptEvidence": null,
+  "observedScorePreference": "B scored higher in every dimension; no separate explicit preference was supplied",
+  "qualityConclusion": "Relative preference in one selected sample pair; author reports unresolved background and motivation problems. General improvement and quality acceptance are not established."
+}

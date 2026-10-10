@@ -1,3 +1,4 @@
+import { testReadyLengthReview, testReadyStory } from '../helpers/writing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDb } from '../helpers/testDb';
 import { sseBody, sseResponse } from '../llm/helpers';
@@ -5,10 +6,10 @@ import { setSecretStore } from '@/secrets/keychain';
 import { setFetchImpl } from '@/llm/registry';
 import { createProvider } from '@/db/repos/providersRepo';
 import { createNovel } from '@/db/repos/novelsRepo';
-import { createVersion, getChapter, listChapters, listVersions, upsertChapterPlan } from '@/db/repos/chaptersRepo';
+import { createVersion, getChapter, getVersion, listChapters, listVersions, saveSessionEdit, upsertChapterPlan } from '@/db/repos/chaptersRepo';
 import { createSnapshot, replaceStorylineRows } from '@/db/repos/storylineRepo';
 import { saveBible, listBibleSnapshots } from '@/db/repos/bibleRepo';
-import { createJob, getJob, listSteps, setJobStatus, stepReset, type Job } from '@/db/repos/jobsRepo';
+import { createJob, getJob, listSteps, setJobStatus, setStepInput, stepReset, type Job } from '@/db/repos/jobsRepo';
 import { emptyBible, emptyStoryline, emptyVoice } from '@the-water/shared';
 import { defaultRequirements } from '@/novel/types';
 import { planGenerate } from '@/jobs/planner';
@@ -26,7 +27,11 @@ function makeFetch(opts: { holdFirstProse?: { release: Promise<void> } } = {}): 
     calls.push(body);
     const done = { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 20 } };
     if (body.response_format) {
-      const json = { summary: '主角来到河边，遇见了老船夫。', bibleDelta: { characterUpdates: [{ name: '阿水', state: '到达河边', location: '河边', knowledge: '', relationshipChanges: [] }], newCharacters: [], newFacts: ['河上有一座旧木桥'], timelineEvents: [{ event: '阿水遇见老船夫' }], openThreads: [], closedThreads: [], arcSummary: null }, continuityWarnings: [] };
+      const system = String((body.messages as Array<{role:string;content:string}>).find(m => m.role==='system')?.content);
+      const quote = '风从河面吹过来';
+      const from = prose(12).indexOf(quote);
+      const event = { id:'TEST-event', kind:'event', entityId:null, threadId:null, text:'TEST 风吹过河面', knownBy:[], time:'', location:'', dependencyIds:[], evidence:{from,to:from+quote.length,quote} };
+      const json = system.includes('叙事审稿人') ? {issues:[],lengthReview:testReadyLengthReview(),story:testReadyStory()} : system.includes('设定校对') ? {numericConflicts:[],timelineConflicts:[],addressErrors:[],loreConflicts:[],verdict:'pass'} : { summary: 'TEST 老船夫章节摘要', events: [event, {...event,id:'TEST-fact',kind:'fact',text:'TEST 河面有风'}] };
       return sseResponse([sseBody([{ data: { choices: [{ delta: { content: JSON.stringify(json) } }] } }, { data: done }, { data: '[DONE]' }])]);
     }
     proseCalls++;
@@ -78,19 +83,48 @@ beforeEach(() => {
   setSecretStore({ get: async () => 'k', set: async () => undefined, delete: async () => undefined });
 });
 
-describe('job runner end-to-end (fake provider)', () => {
+describe('TEST job runner end-to-end (fake provider)', () => {
+  it('TEST resumes a paused review against the author revision without a second continue', async () => {
+    const f = makeFetch(); setFetchImpl(f.fetch);
+    const novel = await setupNovel(1), chapter = (await listChapters(novel.id))[0]!;
+    const old = await createVersion({chapterId:chapter.id,content:prose(12),source:'generated'});
+    const job = await createJob({novelId:novel.id,type:'generate_novel',params:{},providerId:null,steps:[{kind:'style_check',chapterId:chapter.id,input:{}}]});
+    const step = (await listSteps(job.id))[0]!;
+    await setStepInput(step.id,{dependencyHash:'TEST old dependency',candidateVersionId:old.id,candidateHash:old.contentHash});
+    await setJobStatus(job.id,'paused');
+    const revision = await saveSessionEdit({chapterId:chapter.id,sessionId:'TEST paused author edit',content:prose(12)+'TEST 作者修订。'});
+    await resumeJob(job.id);
+    await waitFor(async()=>terminal(await getJob(job.id)));
+    expect((await getJob(job.id))!.status).toBe('completed');
+    expect((await listSteps(job.id))[0]!.input.candidateVersionId).toBe(revision.id);
+    expect(f.calls.some(call=>JSON.stringify(call.messages).includes('TEST 作者修订。'))).toBe(true);
+    expect((await getChapter(chapter.id))!.committedVersionId).toBeNull();
+  });
+  it('TEST an in-flight generation cannot overwrite edits within the same draft session',async()=>{
+    let release!:()=>void;const hold=new Promise<void>(r=>{release=r;});
+    const f=makeFetch({holdFirstProse:{release:hold}});setFetchImpl(f.fetch);
+    const novel=await setupNovel(1),chapter=(await listChapters(novel.id))[0]!;
+    const draft=await saveSessionEdit({chapterId:chapter.id,sessionId:'TEST concurrent editor',content:'TEST before generation'});
+    const job=await createJob({novelId:novel.id,type:'generate_novel',params:{},providerId:null,steps:planGenerate(await listChapters(novel.id),{fiction:false,force:true})});
+    kick();await waitFor(async()=>f.calls.length>0);
+    const edit=await saveSessionEdit({chapterId:chapter.id,sessionId:'TEST concurrent editor',content:'TEST author continues typing',expectedHash:draft.contentHash});
+    release();await waitFor(async()=>(await getJob(job.id))?.status==='awaiting_review');
+    expect((await getChapter(chapter.id))!.currentVersionId).toBe(edit.id);
+    expect((await getVersion(edit.id))!.content).toBe('TEST author continues typing');
+    expect((await getChapter(chapter.id))!.committedVersionId).toBeNull();
+  });
   it('writes all chapters, summarizes, updates bible and completes', async () => {
     const f = makeFetch();
     setFetchImpl(f.fetch);
     const novel = await setupNovel(2);
     const chapters = await listChapters(novel.id);
-    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters) });
+    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters, { fiction: false }) });
     await setJobStatus(job.id, 'running');
     kick();
     await waitFor(async () => terminal(await getJob(job.id)));
     const j = (await getJob(job.id))!;
     expect(j.status).toBe('completed');
-    expect(j.progress.done).toBe(6);
+    expect(j.progress.done).toBe(10);
     const after = await listChapters(novel.id);
     for (const c of after) {
       expect(c.currentVersionId).not.toBeNull();
@@ -102,7 +136,7 @@ describe('job runner end-to-end (fake provider)', () => {
     const bibles = await listBibleSnapshots(novel.id);
     expect(bibles.map((b) => b.afterChapterNo)).toEqual([0, 1, 2]);
     expect(bibles[2]!.bible.timeline).toHaveLength(2);
-    expect(bibles[2]!.bible.facts).toContain('河上有一座旧木桥');
+    expect(bibles[2]!.bible.facts).toContain('TEST 河面有风');
     // second chapter prompt saw the first chapter's summary
     const secondWrite = f.calls.filter((b) => !b.response_format)[1]!;
     const user = (secondWrite.messages as Array<{ role: string; content: string }>).find((m) => m.role === 'user')!.content;
@@ -113,7 +147,7 @@ describe('job runner end-to-end (fake provider)', () => {
     setFetchImpl(makeFetch().fetch);
     const novel = await setupNovel(1);
     const chapters = await listChapters(novel.id);
-    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters) });
+    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters, { fiction: false }) });
     const steps = await listSteps(job.id);
     // simulate: write_chapter produced a version but the app died before stepDone
     await createVersion({ chapterId: chapters[0]!.id, content: prose(12), source: 'generated', jobStepId: steps[0]!.id });
@@ -132,7 +166,7 @@ describe('job runner end-to-end (fake provider)', () => {
     setFetchImpl(makeFetch({ holdFirstProse: { release: held } }).fetch);
     const novel = await setupNovel(1);
     const chapters = await listChapters(novel.id);
-    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters) });
+    const job = await createJob({ novelId: novel.id, type: 'generate_novel', params: {}, providerId: null, steps: planGenerate(chapters, { fiction: false }) });
     await setJobStatus(job.id, 'running');
     kick();
     await waitFor(async () => (await listSteps(job.id))[0]!.status === 'running');

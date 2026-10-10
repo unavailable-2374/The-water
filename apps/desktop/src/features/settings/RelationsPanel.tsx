@@ -72,7 +72,7 @@ export function RelationsPanel() {
   if (!account) {
     return (
       <div className="max-w-md space-y-4">
-        <h1 className="font-serif text-2xl font-semibold tracking-wide">{t.community.relations}</h1>
+        <h1 className="font-sans text-2xl font-semibold tracking-tight">{t.community.relations}</h1>
         <EmptyState title={t.settings.relationsLoginTitle} action={<Button variant="primary" onClick={() => nav('/settings/account')}>{t.settings.goLogin}</Button>} />
       </div>
     );
@@ -83,7 +83,7 @@ export function RelationsPanel() {
   return (
     <div className="max-w-2xl space-y-6">
       <header>
-        <h1 className="font-serif text-2xl font-semibold tracking-wide">{t.community.relations}</h1>
+        <h1 className="font-sans text-2xl font-semibold tracking-tight">{t.community.relations}</h1>
         <p className="mt-1 text-sm leading-relaxed text-ink-500">{t.settings.relationsDesc}</p>
       </header>
 

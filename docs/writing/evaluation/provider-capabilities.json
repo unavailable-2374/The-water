@@ -1,0 +1,40 @@
+{
+  "observedAt": "2026-10-08T18:10:09.936004+00:00",
+  "endpoint": "https://gw.lunaroute.com/v1/models",
+  "model": {
+    "id": "deepseek-4.1-flash",
+    "object": "model",
+    "created": 0,
+    "owned_by": "lunaroute",
+    "context_window": 1048576,
+    "context_length": 1048576,
+    "max_input_tokens": 1048576,
+    "max_output_tokens": 262144,
+    "max_completion_tokens": 262144,
+    "capabilities": {
+      "anthropic_messages": true,
+      "json_schema": true,
+      "openai_chat": true,
+      "openai_responses": true,
+      "reasoning": true,
+      "tools": true,
+      "vision": true
+    },
+    "client_compat": {
+      "pi": {
+        "maxTokensField": "max_tokens",
+        "supportsReasoningEffort": true,
+        "thinkingFormat": "openai",
+        "thinkingLevelMap": {
+          "high": "high",
+          "low": "low",
+          "max": "high",
+          "medium": "medium",
+          "minimal": null,
+          "off": null,
+          "xhigh": "high"
+        }
+      }
+    }
+  }
+}

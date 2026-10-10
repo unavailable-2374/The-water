@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { LIMITS } from '../constants';
 import { NovelDetailSchema, VersionSummarySchema } from '../novel';
 import { StoryBibleSchema, StorylineDocSchema } from '../storyline';
+import { CreationMaterialsSchema } from '../creationMaterials';
 
 export const ChapterManifestEntrySchema = z.object({
   index: z.number().int().min(0).max(LIMITS.MAX_CHAPTERS_PER_VERSION - 1),
@@ -12,6 +13,7 @@ export const ChapterManifestEntrySchema = z.object({
 export type ChapterManifestEntry = z.infer<typeof ChapterManifestEntrySchema>;
 
 export const CreateVersionRequestSchema = z.object({
+  creationMaterials: CreationMaterialsSchema.optional(),
   storyline: StorylineDocSchema,
   bible: StoryBibleSchema.nullable().default(null),
   chapters: z.array(ChapterManifestEntrySchema).min(1).max(LIMITS.MAX_CHAPTERS_PER_VERSION),

@@ -40,6 +40,7 @@ export function PremiseForm({ novel, onSaved }: { novel: Novel; onSaved: () => v
   const { form, update, flush } = useAutosave(
     { premise: novel.premise, themesText: novel.meta.themes.join('、') },
     async (f) => { await updateNovel(novel.id, { premise: f.premise, meta: { ...novel.meta, themes: splitList(f.themesText) } }); onSaved(); },
+    {novelId:novel.id},
   );
   return (
     <div className="space-y-3" onBlur={flush}>
@@ -64,7 +65,7 @@ export function CharacterForm({ novelId, character, index, data, onSaved }: Form
       }, index);
       onSaved();
     },
-    { key: character.id },
+    { key: character.id, novelId },
   );
   const others = data.characters.filter((c) => c.id !== character.id);
   const setRel = (i: number, patch: Partial<Character['relationships'][number]>, mode: 'debounce' | 'now') =>
@@ -120,7 +121,7 @@ export function SettingForm({ novelId, setting, index, onSaved }: FormProps & { 
   const { form, update, flush } = useAutosave({ ...setting, triggerText: setting.triggerKeys.join('、') }, async (f) => {
     await upsertSetting(novelId, { id: f.id, name: f.name.trim() || t.studio.forms.unnamed, kind: f.kind, description: f.description, triggerKeys: splitList(f.triggerText), priority: Math.max(0, Math.min(100, f.priority)), constant: f.constant }, index);
     onSaved();
-  }, { key: setting.id });
+  }, { key: setting.id, novelId });
   return (
     <div className="space-y-3" onBlur={flush}>
       <div className="grid grid-cols-2 gap-3">
@@ -156,7 +157,7 @@ export function ArcForm({ novelId, arc, index, onSaved }: FormProps & { arc: Arc
   const { form, update, flush } = useAutosave(arc, async (f) => {
     await upsertArc(novelId, { id: f.id, title: f.title.trim() || t.studio.forms.unnamed, summary: f.summary, startChapterNo: Math.max(1, f.startChapterNo), endChapterNo: Math.max(f.startChapterNo, f.endChapterNo, 1) }, index);
     onSaved();
-  }, { key: arc.id });
+  }, { key: arc.id, novelId });
   return (
     <div className="space-y-3" onBlur={flush}>
       <Field label={t.studio.forms.entityTitle}><Input value={form.title} onChange={(e) => update({ title: e.target.value })} /></Field>
@@ -177,7 +178,7 @@ export function BeatForm({ novelId, beat, data, onSaved }: FormProps & { beat: B
   const { form, update, flush } = useAutosave(beat, async (f) => {
     await upsertBeat(novelId, { id: f.id, arcId: f.arcId, title: f.title.trim() || t.studio.forms.unnamed, summary: f.summary, chapterNo: f.chapterNo, characterIds: f.characterIds, settingIds: f.settingIds, order: f.order }, f.order);
     onSaved();
-  }, { key: beat.id });
+  }, { key: beat.id, novelId });
   return (
     <div className="space-y-3" onBlur={flush}>
       <Field label={t.studio.forms.entityTitle}><Input value={form.title} onChange={(e) => update({ title: e.target.value })} /></Field>
@@ -209,6 +210,7 @@ export function ChapterPlanForm({ novelId, chapter, data, onSaved }: FormProps &
   const { form, update, flush } = useAutosave(
     { title: chapter.title, goal: chapter.goal, targetChars: chapter.targetChars, povCharacterId: chapter.povCharacterId, beatIds: chapter.beatIds, endHook: chapter.endHook },
     async (f) => { await upsertChapterPlan(novelId, { chapterNo: chapter.chapterNo, ...f, targetChars: Math.max(0, f.targetChars) }); onSaved(); },
+    {novelId},
   );
   const beatOptions = data.beats
     .filter((b) => b.chapterNo === chapter.chapterNo || form.beatIds.includes(b.id))

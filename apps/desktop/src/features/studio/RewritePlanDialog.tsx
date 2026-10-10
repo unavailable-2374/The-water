@@ -1,3 +1,4 @@
+import { loadStyleCheckConfig } from '@/novel/config';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Play, Sparkles, Square } from 'lucide-react';
 import { emptyBible, type Arc, type ChapterPlan, type StorylineDoc } from '@the-water/shared';
@@ -87,7 +88,7 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
     const items = rows
       .filter((r) => r.selected)
       .map((r) => ({ targetChars: chapterByNo.get(r.chapterNo)?.targetChars ?? 0, mode: r.mode }));
-    return previewCostForNovel(novel.id, estimateRewrite(items, { styleCheck }));
+    return previewCostForNovel(novel.id, estimateRewrite(items, { styleCheck,maxRevisions:(await loadStyleCheckConfig()).maxRevisions }));
   }, { key: `rewriteCost:${novel.id}:${selectionKey}`, enabled: open && !!computed });
 
   // §2.2 第 5 条：每章一行预估费用。只跟「这一章多少字、按什么模式改、走不走审校」
@@ -100,7 +101,7 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
     const out: Record<number, CostPreview> = {};
     for (const a of computed.affected) {
       const targetChars = computed.chapters.find((c) => c.chapterNo === a.chapterNo)?.targetChars ?? 0;
-      out[a.chapterNo] = await previewCost(estimateRewrite([{ targetChars, mode: a.mode }], { styleCheck }), providerIds);
+      out[a.chapterNo] = await previewCost(estimateRewrite([{ targetChars, mode: a.mode }], { styleCheck,maxRevisions:(await loadStyleCheckConfig()).maxRevisions }), providerIds);
     }
     return out;
   }, { key: `rewriteRowCost:${novel.id}:${affectedKey}`, enabled: open && !!computed });
@@ -143,7 +144,7 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
       const { value } = await requestJson(provider, { ...spec, schema: spec.schema! }, { signal: ac.signal });
       let filled = 0;
       setRows((rs) => rs.map((r) => {
-        const hit = value.find((v) => v.chapterNo === r.chapterNo);
+        const hit = value.chapters.find((v) => v.chapterNo === r.chapterNo);
         if (!hit || hit.instructions.length === 0 || !targets.some((x) => x.chapterNo === r.chapterNo)) return r;
         filled++;
         return { ...r, instructions: hit.instructions.join('\n') };
@@ -253,7 +254,7 @@ export function RewritePlanDialog({ novel, open, onClose, onStarted }: Props) {
                                     <span className="font-serif font-medium text-ink-900 dark:text-paper-100">{fmt(t.studio.chapterNo, { n: r.chapterNo })}</span>
                                     <span className="truncate font-serif text-ink-600 dark:text-ink-300">{ch?.title}</span>
                                     <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink-500"><span className={cn('h-1.5 w-1.5 rounded-full', markDot)} aria-hidden="true" />{markLabel}</span>
-                                    {ch && <span className="ml-auto shrink-0 font-serif text-xs text-ink-400">{fmt(t.studio.chaptersTab.charCount, { n: ch.targetChars.toLocaleString() })}</span>}
+                                    {ch && <span className="ml-auto shrink-0 font-serif text-xs text-ink-400">{fmt(t.studio.chaptersTab.targetCount, { n: ch.targetChars.toLocaleString() })}</span>}
                                     <button
                                       className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-xs text-ink-500 transition hover:bg-paper-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-tea-500/50 dark:hover:bg-paper-800', previewNo === r.chapterNo && 'bg-paper-200/70 dark:bg-paper-800')}
                                       title={t.studio.rewritePlan.previewTitle}

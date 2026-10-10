@@ -1,6 +1,7 @@
-import { getDb, selectOne } from '../db';
+import { getDb, selectOne, writeAtomic, writeStatement, type AtomicWriter } from '../db';
 
 export interface AppSettings {
+  aiServiceMode: 'server' | 'local';
   defaultProviderId: { chat: string | null; writing: string | null; planning: string | null };
   autoResumeJobs: boolean;
   theme: 'system' | 'light' | 'dark';
@@ -8,6 +9,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  aiServiceMode: 'server',
   defaultProviderId: { chat: null, writing: null, planning: null },
   autoResumeJobs: true,
   theme: 'system',
@@ -24,8 +26,8 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
-export async function setSetting(key: string, value: unknown): Promise<void> {
-  await getDb().execute(
+export async function setSetting(key: string, value: unknown, commit:AtomicWriter=writeAtomic): Promise<void> {
+  await writeStatement(commit,
     'INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     [key, JSON.stringify(value)],
   );

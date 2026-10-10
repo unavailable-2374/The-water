@@ -73,6 +73,7 @@ describe('zodToJsonSchema / appendSchemaInstruction', () => {
 // ---------------------------------------------------------------------------
 
 interface Scripted {
+  finishReason?:'length' | 'stop';
   text?: string;
   error?: LLMError;
   usage?: { inputTokens: number; outputTokens: number };
@@ -95,7 +96,7 @@ function scriptedProvider(script: Scripted[], caps: Partial<ProviderCaps> = {}) 
       for (const part of text.match(/.{1,5}/gs) ?? []) yield { type: 'delta', text: part };
       const u = step.usage ?? { inputTokens: 10, outputTokens: 5 };
       yield { type: 'usage', inputTokens: u.inputTokens, outputTokens: u.outputTokens };
-      yield { type: 'done', finishReason: 'stop' };
+      yield { type: 'done', finishReason: step.finishReason ?? 'stop' };
     },
   };
   return { provider, requests };
@@ -221,4 +222,56 @@ describe('requestJson', () => {
     await expect(requestJson(provider, spec, { retry: false })).rejects.toMatchObject({ kind: 'server' });
     expect(requests).toHaveLength(1);
   });
+});
+
+
+describe('TEST truncated structured output',()=>{
+ it('TEST stops escalating after two empty budget-exhausted responses and preserves real reported usage',async()=>{
+  const {provider,requests}=scriptedProvider([{text:'',finishReason:'length',usage:{inputTokens:10,outputTokens:38000}},{text:'',finishReason:'length',usage:{inputTokens:10,outputTokens:70000}},{text:'{"ok":true}'}],{reasoningTokens:32000,maxOutputTokens:262144,contextWindow:1048576});
+  await expect(requestJson(provider,{messages:[],maxTokens:6000,schema:z.object({ok:z.boolean()}),label:'TEST empty output'},{retry:false})).rejects.toMatchObject({usage:{inputTokens:20,outputTokens:108000},message:expect.stringContaining('模型连续两次耗尽预算')});
+  expect(requests).toHaveLength(2);
+ });
+ it('reports actual validation attempts when the configured output cap stops retries',async()=>{
+  const {provider,requests}=scriptedProvider([{text:'',finishReason:'length'},{text:'',finishReason:'length'}],{maxOutputTokens:200});
+  await expect(requestJson(provider,{messages:[],maxTokens:100,schema:z.object({ok:z.boolean()}),label:'TEST cap'},{retry:false})).rejects.toThrow('JSON 2 次校验失败');
+  expect(requests).toHaveLength(2);
+ });
+ it('uses the same reasoning-aware budget growth as prose',async()=>{
+  const {provider,requests}=scriptedProvider([{text:'',finishReason:'length'},{text:'{"ok":true}'}],{reasoningTokens:32000,maxOutputTokens:65536,contextWindow:1048576});
+  const result=await requestJson(provider,{messages:[],maxTokens:2500,schema:z.object({ok:z.boolean()}),label:'TEST reasoning'},{retry:false});
+  expect(requests.map(r=>r.maxTokens)).toEqual([2500,33536]);expect(result.value.ok).toBe(true);
+ });
+ it('increases output budget instead of repairing an absent JSON document',async()=>{
+  const {provider,requests}=scriptedProvider([{text:'',finishReason:'length',usage:{inputTokens:10,outputTokens:100}},{text:'{"ok":true}'}]);
+  const result=await requestJson(provider,{messages:[{role:'user',content:'TEST JSON'}],maxTokens:100,temperature:0.6,schema:z.object({ok:z.boolean()}),label:'TEST'},{retry:false});
+  expect(requests.map(r=>r.maxTokens)).toEqual([100,200]);expect(result.value).toEqual({ok:true});expect(result.usage.outputTokens).toBe(105);
+  expect(requests.map(r=>r.temperature)).toEqual([0.6,0.6]);
+ });
+ it('never accepts a truncated result even if its prefix parses',async()=>{
+  const {provider}=scriptedProvider([{text:'{"ok":true}',finishReason:'length'}],{maxOutputTokens:100});
+  await expect(requestJson(provider,{messages:[],maxTokens:100,schema:z.object({ok:z.boolean()}),label:'TEST'},{retry:false})).rejects.toThrow('输出预算耗尽');
+ });
+});
+
+// TEST transport failure accounting; reported usage is retained, never estimated.
+it('TEST retains reported tokens across a failed streamed attempt and retry',async()=>{
+ let calls=0;
+ const {provider}=scriptedProvider([]);
+ provider.stream=async function*(){calls++;yield {type:'usage',inputTokens:7,outputTokens:4};if(calls===1) throw new LLMError('network','TEST disconnect');yield {type:'delta',text:'TEST result'};yield {type:'done',finishReason:'stop'};};
+ const result=await completeWithRetry(provider,{messages:[],maxTokens:100},{gate:fastGate(),sleep:async()=>{}});
+ expect(result.usage).toEqual({inputTokens:14,outputTokens:8});expect(calls).toBe(2);
+});
+it('TEST truncated prose cannot become a successful text response',async()=>{
+ const {provider}=scriptedProvider([{text:'TEST partial',finishReason:'length',usage:{inputTokens:9,outputTokens:20}}],{maxOutputTokens:20});
+ await expect(completeWithRetry(provider,{messages:[],maxTokens:20},{gate:fastGate(),requireComplete:true})).rejects.toMatchObject({kind:'bad_request',usage:{inputTokens:9,outputTokens:20}});
+});
+it('TEST empty prose exhaustion stops after one larger-budget retry without inventing text',async()=>{
+ const {provider,requests}=scriptedProvider([{text:'',finishReason:'length',usage:{inputTokens:9,outputTokens:100}}],{maxOutputTokens:1000});
+ await expect(completeWithRetry(provider,{messages:[],maxTokens:100},{gate:fastGate(),requireComplete:true})).rejects.toMatchObject({kind:'bad_request',usage:{inputTokens:18,outputTokens:200},message:expect.stringContaining('未返回正文')});
+ expect(requests).toHaveLength(2);
+});
+it('TEST prose output exhaustion retries within the configured reasoning/window cap and accounts for both calls',async()=>{
+ const {provider,requests}=scriptedProvider([{text:'TEST partial',finishReason:'length',usage:{inputTokens:9,outputTokens:100}},{text:'TEST complete',usage:{inputTokens:9,outputTokens:50}}],{reasoningTokens:80,maxOutputTokens:200});
+ const result=await completeWithRetry(provider,{messages:[],maxTokens:20},{gate:fastGate(),requireComplete:true});
+ expect(requests.map(r=>r.maxTokens)).toEqual([20,100]);expect(result.text).toBe('TEST complete');expect(result.usage).toEqual({inputTokens:18,outputTokens:150});
 });

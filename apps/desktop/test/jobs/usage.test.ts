@@ -37,6 +37,9 @@ describe('用量记账', () => {
     expect(e!.costCny).toBe(0);
     expect(e!.priceId).toBeNull();
     expect((await usageTotals()).inputTokens).toBe(1000);
+    expect((await usageTotals()).unpricedCalls).toBe(1);
+    expect((await usageByPurpose())[0]?.unpricedCalls).toBe(1);
+    expect((await usageByMonth())[0]?.unpricedCalls).toBe(1);
   });
 
   it('改价格只影响之后的账，历史账单不被改写', async () => {

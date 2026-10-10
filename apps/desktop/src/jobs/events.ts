@@ -1,6 +1,8 @@
 import type { Job, JobStep } from '@/db/repos/jobsRepo';
 
 export type JobEvent =
+  | { type: 'plan:resolved'; novelId: string }
+  | { type: 'plan:proposed'; novelId: string }
   | { type: 'job:updated'; job: Job }
   | { type: 'step:updated'; step: JobStep }
   | { type: 'step:delta'; jobId: string; stepId: string; text: string }

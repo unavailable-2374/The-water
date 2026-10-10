@@ -111,12 +111,16 @@ git push && git push --tags
 ### 本地打包
 
 本地构建默认会尝试生成更新产物（`bundle.createUpdaterArtifacts: true`），
-没有私钥会失败。只想要一个能跑的 `.app`：
+没有私钥会失败。本地测试用 `.app` 与 `.dmg` 使用独立脚本关闭更新产物，
+并让打包器以 ad-hoc 身份 `-` 签署完整应用包；仅保留链接器签名不能替代应用资源签名：
 
 ```bash
 cd apps/desktop
-bun run tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+bun run package:local
 ```
+
+本地包不代表 Developer ID 签名或 Apple 公证通过。构建后分别运行 `codesign --verify --deep --strict`
+检查应用包、`hdiutil verify` 检查 DMG，并实际启动验证；正式发布仍使用上述发布流水线和其签名配置。
 
 ---
 

@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useAssistant } from '@/assistant/runtime';
+import { useEffect, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { PlanReview } from './PlanReview';
+import { listDocumentPlans, type DocumentPlanProposal } from '@/db/repos/planProposalsRepo';
 import { ChevronDown, ChevronRight, GitCompareArrows, History, Plus, Save, Trash2, ChevronUp } from 'lucide-react';
 import { emptyStoryline, type ChapterPlan, type StorylineDoc } from '@the-water/shared';
 import { fmt, t } from '@/i18n';
@@ -38,7 +41,7 @@ const sameSelection = (a: Selection, b: Selection): boolean => {
   return 'id' in b && a.id === b.id;
 };
 
-interface Loaded { data: StorylineData; snapshots: StorylineSnapshot[] }
+interface Loaded { data: StorylineData; snapshots: StorylineSnapshot[]; proposals: DocumentPlanProposal[] }
 
 /** Storyline editor: tree of entities on the left, autosaving form on the right, snapshot toolbar on top. */
 export function StorylineTab({ novel }: { novel: Novel }) {
@@ -49,13 +52,19 @@ export function StorylineTab({ novel }: { novel: Novel }) {
   const [saving, setSaving] = useState(false);
 
   const { data: loaded, error, loading, reload } = useAsyncData<Loaded>(async () => {
-    const [characters, settings, arcs, beats, chapters, snaps] = await Promise.all([
-      listCharacters(novel.id), listSettings(novel.id), listArcs(novel.id), listBeats(novel.id), listChapters(novel.id), listSnapshots(novel.id),
+    const [characters, settings, arcs, beats, chapters, snaps, proposals] = await Promise.all([
+      listCharacters(novel.id), listSettings(novel.id), listArcs(novel.id), listBeats(novel.id), listChapters(novel.id), listSnapshots(novel.id), listDocumentPlans(novel.id),
     ]);
-    return { data: { characters, settings, arcs, beats, chapters }, snapshots: snaps };
+    return { data: { characters, settings, arcs, beats, chapters }, snapshots: snaps, proposals };
   }, { key: `storyline:${novel.id}:${tick}` });
   const data = loaded?.data ?? null;
   const snapshots = useMemo(() => loaded?.snapshots ?? [], [loaded]);
+
+  useEffect(()=>{
+    useAssistant.getState().setContext({novelId:novel.id,selection:null,
+      chapterId:sel.kind==='chapter'?data?.chapters.find(c=>c.chapterNo===sel.chapterNo)?.id??null:null,
+      objectIds:'id' in sel?[sel.id]:[]});
+  },[novel.id,sel,data]);
 
   const notify = useCallback(() => emitJobEvent({ type: 'novel:storylineUpdated', novelId: novel.id }), [novel.id]);
   const refresh = useCallback(async () => { reload(); notify(); }, [reload, notify]);
@@ -178,7 +187,7 @@ export function StorylineTab({ novel }: { novel: Novel }) {
   return (
     <div className="flex h-full flex-col bg-paper-50 dark:bg-paper-950">
       <div className="flex items-center gap-3 border-b border-paper-300/50 px-6 py-3 dark:border-paper-800">
-        <h2 className="font-serif text-base font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.storyline}</h2>
+        <h2 className="font-sans text-base font-semibold tracking-tight text-ink-800 dark:text-paper-100">{t.studio.storyline}</h2>
         {hasUnsaved && <span className="inline-flex items-center gap-1.5 text-xs text-ink-500" role="status"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />{t.studio.storylineTab.unsaved}</span>}
         {!latest && <span className="text-xs text-ink-400">{t.studio.storylineTab.noVersion}</span>}
         <div className="ml-auto flex items-center gap-2">
@@ -234,10 +243,11 @@ export function StorylineTab({ novel }: { novel: Novel }) {
         </aside>
 
         <section className="flex min-h-0 flex-col overflow-hidden">
+          {!!loaded?.proposals.length && <div className="max-h-[50%] shrink-0 overflow-auto px-8 py-5"><PlanReview novel={novel} documents={loaded.proposals} chapters={data?.chapters ?? []} onResolved={refresh} /></div>}
           {body ? (
             <>
               <div className="flex items-center justify-between gap-4 px-8 pt-6 pb-3">
-                <h3 className="truncate font-serif text-lg font-semibold tracking-wide text-ink-900 dark:text-paper-100">{header}</h3>
+                <h3 className="truncate font-sans text-lg font-semibold tracking-tight text-ink-900 dark:text-paper-100">{header}</h3>
                 {actions}
               </div>
               <div className="flex-1 overflow-y-auto px-8 pb-8">

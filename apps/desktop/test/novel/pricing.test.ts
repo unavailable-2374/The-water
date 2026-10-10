@@ -82,15 +82,15 @@ describe('用量估算', () => {
   });
 
   it('改写比新写多出「原文再进一遍」的输入', () => {
-    const w = estimateChapter({ targetChars: 3000, mode: 'write', ratio: 1 });
+    const w = estimateChapter({ targetChars: 3000, mode: 'write', ratio: 1, sceneCount:1 });
     const r = estimateChapter({ targetChars: 3000, mode: 'rewrite', ratio: 1 });
     expect(r.writing.inputTokens - w.writing.inputTokens).toBe(3000);
   });
 
-  it('name_replace 不调模型，估算为 0', () => {
+  it('TEST name_replace still budgets mandatory reviews and possible revisions', () => {
     const e = estimateChapter({ targetChars: 3000, mode: 'name_replace' });
-    expect(e.writing).toEqual({ inputTokens: 0, outputTokens: 0 });
-    expect(e.auxiliary).toEqual({ inputTokens: 0, outputTokens: 0 });
+    expect(e.writing.outputTokens).toBeGreaterThan(0);
+    expect(e.auxiliary.outputTokens).toBeGreaterThan(0);
   });
 
   it('开了 style_check 之后便宜模型那一档明显变大', () => {
@@ -100,13 +100,13 @@ describe('用量估算', () => {
     expect(on.writing).toEqual(off.writing);
   });
 
-  it('改写计划的估算跳过改名章节（替换 targetChars*2 粗估）', () => {
+  it('TEST rewrite budgets gates for every chapter including name replacement', () => {
     const e = estimateRewrite([
       { targetChars: 3000, mode: 'rewrite' },
       { targetChars: 3000, mode: 'name_replace' },
     ], { ratio: 1 });
     const one = estimateChapter({ targetChars: 3000, mode: 'rewrite', ratio: 1 });
-    expect(e).toEqual(sumEstimates([one]));
+    expect(e).toEqual(sumEstimates([one,estimateChapter({targetChars:3000,mode:'name_replace',ratio:1})]));
   });
 
   it('整本估算随章数线性增长', () => {

@@ -5,6 +5,11 @@ description = "The Water - AI 阅读器与小说工坊"
 authors = ["The Water"]
 edition = "2021"
 
+# macOS 27 rejects some stripped proc-macro dylibs (Rust issue #157750).
+# Keep build-time helpers unstripped; the application release profile is unchanged.
+[profile.release.build-override]
+strip = "none"
+
 [lib]
 name = "desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -24,6 +29,7 @@ tauri-plugin-log = "2.9"
 tauri-plugin-os = "2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
 
 # 只有桌面平台有窗口、单实例与安装包更新这几件事。
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

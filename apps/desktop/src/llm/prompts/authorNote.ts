@@ -1,3 +1,4 @@
+import type { AtomicWriter } from '@/db/db';
 /**
  * 「作者附加指令」（§2.3 第 6 条后半）：为单本小说追加一段自己的话，
  * 拼进每一次写作 / 改写 / 调长的 system 提示里。
@@ -26,10 +27,10 @@ export async function loadAuthorNote(novelId: string): Promise<string> {
   return note;
 }
 
-export async function saveAuthorNote(novelId: string, note: string): Promise<string> {
+export async function saveAuthorNote(novelId: string, note: string, commit?:AtomicWriter): Promise<string> {
   const { setSetting } = await import('@/db/repos/settingsRepo');
   const next = clip(note);
-  await setSetting(KEY(novelId), next);
+  await setSetting(KEY(novelId), next, commit);
   cache.set(novelId, next);
   return next;
 }
