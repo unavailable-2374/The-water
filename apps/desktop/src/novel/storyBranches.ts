@@ -50,6 +50,7 @@ export const StoryBranchSchema = z.object({
   plan: ScenePlanSchema,
   range: z.object({ from: z.number().int(), to: z.number().int() }).nullable(),
   sample: z.string(),
+  exploration: z.object({ goal:z.enum(['narration','relationship','expression']), fixedFacts:z.string().min(1), reviewedHash:z.string().nullable() }).optional(),
   facts: z
     .array(z.object({ text: z.string(), evidence: EvidenceSchema }))
     .max(100),
@@ -148,6 +149,7 @@ export async function saveStoryBranch(
   before: StoryBranch,
   patch: Pick<StoryBranch, "plan" | "sample" | "graph" | "name"> & {
     facts?: StoryBranch["facts"];
+    exploration?: StoryBranch['exploration'];
   },
   commit: AtomicWriter = writeAtomic,
 ) {
@@ -158,6 +160,7 @@ export async function saveStoryBranch(
     facts: patch.facts ?? (patch.sample === before.sample ? before.facts : []),
     revision: before.revision + 1,
   });
+  if(value.exploration && value.exploration.reviewedHash !== await branchPresentationHash(value)) value.exploration.reviewedHash=null;
   for (const f of value.facts)
     f.evidence = anchorEvidence(value.sample, f.evidence);
   await commit([
@@ -176,6 +179,14 @@ export async function saveStoryBranch(
     },
   ]);
   return value;
+}
+function branchPresentationHash(branch: StoryBranch) {
+  return sha256Hex(canonicalJson({plan:branch.plan,sample:branch.sample,goal:branch.exploration?.goal,fixedFacts:branch.exploration?.fixedFacts}));
+}
+/** Explicit author review covers the plan as well as the independently audited sample. */
+export async function reviewBranchFixedFacts(novelId:string,branch:StoryBranch) {
+  if(!branch.exploration) throw new Error('此方案没有固定事实探索记录');
+  return saveStoryBranch(novelId,branch,{name:branch.name,plan:branch.plan,sample:branch.sample,graph:branch.graph,exploration:{...branch.exploration,reviewedHash:await branchPresentationHash(branch)}});
 }
 export async function generateBranchSample(
   novelId: string,
@@ -236,6 +247,7 @@ export async function branchConflicts(
     conflicts.push("dependencies");
   if (w.graph.lockedNodeIds.includes(branch.nodeId)) conflicts.push("locked");
   if (!branch.range && branch.sample) conflicts.push("anchor");
+  if(branch.exploration?.reviewedHash !== undefined && branch.exploration.reviewedHash !== await branchPresentationHash(branch)) conflicts.push('exploration_review');
   return conflicts;
 }
 export async function mergeStoryBranch(novelId: string, branch: StoryBranch, commit: AtomicWriter = writeAtomic) {

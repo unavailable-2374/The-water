@@ -57,11 +57,11 @@ export function pickExemplars(profile: StyleProfile, sceneType: SceneType | null
 }
 
 /** User-side block: exemplars + negatives. Empty string when nothing to show. */
-export function renderStyleUserBlock(profile: StyleProfile, sceneType: SceneType | null): string {
+export function renderStyleUserBlock(profile: StyleProfile, sceneType: SceneType | null, derivative = false): string {
   const parts: string[] = [];
   const ex = pickExemplars(profile, sceneType);
   if (ex.length > 0) {
-    parts.push('以下是原著段落，模仿其节奏、腔调与用词习惯，不要照抄内容：');
+    parts.push(derivative ? '以下是原著段落，参照其节奏、腔调与用词习惯，不要照抄内容：' : '以下是本作品的文风参照，保持叙述声音，按当前场景调整节奏，不要照抄内容：');
     ex.forEach((e, i) => parts.push(`（示例 ${i + 1}${e.illustrates.length ? '，体现：' + e.illustrates.join('、') : ''}）\n${e.text.trim()}`));
   }
   const neg = profile.negatives;

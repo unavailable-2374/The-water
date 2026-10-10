@@ -182,19 +182,19 @@ it('TEST duplicate causal designs cannot pass as differentiated cards', async ()
   expect((await latestBatch()).optionIds).toHaveLength(1);
 });
 
-it('TEST semantic review cannot mark cosmetic variants ready or allow selecting them', async () => {
+it('TEST pairwise similarity is visible but cannot block a usable individual card', async () => {
   const f = await fixture();
   simulated.reply.mockImplementation(async spec => {
     const value = await reply(spec);
     if (spec.messages[1].content.startsWith('统一比较') && 'differences' in value && value.differences.length) value.differences[0]!.judgment = 'cosmetic';
     return value;
   });
-  await expect(generated(f)).rejects.toThrow('Candidate differences are insufficient');
+  await generated(f);
   const failed = await latestBatch();
   expect(failed.optionIds).toHaveLength(4);
   expect(failed.comparison?.differences?.[0]?.judgment).toBe('cosmetic');
-  expect(failed.state).toBe('failed');
-  await expect(selectStoryOption(f.owner, failed.id, failed.optionIds[0]!)).rejects.toThrow('Comparison incomplete');
+  expect(failed.state).toBe('ready');
+  expect(failed.comparison!.options[0]!.violations).toEqual([]);
 });
 async function latestBatch() { const rows = await db.select<{ json: string }>('SELECT json FROM story_option_batches ORDER BY rowid DESC LIMIT 1'); return JSON.parse(rows[0]!.json) as StoryOptionBatch; }
 
@@ -358,7 +358,11 @@ it('TEST author-retained cards are never automatically rewritten to satisfy a ne
     }
     return value;
   });
-  await expect(generateStoryOptions({ owner: f.owner, scope: { kind: 'work', id: f.novel.id }, previousBatchId: original.id, keep: true, requestKey: 'TEST retained quality failure' })).rejects.toThrow('Critical candidate quality gaps');
+  await generateStoryOptions({ owner: f.owner, scope: { kind: 'work', id: f.novel.id }, previousBatchId: original.id, keep: true, requestKey: 'TEST retained quality failure' });
+  const partial = await latestBatch();
+  expect(partial.state).toBe('ready');
+  await expect(selectStoryOption(f.owner,partial.id,keptId)).rejects.toThrow('Resolve constraints');
+  expect(partial.comparison!.options.filter(o=>o.optionId!==keptId).every(o=>!o.qualityAudit?.some(a=>a.status==='gap'))).toBe(true);
   expect((await latestBatch()).optionIds).toContain(keptId);
   expect((await latestBatch()).inputSnapshot.optionRepairAttempts).toBeUndefined();
   expect(await db.select('SELECT json FROM story_options WHERE id=?', [keptId])).toEqual(before);
@@ -391,20 +395,21 @@ it('TEST core quality failure persists authentic cards and review, prevents sele
     if (spec.messages[1].content.startsWith('统一比较单卡') && 'options' in value) {
       const item = value.options[0]!;
       const cards = await optionCards(await latestBatch());
-      Object.assign(item, { findings: [{ kind: 'missing_information', field: 'ending', quote: cards[0]!.ending, authorQuote: '', explanation: 'TEST SIMULATED core payoff absent', revision: 'TEST stage the promised result' }] });
+      Object.assign(item, { findings: [{ kind: 'missing_information', field: 'ending', quote: cards.find(c=>c.id===item.optionId)!.ending, authorQuote: '', explanation: 'TEST SIMULATED core payoff absent', revision: 'TEST stage the promised result' }] });
       Object.assign(item.qualityAudit[1]!, { status: 'gap', evidence: [], findingIndices: [0] });
     }
     return value;
   });
-  await expect(generated(f)).rejects.toThrow('Critical candidate quality gaps');
+  await generated(f);
   const failed = await latestBatch();
   expect(failed.optionIds).toHaveLength(4);
   expect(failed.comparison?.options[0]?.qualityAudit?.[1]?.status).toBe('gap');
-  expect(failed.state).toBe('failed');
-  await expect(selectStoryOption(f.owner, failed.id, failed.optionIds[0]!)).rejects.toThrow('Comparison incomplete');
-  await expect(combineStoryOptions({ owner: f.owner, batchId: failed.id, optionIds: failed.optionIds.slice(0, 2), requestKey: 'TEST blocked combination' })).rejects.toThrow('Complete source comparison');
+  expect(failed.state).toBe('ready');
+  expect(failed.comparison!.options[0]!.violations).toEqual([]);
+  await expect(combineStoryOptions({ owner: f.owner, batchId: failed.id, optionIds: failed.optionIds.slice(0, 2), requestKey: 'TEST blocked combination' })).rejects.toThrow('Source candidate has critical gaps');
   const calls = simulated.reply.mock.calls.length;
-  await expect(resumeStoryOptions(f.owner, failed.id)).rejects.toThrow('Critical candidate quality gaps');
+  await expect(selectStoryOption(f.owner, failed.id, failed.optionIds[0]!)).rejects.toThrow('Resolve constraints');
+  await resumeStoryOptions(f.owner, failed.id);
   expect(simulated.reply.mock.calls).toHaveLength(calls);
 });
 async function reply(spec: { messages: { content: string }[] }) {

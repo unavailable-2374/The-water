@@ -34,12 +34,13 @@ import { loadStyleCheckConfig, type StyleCheckConfig } from '@/novel/config';
 import { primeAuthorNote } from '@/llm/prompts/authorNote';
 import { emitJobEvent } from '../events';
 import { locateStoryAssessment, storyRevisionIssues } from '@/novel/storyQuality';
+import { readProseOnly } from '@/novel/firstReading';
 import type { StepHandler } from '../context';
 import { buildChapterContextText, currentVersionOf, loadChapterEnv, styleExtrasOf, type ChapterEnv } from './common';
 
 interface Assessment { report: ChapterReviewJson; styleScore: number; oocCount: number; verdict: 'pass' | 'revise'; instructions: string[] }
 
-async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler>[0], cfg: StyleCheckConfig): Promise<Assessment> {
+async function assess(env: ChapterEnv, text: string, versionId: string, ctx: Parameters<StepHandler>[0], cfg: StyleCheckConfig): Promise<Assessment> {
   const { doc, novel, chapter, bible } = env;
   const guide = docTypeGuide(novel.requirements.docType);
   // L1 题材层只补作品没写的部分；作品层（doc.styleProfile）永远优先。
@@ -61,15 +62,22 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
   let narrative: ReviewIssue[] = [];
   let story: ChapterReviewJson['story'];
   let lengthReview: ChapterReviewJson['lengthReview'];
+  let firstReading: ChapterReviewJson['firstReading'];
+  let readerAlignment: ChapterReviewJson['readerAlignment'];
   if (guide.fiction) {
     ctx.setMessage(`正在审查第 ${chapter.chapterNo} 章的情节、人物、展开与冗余`);
     const checker = await ctx.providerFor('consistency');
+    ctx.setMessage(`正在首次阅读截至第 ${chapter.chapterNo} 章的正文`);
+    const blind = await readProseOnly(novel.id, chapter.chapterNo, { id: versionId, content: text }, checker, { signal: ctx.signal, gate: ctx.gate });
+    await ctx.recordUsage(blind.usage, { purpose: 'consistency', provider: checker });
+    firstReading = blind.reading;
     const sourceIds = new Set<string>();
     const advisoryIds = new Set(genre.entries.filter(e => !ownIds.has(e.id)).map(e => e.id));
     const context = await buildChapterContextText(env, checker, 6000, { reserved: text.length * checker.caps.cjkTokenRatio, onSources: ids => ids.forEach(id => sourceIds.add(id)) });
-    const spec = narrativeReviewPrompt({ chapterNo: chapter.chapterNo, text, context, qcReminders });
+    const spec = narrativeReviewPrompt({ chapterNo: chapter.chapterNo, text, context, qcReminders, firstReading });
     const result = await requestJson(checker, { ...spec, schema: spec.schema!.superRefine((value,check)=>{
       if (!value.lengthReview) check.addIssue({code:'custom',path:['lengthReview'],message:'新审查必须扫描整章并提供篇幅与场景完整性判断。'});
+      for (const [index, item] of (value.readerAlignment ?? []).entries()) if (!item.sourceIds.length || item.sourceIds.some(id => !sourceIds.has(id) || advisoryIds.has(id))) check.addIssue({ code: 'custom', path: ['readerAlignment', index, 'sourceIds'], message: '作者意图必须引用已提供的本书确认资料，不能使用题材指导或编造 ID' });
       if (new Set(value.issues.map(issue => issue.id)).size !== value.issues.length) check.addIssue({code:'custom',path:['issues'],message:'审稿问题 ID 必须唯一。'});
       for (const [index, action] of (value.lengthReview?.actions ?? []).entries()) if (!value.issues.some(issue => issue.id === action.issueId)) check.addIssue({code:'custom',path:['lengthReview','actions',index,'issueId'],message:'篇幅建议必须引用本次 issues 中有原文依据的问题 ID。'});
       if (!value.story) check.addIssue({code:'custom',path:['story'],message:'新审查必须提供故事推进结果，不能只返回空问题列表。'});
@@ -83,6 +91,7 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
     narrative = locateNarrativeIssues(text, result.value.issues);
     story = locateStoryAssessment(text,result.value.story!);
     lengthReview = result.value.lengthReview;
+    readerAlignment = result.value.readerAlignment;
     for (const issue of narrative) { try { issue.evidence = anchorEvidence(text, issue.evidence); } catch { throw new AwaitingReviewError('审稿问题无法定位原文，请重新审查'); } }
   }
   let llm: StyleReviewResult | null = null;
@@ -144,6 +153,7 @@ async function assess(env: ChapterEnv, text: string, ctx: Parameters<StepHandler
   const instructions = [...narrative.filter(i => i.severity === 'block').map(i => `「${i.evidence.quote}」：${i.basis}；${i.suggestion}`), ...consistencyHints, ...(llm ? reviewToInstructions(llm, metricHints) : metricHints), ...lintHints].slice(0, cfg.maxInstructions);
   const report: ChapterReviewJson = {
     narrative,
+    ...(firstReading ? { firstReading, readerAlignment } : {}),
     ...(story ? {story}:{}),
     ...(lengthReview ? {lengthReview}:{}),
     metricScore: cmp.score,
@@ -168,7 +178,7 @@ export const styleCheckStep: StepHandler = async (ctx) => {
   let version = await currentVersionOf(chapter);
   if (!version) throw new Error('章节尚无正文');
   let deps = await chapterDependencies(novel.id, chapter.chapterNo);
-  if (existing && existing.chapterVersionId === version.id && existing.contentHash === await sha256Hex(version.content) && existing.dependencyHash === deps.hash && existing.valid && (!docTypeGuide(novel.requirements.docType).fiction || existing.report.lengthReview)) {
+  if (existing && existing.chapterVersionId === version.id && existing.contentHash === await sha256Hex(version.content) && existing.dependencyHash === deps.hash && existing.valid && (!docTypeGuide(novel.requirements.docType).fiction || existing.report.lengthReview && existing.report.firstReading?.inferenceChecks)) {
     try {
       await assertReviewPass(existing.id, version.id, existing.contentHash, deps.hash);
       return { outputRef: existing.id };
@@ -179,7 +189,7 @@ export const styleCheckStep: StepHandler = async (ctx) => {
     }
   }
   // Nothing to check against and no AI review possible → still record lint so the UI can show it.
-  let a = await assess(env, version.content, ctx, cfg);
+  let a = await assess(env, version.content, version.id, ctx, cfg);
   const persistReview=async(candidate:NonNullable<typeof version>,assessment:Awaited<ReturnType<typeof assess>>)=>{
     const saved=await saveReview({novelId:novel.id,chapterId:chapter.id,chapterVersionId:candidate.id,styleScore:assessment.styleScore,oocCount:assessment.oocCount,verdict:assessment.verdict,report:assessment.report,jobStepId:ctx.step.id,contentHash:await sha256Hex(candidate.content),dependencyHash:deps.hash});
     emitJobEvent({type:'chapter:reviewed',novelId:novel.id,chapterId:chapter.id,reviewId:saved.id});
@@ -237,13 +247,13 @@ export const styleCheckStep: StepHandler = async (ctx) => {
     ctx.step.input.automaticRevisions = revisions;
     emitJobEvent({ type: 'chapter:versionCreated', novelId: novel.id, chapterId: chapter.id, versionId: version.id });
     deps = await chapterDependencies(novel.id, chapter.chapterNo);
-    a = await assess(env, text, ctx, cfg);
+    a = await assess(env, text, version.id, ctx, cfg);
     a.report.revisedVersionId = version.id;
     a.report.revisionInstructions = instructions;
     review=await persistReview(version,a);
   }
   if ((ctx.step.input as { standalone?: boolean }).standalone) await setChapterStatus(chapter.id, chapter.status === 'final' ? 'final' : 'draft');
-  if (a.report.story?.verdict==='replan') throw new AwaitingReviewError(`故事计划需要调整：${a.report.story.reason}。请在本章场景卡中修改人物选择与后果，再继续审查。`,{kind:'chapter'});
+  if (a.report.story?.verdict==='replan') throw new AwaitingReviewError(`故事计划需要调整：${a.report.story.reason}。可在故事工作台的候选页生成跨章节结构修订方案，审阅采纳后编辑涉及章节、重建事实并复审。`,{kind:'chapter'});
   if (a.report.story?.verdict==='revise') throw new AwaitingReviewError(`故事推进仍不足：${a.report.story.reason}。正文和审查结果已保留，请修改后继续。`,{kind:'chapter'});
   if (a.verdict === 'revise') throw new AwaitingReviewError('自动修订后仍有阻断问题，请编辑正文、重新审查或记录误报依据');
   return { outputRef: review.id };

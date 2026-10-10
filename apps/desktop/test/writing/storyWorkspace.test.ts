@@ -1,3 +1,4 @@
+import { testFirstReading } from '../helpers/writing';
 /** TEST fixtures only. Scripted responses test orchestration, not real AI quality. */
 import { beforeEach, expect, it } from "vitest";
 import { useTestDb } from "../helpers/testDb";
@@ -504,7 +505,7 @@ it("TEST evidence-backed extraction stages suggestions; adoption updates the sam
           data: {
             choices: [
               {
-                delta: { content: JSON.stringify(reading) },
+                delta: { content: JSON.stringify({...reading,...testFirstReading()}) },
                 finish_reason: "stop",
               },
             ],
@@ -565,7 +566,7 @@ it("TEST missing model evidence fails without creating plans, anchors or a succe
           data: {
             choices: [
               {
-                delta: { content: JSON.stringify(output) },
+                delta: { content: JSON.stringify({...output,...testFirstReading()}) },
                 finish_reason: "stop",
               },
             ],

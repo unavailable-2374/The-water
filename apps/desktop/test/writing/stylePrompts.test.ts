@@ -104,8 +104,8 @@ describe('systemBase with style extras and doc type', () => {
   it('outlinePrompt includes the doc type framework', () => {
     const spec = outlinePrompt({ premise: 'x', requirements: { ...requirements, docType: 'short-story' }, targetChars: 20000, chapterCount: 5 });
     const u = spec.messages[1]!.content;
-    expect(u).toContain('结构框架（短篇小说：Save the Cat 八拍）');
-    expect(u).toContain('故事核一句话');
+    expect(u).toContain('结构框架（短篇小说：阅读体验 + 自选结构）');
+    expect(u).toContain('明确主要阅读体验、人物眼前处境与作品结束条件');
   });
 });
 
@@ -211,7 +211,7 @@ describe('styleReview', () => {
     expect(ins[0]).toBe('句子偏长');
     expect(ins[1]).toContain('沈默出戏（红线：不认错）');
     expect(ins[2]).toContain('与既定事实矛盾：小指未断');
-    expect(ins[3]).toContain('不像原著');
+    expect(ins[3]).toContain('偏离参照声音');
     expect(ins[4]).toContain('去掉 AI 味：总之');
   });
 });

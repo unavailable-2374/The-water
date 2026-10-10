@@ -9,10 +9,10 @@ import { genreLoreSettings, mergedGenreOf } from '@/novel/genrePacks';
 import { systemBase, type StyleExtras } from '@/llm/prompts/base';
 import { renderStyleUserBlock } from '@/llm/prompts/style';
 import { guessSceneType } from '@/novel/styleMetrics';
-import type { SceneType } from '@the-water/shared';
+import type { SceneType, ScenePlan } from '@the-water/shared';
 import type { LLMProvider } from '@/llm/types';
 import type { StepContext } from '../context';
-import { chapterDependencies, listWritingCards, retrieveCanonEvents } from '@/db/repos/writingRepo';
+import { chapterDependencies, listWritingCards, retrieveCanonEvents, listCanonEvents } from '@/db/repos/writingRepo';
 import { AwaitingReviewError } from '../awaitingReview';
 import { estimateTokens } from '@/llm/tokens';
 import { getDb } from '@/db/db';
@@ -73,7 +73,15 @@ export function styleExtrasOf(env: Pick<ChapterEnv, 'novel' | 'doc'>): StyleExtr
 }
 
 /** Scene type for picking exemplars: opening/ending by position, otherwise guessed from the plan text. */
-export function sceneTypeOf(env: Pick<ChapterEnv, 'chapter' | 'doc' | 'chapters'>): SceneType {
+export function sceneTypeOf(env: Pick<ChapterEnv, 'chapter' | 'doc' | 'chapters'>, scene?: ScenePlan): SceneType {
+  if (scene) {
+    const purpose = [scene.goal, scene.obstacle, scene.turn, scene.outcome, scene.choice, scene.readerInterest].filter(Boolean).join('。');
+    if (/(决战|高潮|生死)/.test(purpose)) return 'climax';
+    if (/(揭示|真相|发现|得知)/.test(purpose)) return 'reveal';
+    if (/(对白|交谈|试探|争取|争吵|拒绝|摊牌|隐瞒|决裂)/.test(purpose)) return 'dialogue';
+    if (/(消化|回忆|安静|沉默|日常|相处)/.test(purpose)) return 'quiet';
+    return guessSceneType(purpose);
+  }
   const n = env.chapter.chapterNo;
   if (n === 1) return 'opening';
   if (env.chapters.length > 1 && n === env.chapters.at(-1)!.chapterNo) return 'ending';
@@ -91,6 +99,7 @@ export interface ChapterContextOptions {
   onSources?: (ids: string[]) => void;
   /** 额外预留 token：json_object 模式注入的 schema。 */
   reserved?: number;
+  scene?: ScenePlan;
 }
 
 /** Build the budgeted user context text for writing/rewriting a chapter. */
@@ -123,12 +132,17 @@ export async function buildChapterContextText(env: ChapterEnv, provider: LLMProv
   const scenePlans=scenes.flatMap(c=>c.kind==='scene' ? [c.data]:[]);
   const scheduledThreadIds = cards.filter(c => c.kind === 'thread' && threadRelevantAt(c.data,n)).map(c => c.id);
   const facts = await retrieveCanonEvents(novel.id, n, {characterIds:[...characterIds],threadIds:[...new Set([...scheduledThreadIds,...scenePlans.flatMap(s=>s.threadIds)])],dependencyIds:scenePlans.flatMap(s=>s.dependencyIds),times:scenePlans.map(s=>s.time),locations:scenePlans.map(s=>s.location)});
+  const relationshipPhases = new Map<string, {eventId:string;versionId:string;[key:string]:unknown}>();
+  for (const event of await listCanonEvents(novel.id, n)) if (event.entityId && event.relationshipState && (characterIds.has(event.entityId) || characterIds.has(event.relationshipState.relatedCharacterId))) {
+    const key = [event.entityId, event.relationshipState.relatedCharacterId].sort().join(':');
+    relationshipPhases.set(key, { ...event.relationshipState, entityId: event.entityId, eventId: event.id, chapterNo: event.chapterNo, versionId: event.versionId, evidence: event.evidence });
+  }
   const readerProgress = docTypeGuide(novel.requirements.docType).fiction ? await committedStoryProgress(novel.id,n) : null;
   const { graph } = await getStoryGraph(novel.id);
   const nodeIds = new Set([...scenes.map(c => c.id), ...(current?.beatIds ?? [])]);
   if(scenePlans.some(scene=>scene.dependencyIds.some(id=>!facts.some(f=>f.id===id)))) throw new AwaitingReviewError('场景引用的必需事实已失效或尚未重建，请核对依赖来源');
   const relevantCards = cards.filter(c => c.kind === 'brief' || c.kind === 'volume' && c.data.startChapterNo <= n && c.data.endChapterNo >= n || c.kind === 'scene' && c.chapterId === chapter.id || c.kind === 'character' && characterIds.has(c.data.characterId) || c.kind === 'thread' && (threadRelevantAt(c.data,n) || scenes.some(s => s.kind === 'scene' && s.data.threadIds.includes(c.id))));
-  opts.onSources?.([...relevantCards.map(c => c.id), ...doc.characters.filter(c => characterIds.size === 0 || characterIds.has(c.id)).map(c => c.id), ...requiredRules.map(s => s.id), ...facts.flatMap(f => [f.id, f.versionId])]);
+  opts.onSources?.([...relevantCards.map(c => c.id), ...doc.characters.filter(c => characterIds.size === 0 || characterIds.has(c.id)).map(c => c.id), ...requiredRules.map(s => s.id), ...facts.flatMap(f => [f.id, f.versionId]), ...[...relationshipPhases.values()].flatMap(p=>[p.eventId,p.versionId])]);
   const required = docTypeGuide(novel.requirements.docType).fiction ? [
     '已确认计划（未来约束，不是已发生事实）：' + JSON.stringify(relevantCards),
     '跨章伏笔纪律：只推进当前章 milestones 指定阶段；未到 payoff 章不得揭示完整答案；埋设后保持因果与人物知情边界，未来阶段不是已发生事实。无里程碑的旧伏笔保持未确定，不自行编造回收时间。',
@@ -138,13 +152,14 @@ export async function buildChapterContextText(env: ChapterEnv, provider: LLMProv
     '本书已确认规则：' + JSON.stringify(requiredRules.filter(s => doc.settings.some(own => own.id === s.id))),
     '题材创作指导（非已确认事实，不能单独据此报事实冲突）：' + JSON.stringify(requiredRules.filter(s => !doc.settings.some(own => own.id === s.id))),
     '正文已证实事实及人物知识（来源为版本 ID / UTF-16 位置）：' + JSON.stringify(facts),
+    '核心关系截至本章的阶段摘要（有正文来源的编辑归纳；未提供不补造；和解不清零边界；belief/claim 不等于世界确认的事实）：' + JSON.stringify([...relationshipPhases.values()]),
     '前文已提交版本的故事推进与期待回应（AI编辑判断，有原文证据；不是读者反馈。沿用期待 ID，已兑现成果不得无依据撤回；未来计划不是兑现）：' + JSON.stringify(readerProgress),
   ].join('\n') : '';
   const baseBudget = buildContextBudget({ caps: provider.caps, maxTokens, scale: opts.scale, reserved: opts.reserved });
   const requiredTokens = estimateTokens(required, provider.caps.cjkTokenRatio);
   if (requiredTokens + estimateTokens(current ? renderChapterPlan(current, doc) : '', provider.caps.cjkTokenRatio) + estimateTokens(systemBase(novel.requirements, styleExtrasOf(env)), provider.caps.cjkTokenRatio) > baseBudget) throw new AwaitingReviewError('必需设定和证据超出模型窗口，请使用更大窗口的模型');
   const budget = baseBudget - requiredTokens;
-  const style = doc.styleProfile ? renderStyleUserBlock(doc.styleProfile, sceneTypeOf(env)) : '';
+  const style = doc.styleProfile ? renderStyleUserBlock(doc.styleProfile, sceneTypeOf(env, opts.scene), !!doc.derivative) : '';
   const { userText } = assembleChapterContext(
     {
       system: systemBase(novel.requirements, styleExtrasOf(env)),

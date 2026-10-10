@@ -10,12 +10,15 @@ import { getDb, now, selectOne } from '../db';
 import { parseJson } from '../mappers';
 import { StyleReviewResultSchema } from '@/llm/prompts/styleReview';
 import { ConsistencyResultSchema } from '@/llm/prompts/consistencyReview';
+import { FirstReadingSchema, ReaderAlignmentSchema } from '@/llm/prompts/firstReading';
 
 /** Everything a style check produced for one chapter version (docs/writing/README.md §5.4). */
 export const ChapterReviewJsonSchema = z.object({
   narrative: z.array(ReviewIssueSchema).optional(),
   story: StoryAssessmentSchema.optional(),
   lengthReview: ChapterLengthReviewSchema.optional(),
+  firstReading: FirstReadingSchema.optional(),
+  readerAlignment: ReaderAlignmentSchema.optional(),
   metricScore: z.number().default(100),
   metricFindings: z.array(z.object({ key: z.string(), label: z.string(), value: z.number(), target: z.tuple([z.number(), z.number()]), hard: z.boolean(), hint: z.string() })).default([]),
   lintIssues: z.array(z.object({ rule: z.string(), severity: z.enum(['block', 'warn']), message: z.string(), quote: z.string().default('') })).default([]),
@@ -50,6 +53,20 @@ export async function saveReview(input: { novelId: string; chapterId: string; ch
   if (new Set(input.report.narrative?.map(i=>i.id)).size !== (input.report.narrative?.length ?? 0)) throw new Error('重复的审稿问题 ID');
   if (new Set(input.report.story?.expectations.map(item=>item.id)).size !== (input.report.story?.expectations.length ?? 0)) throw new Error('重复的阅读期待 ID');
   if (input.report.lengthReview?.actions.some(action => !input.report.narrative?.some(issue => issue.id === action.issueId))) throw new Error('篇幅建议必须引用本次审查中有正文依据的问题');
+  if (input.report.firstReading) {
+    const reading=input.report.firstReading;
+    if(new Set(reading.sources.map(s=>s.chapterNo)).size!==reading.sources.length || !reading.sources.some(s=>s.versionId===version.id && s.chapterNo===chapter.chapterNo && s.contentHash===hash)) throw new AwaitingReviewError('首次阅读版本记录与当前正文不符');
+    const inferenceEvidence=(reading.inferenceChecks??[]).flatMap(item=>[...item.evidence,...item.basis]);
+    const allReadingQuotes=[...Object.values(reading.observations),...reading.confusions,...reading.preserve].flatMap(item=>item.evidence).concat(inferenceEvidence);
+    for(const source of reading.sources) {
+      const v=await getVersion(source.versionId), c=v ? await getChapter(v.chapterId):null;
+      if(!v || !c || c.novelId!==input.novelId || c.chapterNo!==source.chapterNo || source.chapterNo>chapter.chapterNo || source.chapterNo<chapter.chapterNo && c.committedVersionId!==source.versionId || await sha256Hex(v.content)!==source.contentHash) throw new AwaitingReviewError('首次阅读来源已变化，请重新阅读');
+      const quotes=allReadingQuotes.filter(e=>e.versionId===source.versionId);
+      if(quotes.some(q=>q.chapterNo!==source.chapterNo || !verifyEvidence(v.content,q.evidence))) throw new AwaitingReviewError('首次阅读证据无法核对原文');
+    }
+    const sourceIds=new Set(reading.sources.map(s=>s.versionId));
+    if(allReadingQuotes.some(e=>!sourceIds.has(e.versionId))) throw new AwaitingReviewError('首次阅读证据引用了未读取的版本');
+  }
   for (const issue of input.report.narrative ?? []) if (!verifyEvidence(version.content, issue.evidence)) throw new AwaitingReviewError('审查问题未能定位到原文，请重新审查');
   for (const item of [...(input.report.story?.changes ?? []),...(input.report.story?.expectations ?? [])]) if (!verifyEvidence(version.content,item.evidence)) throw new AwaitingReviewError('故事推进结果未能定位到原文，请重新审查');
   await getDb().atomic([deps.guard,{sql:'UPDATE chapter_versions SET id=id WHERE id=? AND content=?',params:[version.id,version.content],expectedRows:1},{sql:

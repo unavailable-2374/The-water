@@ -49,3 +49,9 @@ export const testReadyStory = () => ({readingFocus:'TEST scripted reading focus'
 
 /** TEST / SIMULATED length verdict; not evidence of model quality. */
 export const testReadyLengthReview = () => ({action:'keep' as const,reason:'TEST / SIMULATED complete scene; no quota-based adjustment',actions:[]});
+
+/** TEST / SIMULATED reading fixture, never a literary result. */
+export function testFirstReading() {
+  const item={interpretation:'TEST / SIMULATED unknown reading',confidence:'unknown' as const,evidence:[]};
+  return {observations:{goal:item,stakes:item,choice:item,expectation:item,understanding:item},inferenceChecks:[],confusions:[],preserve:[]};
+}

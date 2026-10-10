@@ -1,0 +1,26 @@
+{
+  "label": "REAL human feedback on TEST fiction; one reader, not a population quality estimate",
+  "receivedAt": "2026-10-10T23:04:03.778595+00:00",
+  "provenance": "用户在当前验收对话中提交，逐字保存；未补评分。",
+  "rawFeedback": "她想知道当时的真相；不知道，上下文太少；接下来如何智斗掩盖真相的人；没有吸引我的地方，“下一次，她需要先找到真正看见过那件事的人”让我觉得困惑，没有前因后果；整体都很普通。X更愿意读；他习惯替人安排，道歉也可能带着下一步，这种带钩子的话让我想继续往下读；X结尾的“笔在我口袋里，没有回到他手上。”莫名其妙，如果是多次循环，尝试了很多方法才将笔拿到手里这样感叹无不可，但是剧情很单薄的情况下就显得非常突兀；没有读到。两者虽然X更好，但是逻辑都不通，弟弟拿了笔能代签姐姐的字么？一个随处可得的笔有那么重要么？",
+  "packets": [
+    {
+      "id": "oWfeuLH1xJpHDdY1FCBcM",
+      "task": "first_reading",
+      "file": "acceptance-first-reading-20261010.md",
+      "sha256": "245896f099391a0d523ee0f1948566038d27bcb91cac00db721b9e3eaf0b86b4"
+    },
+    {
+      "id": "WpYViqG3E4BuFKVm6Xtv2",
+      "task": "revision_value",
+      "file": "acceptance-narration-blind-20261010.md",
+      "sha256": "fa9bfb0021212e858b8ec112d70b12c928629414f1bc789f737952a2d8da0a95"
+    }
+  ],
+  "editorialInterpretation": {
+    "firstReading": "目标可辨，但重要性与下一步推断缺少正文支持；读者没有被吸引。",
+    "comparison": "X更愿意读；道歉可能带着安排这一判断有效。重复笔的结尾缺少足够铺垫；两篇的道具与签字权因果均受到质疑。",
+    "guard": "这位读者没有读到合作等于原谅。",
+    "acceptance": "文学效果未通过本轮人工验收。事实保留和程序运行成功不足以证明文学效果成立。"
+  }
+}

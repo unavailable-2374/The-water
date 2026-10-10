@@ -36,6 +36,8 @@ import {
 import { getDb, now, writeAtomic, writeStatement, type AtomicWriter } from "@/db/db";
 import { assertBudget, recordUsage } from "@/db/repos/usageRepo";
 import { LLMError } from "@/llm/types";
+import { readProseOnly } from './firstReading';
+import { FirstReadingSchema } from '@/llm/prompts/firstReading';
 import { emitJobEvent } from "@/jobs/events";
 
 /** Real provider only. Failures remain errors; no fallback or manufactured model responses. */
@@ -46,6 +48,7 @@ export async function requestStoryJson<T>(
   schema: z.ZodType<T>,
   signal: AbortSignal,
   craftRule = `${CHARACTER_DESIGN_RULE}\n${PLOT_DESIGN_RULE}\n${PLOT_GENRE_RULE}`,
+  options: { includeDirection?: boolean } = {},
 ) {
   await assertBudget(novelId);
   const ids = await getNovelProviders(novelId);
@@ -66,7 +69,7 @@ export async function requestStoryJson<T>(
     },
     {
       role: "user" as const,
-      content: `${instruction}\n${wrapUntrusted("作品与作者材料", JSON.stringify(source))}\n${wrapUntrusted("作者采纳的故事方向（规划约束，非正文事实）", await storyDirectionContext(novelId))}`,
+      content: `${instruction}\n${wrapUntrusted("作品与作者材料", JSON.stringify(source))}\n${options.includeDirection === false ? '' : wrapUntrusted("作者采纳的故事方向（规划约束，非正文事实）", await storyDirectionContext(novelId))}`,
     },
   ];
   if (
@@ -135,6 +138,7 @@ export const ProseReadingSchema = z.object({
       }),
     )
     .max(40),
+  firstReading: FirstReadingSchema.optional(),
 });
 type ProseReading = z.infer<typeof ProseReadingSchema>;
 const ModelProseReadingSchema = ProseReadingSchema.extend({
@@ -175,6 +179,11 @@ export async function readStoryProse(
   if (chapter?.novelId !== novelId || !version?.content.trim())
     throw new Error("请先保存本章正文");
   const dependencies = await chapterDependencies(novelId, chapter.chapterNo);
+  await assertBudget(novelId);
+  const ids = await getNovelProviders(novelId);
+  const provider = (await providersForPurposes({ params: { providerIds: ids }, providerId: ids.consistency ?? ids.writing ?? null }, ['consistency'])).consistency!;
+  const blind = await readProseOnly(novelId, chapter.chapterNo, version, provider, { signal });
+  await recordUsage({ usage: blind.usage, purpose: 'consistency', model: provider.model, providerKind: provider.kind, providerId: provider.id, novelId });
   const plans = w.cards.filter(
     (c) => c.kind === "scene" && c.chapterId === chapterId,
   );
@@ -186,6 +195,8 @@ export async function readStoryProse(
       text: version.content,
       plans,
       characters: w.characters,
+      characterIntents: w.cards.filter(c => c.kind === 'character' && c.confirmed),
+      firstReading: blind.reading,
       volumes: w.cards.filter((c) => c.kind === "volume"),
       threads: w.cards.filter((c) => c.kind === "thread"),
       graph: w.graph,
@@ -201,6 +212,7 @@ export async function readStoryProse(
     `${CHARACTER_REVIEW_RULE}\n${PLOT_REVIEW_RULE}`,
   );
   const reading = ProseReadingSchema.parse({
+    firstReading: blind.reading,
     scenes: modelReading.scenes.map(item => ({ ...item, evidence: locateModelEvidence(version.content, item.evidence) })),
     issues: modelReading.issues.map(item => ({ ...item, evidence: locateModelEvidence(version.content, item.evidence) })),
   });

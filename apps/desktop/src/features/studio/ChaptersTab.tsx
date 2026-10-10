@@ -1,3 +1,4 @@
+import { FirstReadingPanel } from './FirstReadingPanel';
 import { StoryOptionsButton } from './StoryOptionsPanel';
 import { registerAssistantEditor } from '@/assistant/editorBridge';
 import { useAssistant } from '@/assistant/runtime';
@@ -801,6 +802,8 @@ function ReviewPanel({ review }: { review: ChapterReview }) {
     <aside aria-label={t.studio.reviewPanel.title} className="w-72 shrink-0 overflow-y-auto rounded-2xl bg-paper-0 p-4 text-xs leading-relaxed shadow-soft dark:bg-paper-900">
       <h3 className="font-serif text-sm font-semibold tracking-wide text-ink-800 dark:text-paper-100">{t.studio.reviewPanel.title}</h3>
       <div className="mt-1 text-ink-400">{new Date(review.createdAt).toLocaleString()}</div>
+      {r.firstReading && <FirstReadingPanel reading={r.firstReading} />}
+      {!!r.readerAlignment?.length && <Sec title={t.studio.firstReading.alignment}>{r.readerAlignment.map((item, i) => <div key={i} className="my-2"><strong>{t.studio.firstReading[item.status]}</strong><p>{item.authorIntent} → {item.readerInference}</p><p>{item.reason}</p><p>{item.suggestion}</p></div>)}</Sec>}
       <Sec title={t.studio.lengthReview.title}>
         {r.lengthReview ? <div className="space-y-2"><strong>{t.studio.lengthReview[r.lengthReview.action]}</strong><p>{r.lengthReview.reason}</p>{r.lengthReview.actions.map((action,index) => { const issue=r.narrative?.find(item=>item.id===action.issueId); return issue ? <div key={index}><strong>{t.studio.lengthReview[action.action]}</strong><blockquote>「{issue.evidence.quote}」</blockquote><p>{issue.basis}</p><p>{issue.suggestion}</p></div> : null; })}</div> : <p>{t.studio.lengthReview.legacy}</p>}
       </Sec>

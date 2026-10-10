@@ -17,11 +17,12 @@ it('TEST validates stage order and preserves undated legacy threads',()=>{
   expect(StoryThreadSchema.safeParse({...thread,milestones:[thread.milestones[2],thread.milestones[1],thread.milestones[0]]}).success).toBe(false);
   expect(StoryThreadSchema.safeParse({...thread,plannedChapterNo:45}).success).toBe(false);
 });
-it('TEST rejects full-book threads all paid off inside the first batch',()=>{
+it('TEST permits appropriate early payoffs and no mystery threads without imposing chapter quotas',()=>{
   const spec=chapterTablePrompt({outline:OutlineDocSchema.parse({logline:'TEST mainline',characters:[],arcs:[{title:'TEST arc',startChapterNo:1,endChapterNo:100}],beats:[]}),requirements:defaultRequirements(),planThreads:true,fromChapter:6,toChapter:35,totalChapters:100,batchTotalChars:90000,minChars:1800,maxChars:4500,previousEntries:[]});
   const chapters=Array.from({length:30},(_,i)=>({chapterNo:i+6,title:'TEST chapter',goal:'TEST goal',targetChars:3000,endHook:'TEST hook',beatTitles:[],povCharacter:null}));
   const short={...thread,characterNames:[],plannedChapterNo:35,milestones:[{chapterNo:6,kind:'setup',detail:'TEST question'},{chapterNo:20,kind:'progress',detail:'TEST clue'},{chapterNo:35,kind:'payoff',detail:'TEST answer'}]};
-  expect(spec.schema!.safeParse({chapters,threads:[short]}).success).toBe(false);
+  expect(spec.schema!.safeParse({chapters,threads:[short]}).success).toBe(true);
+  expect(spec.schema!.safeParse({chapters,threads:[]}).success).toBe(true);
   expect(spec.schema!.safeParse({chapters,threads:[{...thread,characterNames:[]}]}).success).toBe(true);
 });
 it('TEST retrieves scheduled threads before scene association and resolves stable character IDs',()=>{

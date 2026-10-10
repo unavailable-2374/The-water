@@ -97,7 +97,6 @@ export function chapterTablePrompt(input: ChapterTableInput): PromptSpec<z.infer
   const from = input.fromChapter;
   const to = input.toChapter;
   const count = to - from + 1;
-  const latePayoff = to < input.totalChapters ? to+1 : Math.min(input.totalChapters,from+2);
   const system = [planningSystem('你是一位资深小说策划编辑，负责把大纲拆解成逐章的章节表。', input.requirements), docTypeGuide(input.requirements.docType).fiction ? PLOT_PLANNING_RULE : ''].filter(Boolean).join('\n');
 
   const constraints = [
@@ -109,8 +108,7 @@ export function chapterTablePrompt(input: ChapterTableInput): PromptSpec<z.infer
     '5. 每章的 goal 要具体（本章推进了什么），endHook 要给出章末悬念、决定、关系变化或余味。',
     '远期章节也必须有具体标题、目标和结尾方向；全书高层章节表与只细化未来五章的场景计划是两个尺度。跨批次按同一份伏笔时间表埋设、推进和回收，不提前泄露最终答案。',
     '遵守已确认故事弧的因果顺序与叙事职责，不把后期核心反转、人物反水、完整证据闭合及最终清算提前兑现。章号与篇幅是可修改的规划位置；若剧情需要增减章节，作为后续结构修改候选供作者审阅，不在当前分批任务中偷偷改变已确认顺序。',
-    ...(input.planThreads ? ['同时返回 threads 数组，提出 2–6 条跨章伏笔；至少一条回收在第六章或更晚。每条包含 title/setup/progression/payoff/plannedChapterNo/characterNames/milestones。milestones 是按章递增的 [{chapterNo,kind:setup|progress|payoff,detail}]：埋设、至少一次推进、最后回收，须覆盖不同章节且不超全书范围。说明读者能看到什么、暂不能知道什么以及回收怎样改变理解或选择；不把未来计划当正文事实。plannedChapterNo 等于 payoff 阶段章号。characterNames 必须来自已有人物。'] : []),
-    ...(input.planThreads ? [`threads 是当前全书方案的伏笔时间表，不限于本批 ${from}–${to} 章。安排贯穿中后期故事弧的伏笔；全书尚有后续批次时，至少一条 plannedChapterNo >= ${latePayoff}，避免把长线伏笔全部压在首批回收。具体章号可随作者调整结构移动，不按固定章数制造反转。`] : []),
+    ...(input.planThreads ? ['同时返回 threads 数组；按本书实际长期期待提出适量跨章线索，也可用习惯、能力、生活条件或关系相处方式的持续变化；没有需要独立维护的线索可返回 []。每条包含 title/setup/progression/payoff/plannedChapterNo/characterNames/milestones。milestones 是按章递增的 [{chapterNo,kind:setup|progress|payoff,detail}]：埋设、至少一次推进、最后回收，须覆盖不同章节且不超全书范围。说明读者能看到什么、暂不能知道什么以及回收怎样改变理解或选择；不把未来计划当正文事实。plannedChapterNo 等于 payoff 阶段章号。characterNames 必须来自已有人物。'] : []),
     ...(input.preserveBeforeChapter ? [`第 ${input.preserveBeforeChapter} 章之前的计划和正文保持原状；新增伏笔的埋设不得早于第 ${input.preserveBeforeChapter} 章，不得声称此前正文已经埋下新线索。`] : []),
     '6. 章节标题不带"第X章"前缀，简体中文。',
   ].join('\n');
@@ -133,8 +131,7 @@ export function chapterTablePrompt(input: ChapterTableInput): PromptSpec<z.infer
     schema: ChapterTableResponseSchema.superRefine((value,ctx) => {
       if (value.chapters.length !== count || new Set(value.chapters.map(c=>c.chapterNo)).size !== count) ctx.addIssue({code:'custom',path:['chapters'],message:'必须完整返回本批章节，不得遗漏或重复'});
       for (const [i,c] of value.chapters.entries()) if (c.chapterNo<from || c.chapterNo>to || !c.title.trim() || !c.goal.trim() || !c.endHook.trim() || c.targetChars<=0) ctx.addIssue({code:'custom',path:['chapters',i],message:'章号必须在本批范围内，标题、目标、结尾方向和篇幅参考不得留空'});
-      if (input.planThreads && (!value.threads?.length || !value.threads.some(t=>t.plannedChapterNo>5))) ctx.addIssue({code:'custom',path:['threads'],message:'长篇必须给出跨越前五章的伏笔计划'});
-      if (input.planThreads && !value.threads?.some(t=>t.plannedChapterNo>=latePayoff)) ctx.addIssue({code:'custom',path:['threads'],message:`全书伏笔至少一条须回收在第 ${latePayoff} 章或更晚，不能压缩在当前批次`});
+      if (input.planThreads && !value.threads) ctx.addIssue({code:'custom',path:['threads'],message:'须显式返回 threads，可为空；不强制跨固定章数的反转伏笔'});
       for (const [i,t] of (value.threads ?? []).entries()) {
         if (input.preserveBeforeChapter && t.milestones.some(m=>m.chapterNo<input.preserveBeforeChapter!)) ctx.addIssue({code:'custom',path:['threads',i],message:'补充伏笔不得追写保留章节中的埋设'});
         if (t.milestones.some(m=>m.chapterNo>input.totalChapters) || !t.milestones.some(m=>m.kind==='progress')) ctx.addIssue({code:'custom',path:['threads',i],message:'阶段不得超全书范围，且必须安排跨章推进'});

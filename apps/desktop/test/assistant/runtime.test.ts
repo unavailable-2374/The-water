@@ -1,3 +1,4 @@
+import { testFirstReading } from '../helpers/writing';
 /** TEST / SIMULATED provider responses. These tests verify orchestration, not literary quality. */
 import { simulatedOutlineReview } from '../helpers/outlineReview';
 import { afterEach, beforeEach, expect, it } from 'vitest';
@@ -183,8 +184,9 @@ beforeEach(async () => {
         ],
       });
     }
+    if(system.includes('第一次阅读作品')) return reply(testFirstReading());
     if (system.includes('叙事审稿人'))
-      return reply({ issues: [], lengthReview: testReadyLengthReview(), story: testReadyStory() });
+      return reply({ readerAlignment:[], issues: [], lengthReview: testReadyLengthReview(), story: testReadyStory() });
     if (system.includes('设定校对'))
       return reply({
         numericConflicts: [],

@@ -117,7 +117,8 @@ h1, h2, h3 { font-family: var(--font-sans); }
   border-radius: 10px;
   font-size: 14px;
   color: var(--color-ink-600);
-  transition: background-color 150ms, color 150ms;
+  /* Keep route selection immediate: WKWebView can retain old background/text colors after transitions. */
+  transition: none;
 }
 [data-theme="dark"] .nav-item { color: var(--color-ink-300); }
 .nav-item:hover { background: var(--color-paper-200); }

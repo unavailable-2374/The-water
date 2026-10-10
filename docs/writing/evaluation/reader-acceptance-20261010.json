@@ -1,0 +1,93 @@
+{
+  "label": "Native TEST acceptance; historical REAL model responses imported; SIMULATED outline UI fixture; no human literary result",
+  "finishedAt": "2026-10-10T22:58:48.082582+00:00",
+  "head": "7bd6c831aab752384062b854462325a2190296b3",
+  "sourceTreeSha256": "7d6b2fa060890557356bb541c3ea5ec57dce6aa27d12d8a5a7b8c88ea480b28b",
+  "databases": {
+    "com.thewater.readeracceptance20261010": {
+      "working_and_committed_pointers_unchanged": true,
+      "foreign_key_errors": [],
+      "literary_review_states": [
+        "awaiting_human",
+        "awaiting_human",
+        "awaiting_human"
+      ],
+      "branch_states": [
+        [
+          "姐姐近距限知·线性",
+          "draft"
+        ],
+        [
+          "全知旁观·结果前置",
+          "draft"
+        ]
+      ]
+    },
+    "com.thewater.readernarrow20261010": {
+      "working_and_committed_pointers_unchanged": true,
+      "foreign_key_errors": [],
+      "literary_review_states": [
+        "awaiting_human",
+        "awaiting_human",
+        "awaiting_human"
+      ],
+      "branch_states": [
+        [
+          "姐姐近距限知·线性",
+          "draft"
+        ],
+        [
+          "全知旁观·结果前置",
+          "draft"
+        ]
+      ]
+    }
+  },
+  "testResults": {
+    "desktop_full": {
+      "passed": 1099,
+      "skipped": 12
+    },
+    "branch_and_development": {
+      "passed": 15
+    },
+    "navigation": {
+      "passed": 9
+    }
+  },
+  "nativeObserved": [
+    "prose-only first-reading report, five observations, quotes, preserve and author alignment",
+    "save immutable first-reading packet; remains awaiting_human after restart",
+    "stage structural alternative; block edit authorization before adoption; block adoption before independent outline review",
+    "outline trial selection gate and historical sample/uncertainties",
+    "four exploration goals; supported/uncertain audit labels; uncertain-to-branch button disabled",
+    "stage supported sample, visible success feedback and independent branch",
+    "plan/sample fixed-fact review gate; edit TEST plan, save, confirm; merge remains separate",
+    "short-story optional custom structure retained after leaving and returning; Return and Tab",
+    "English 1280 controls and Chinese 960 X/Y materials; keyboard reaches empty feedback area",
+    "final 960 screenshot: current main navigation text/background and workspace selected background correct"
+  ],
+  "nativeToolFailures": [
+    {
+      "error": "Computer Use server error -10005: frontmostApplicationChanged",
+      "operation": "switch from branch panel to novels",
+      "resolution": "reacquire TEST app, repeat click and observe list"
+    },
+    {
+      "error": "Computer Use server error -10005: noWindowsAvailable",
+      "operation": "narrowApp.scroll, twice",
+      "resolution": "scroll tool remains unverified; reacquire TEST app, keyboard Return/Tab visibly reaches feedback area"
+    }
+  ],
+  "notPerformed": [
+    "new native AI calls",
+    "native structural plan adoption and cross-chapter prose editing",
+    "branch merge",
+    "system Chinese IME audit",
+    "human literary ratings or preference judgment"
+  ],
+  "packetHashes": {
+    "acceptance-narration-blind-20261010.md": "fa9bfb0021212e858b8ec112d70b12c928629414f1bc789f737952a2d8da0a95",
+    "acceptance-first-reading-20261010.md": "245896f099391a0d523ee0f1948566038d27bcb91cac00db721b9e3eaf0b86b4"
+  }
+}

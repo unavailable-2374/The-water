@@ -1,3 +1,4 @@
+import { testFirstReading } from '../helpers/writing';
 import { testReadyLengthReview, testReadyStory } from '../helpers/writing';
 // TEST: scripted provider exercises persistence, not model quality.
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -37,7 +38,8 @@ function makeFetch(opts: { proseChars?: number[]; failJsonOnce?: boolean; failPr
     const reply = (text: string) => sseResponse([sseBody([{ data: { choices: [{ delta: { content: text } }] } }, { data: done }, { data: '[DONE]' }])]);
     if (isJson) {
       const system = body.messages.find(m => m.role === 'system')?.content ?? '';
-      if (system.includes('叙事审稿')) return reply(JSON.stringify({ issues: [], lengthReview:testReadyLengthReview(), story:testReadyStory() }));
+      if(system.includes('第一次阅读作品')) return reply(JSON.stringify(testFirstReading()));
+      if (system.includes('叙事审稿')) return reply(JSON.stringify({ readerAlignment:[], issues: [], lengthReview:testReadyLengthReview(), story:testReadyStory() }));
       jsonCalls++;
       if (opts.failJsonOnce && jsonCalls === 1) return new Response('{"error":{"message":"nope"}}', { status: 400 });
       return reply(JSON.stringify({

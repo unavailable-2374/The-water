@@ -17,6 +17,8 @@ import { docTypeGuide } from '@/novel/docTypes';
 import { INDEPENDENT_OPTIONS_VERSION, storyOptionInputHash } from '@/novel/storyOptionInputs';
 import { getDb } from '@/db/db';
 import { optionQualityBlocked } from '@/novel/storyOptionQuality';
+import { PresentationExplorationPanel } from './StoryDevelopmentPanels';
+import type { ExplorationGoal } from '@/novel/storyExploration';
 
 export function StoryOptionsButton({ novel, scope, onChanged, label }: { novel: Novel; scope: StoryOptionScope; onChanged?: () => void | Promise<void>; label?: string }) {
   const [open, setOpen] = useState(false);
@@ -30,6 +32,7 @@ export function StoryOptionsPanel({ owner, scope, draft, providerIds, autoGenera
   onSelected?: (id: string) => void; onChanged?: () => void | Promise<void>; initialBatchId?: string;
 }) {
   const [tick, setTick] = useState(0), [batchId, setBatchId] = useState(initialBatchId ?? ''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [goal,setGoal]=useState<'direction'|ExplorationGoal>('direction');
   const [mode, setMode] = useState<StoryOptionBatch['mode']>(scope.kind === 'work' ? 'restructure' : 'continue'), [amplitude, setAmplitude] = useState<StoryOptionBatch['amplitude']>('moderate'), [feedback, setFeedback] = useState(''), [authorMaterials, setAuthorMaterials] = useState(''), [combineIds, setCombineIds] = useState<string[]>([]);
   const lock = useRef(false), auto = useRef(false);
   const key = canonicalJson({ owner, scope, draft });
@@ -62,7 +65,10 @@ export function StoryOptionsPanel({ owner, scope, draft, providerIds, autoGenera
   useEffect(() => setCombineIds([]), [selected?.batch.id]);
   const boundary = selected?.batch.boundary ?? data?.source.boundary;
   const pending = data?.proposals.filter(p => selected?.selections.some(s => s.proposal_id === p.id)) ?? [];
+  const goalPicker=owner.novelId ? <Field label={t.studio.development.explorationGoal}><Select value={goal} onChange={e=>setGoal(e.target.value as typeof goal)}>{(['direction','narration','relationship','expression'] as const).map(key=><option key={key} value={key}>{t.studio.development[key]}</option>)}</Select></Field> : null;
+  if(goal!=='direction' && owner.novelId) return <section className="space-y-4">{goalPicker}<PresentationExplorationPanel novelId={owner.novelId} goal={goal} sceneId={scope.kind==='scene'?scope.id:null}/></section>;
   return <section className="min-w-0 space-y-4" aria-label={t.storyOptions.title}>
+    {goalPicker}
     <p className="text-sm text-ink-500">{scope.kind === 'work' ? t.storyOptions.outlineHint : t.storyOptions.hint}</p>
     <p className="text-sm">{t.storyOptions[scope.kind]}{data?.source.label ? ` · ${data.source.label}` : ''}</p>
     {owner.novelId && scope.kind !== 'work' && boundary && <p className="text-xs">{t.storyOptions.boundary}: {boundary ? `${boundary.chapterNo} · ${boundary.offset}` : t.storyOptions.emptyBoundary}<br />{t.storyOptions.savedOnly}</p>}
@@ -95,7 +101,7 @@ export function StoryOptionsPanel({ owner, scope, draft, providerIds, autoGenera
           {comparison && <div className="mt-3 space-y-2 text-sm"><strong>{t.storyOptions.comparison}</strong>{(['conflict','character','turns','emotion','ending','tradeoff'] as const).map(k => <p key={k}><span className="text-ink-500">{t.storyOptions[k]}: </span>{comparison[k]}</p>)}{comparison.checks && <details><summary>{t.storyOptions.checks}</summary>{Object.entries(comparison.checks).map(([key, value]) => <p key={key}>{t.storyOptions.checkLabels[key as keyof typeof t.storyOptions.checkLabels]}：{value}</p>)}</details>}{comparison.qualityAudit && <details><summary>{t.storyOptions.audit}</summary>{comparison.qualityAudit.map(a => <div key={a.checkpoint} className="mt-2"><strong>{t.storyOptions.auditLabels[a.checkpoint]} · {t.storyOptions.auditStatuses[a.status]}</strong><p>{a.explanation}</p>{a.evidence.map((e, i) => <p key={i}>“{e.quote}”</p>)}</div>)}</details>}{comparison.concerns.map((v, i) => <p className="text-ink-500" key={`concern:${i}`}>{t.storyOptions.concerns}: {v}</p>)}{comparison.violations.map((v, i) => <p role="alert" key={i}>{v}</p>)}{comparison.requiresWiderScope && <p role="alert">{t.storyOptions.broader}</p>}</div>}
           {!isCombination && <label className="my-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.batch.keptIds.includes(option.id)} disabled={busy} onChange={e => void act(() => retainStoryOption(owner, selected.batch.id, option.id, e.target.checked))} />{t.storyOptions.retain}</label>}
           {!isCombination && <label className="my-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={combineIds.includes(option.id)} disabled={busy || selected.batch.state !== 'ready'} onChange={e => setCombineIds(ids => e.target.checked ? [...ids, option.id] : ids.filter(id => id !== option.id))} />{t.storyOptions.combineCard}</label>}
-          <Button disabled={busy || selected.stale || selected.batch.state !== 'ready' || !comparison || !!comparison.violations.length || comparison.requiresWiderScope || !!selection && !['selected','failed'].includes(selection.state)} onClick={() => void act(async () => { const id = await selectStoryOption(owner, selected.batch.id, option.id, draft); onSelected?.(id); })}>{selection ? t.storyOptions.selected : scope.kind === 'work' ? t.storyOptions.chooseOutline : t.storyOptions.choose}</Button>
+          <Button disabled={busy || selected.stale || selected.batch.state !== 'ready' || !comparison || optionQualityBlocked({ summary: 'Selected card', options: [comparison] }) || !!comparison.violations.length || comparison.requiresWiderScope || !!selection && !['selected','failed'].includes(selection.state)} onClick={() => void act(async () => { const id = await selectStoryOption(owner, selected.batch.id, option.id, draft); onSelected?.(id); })}>{selection ? t.storyOptions.selected : scope.kind === 'work' ? t.storyOptions.chooseOutline : t.storyOptions.choose}</Button>
           {selection?.error && <p role="alert">{selection.error}</p>}
           {owner.novelId && selection && ['selected','failed'].includes(selection.state) && <Button disabled={busy || selected.stale} onClick={() => void act(() => generateStoryOptionPlan(owner.novelId!, selection.id))}>{t.storyOptions.planRetry}</Button>}
           {selection?.state === 'pending' && <p>{scope.kind === 'work' && option.outline ? t.storyOptions.pendingOutline : t.storyOptions.pending}</p>}

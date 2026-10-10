@@ -479,6 +479,7 @@ export async function stageExtraction(
     dependencyIds.add(event.id);
     if ((event.entityId && !knownIds.has(event.entityId)) || event.knownBy.some((x) => !knownIds.has(x)))
       throw new AwaitingReviewError('事实引用了未确认人物，请先完善人物卡');
+    if (event.perspectiveId && !knownIds.has(event.perspectiveId) || event.relationshipState && (!knownIds.has(event.relationshipState.relatedCharacterId) || event.relationshipState.perspectives.some(p=>!knownIds.has(p.characterId)))) throw new AwaitingReviewError('人物理解或关系摘要引用了未确认人物');
     if (
       (event.threadId && !threads.has(event.threadId)) ||
       (event.kind.startsWith('thread_') && !event.threadId)
@@ -622,9 +623,11 @@ export function projectEvents(
 ): StoryBible {
   const next = structuredClone(bible);
   for (const event of events) {
-    if (event.kind === 'fact') next.facts.push(event.text);
+    const subjective = event.epistemic === 'belief' || event.epistemic === 'claim';
+    const eventText = subjective ? `[${event.epistemic}:${event.perspectiveId}] ${event.text}` : event.text;
+    if (event.kind === 'fact' && !subjective) next.facts.push(event.text);
     if (event.kind === 'event')
-      next.timeline.push({ chapterNo: event.chapterNo ?? chapterNo, event: event.text });
+      next.timeline.push({ chapterNo: event.chapterNo ?? chapterNo, event: eventText });
     if (event.kind === 'thread_setup' && event.threadId)
       next.openThreads.push(`${event.threadId}: ${event.text}`);
     if (event.kind === 'thread_payoff' && event.threadId)
@@ -638,11 +641,11 @@ export function projectEvents(
         relationships: [],
       };
       if (event.kind === 'knowledge' && event.knownBy.includes(entityId))
-        state.knowledge += `\n${event.text}`;
+        state.knowledge += `\n${eventText}`;
       if (event.entityId === entityId) {
-        if (event.kind === 'state') state.state = event.text;
+        if (event.kind === 'state') state.state = eventText;
         if (event.location) state.location = event.location;
-        if (event.kind === 'relationship') state.relationships.push(event.text);
+        if (event.kind === 'relationship') state.relationships.push(eventText);
       }
       next.characters[entityId] = state;
     }

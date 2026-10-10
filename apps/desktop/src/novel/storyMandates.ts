@@ -6,7 +6,7 @@ import {
   anchorState,
   type WritingMandate,
 } from "@the-water/shared";
-import { getDb, now } from "@/db/db";
+import { getDb, now, type AtomicWriter, type AtomicOperation } from "@/db/db";
 import {
   getChapter,
   getVersion,
@@ -38,13 +38,13 @@ async function storeMandate(
   novelId: string,
   value: WritingMandate,
   previous?: WritingMandate,
+  commit?: AtomicWriter,
 ) {
   const json = JSON.stringify(WritingMandateSchema.parse(value));
-  if (!previous)
-    await getDb().execute(
-      "INSERT INTO story_mandates(id,novel_id,json,updated_at) VALUES (?,?,?,?)",
-      [value.id, novelId, json, now()],
-    );
+  if (!previous) {
+    const op={sql:"INSERT INTO story_mandates(id,novel_id,json,updated_at) VALUES (?,?,?,?)",params:[value.id,novelId,json,now()]};
+    await (commit ?? (ops=>getDb().atomic(ops)))([op]);
+  }
   else
     await getDb().atomic([
       {
@@ -59,6 +59,7 @@ export async function createMandate(
   novelId: string,
   nodeIds: string[],
   rules: { must: string; may: string; mustNot: string },
+  commit?: AtomicWriter,
 ): Promise<WritingMandate> {
   const w = await loadStoryWorkspace(novelId);
   const selected = [...new Set(nodeIds)].map((id) =>
@@ -70,6 +71,7 @@ export async function createMandate(
   )
     throw new Error("请选择已关联章节的场景");
   const targets: WritingMandate["targets"] = [];
+  const guards:AtomicOperation[]=[];
   for (const chapterId of new Set(selected.map((n) => n!.chapterId!))) {
     await sealChapterSessions(chapterId);
     const chapter = w.chapters.find((c) => c.id === chapterId)!;
@@ -77,6 +79,8 @@ export async function createMandate(
       ? await getVersion(chapter.currentVersionId)
       : null;
     const text = version?.content ?? "";
+    const dependency=await chapterDependencies(novelId,chapter.chapterNo);
+    guards.push(dependency.guard,{sql:"UPDATE chapters SET id=id WHERE id=? AND current_version_id IS ?",params:[chapter.id,version?.id??null],expectedRows:1});
     const ids = selected
       .filter((n) => n!.chapterId === chapterId)
       .map((n) => n!.id);
@@ -113,8 +117,7 @@ export async function createMandate(
         chapterId,
         versionId: version?.id ?? null,
         contentHash: await sha256Hex(text),
-        dependencyHash: (await chapterDependencies(novelId, chapter.chapterNo))
-          .hash,
+        dependencyHash: dependency.hash,
         proposalId: null,
         state: "pending",
       });
@@ -129,7 +132,7 @@ export async function createMandate(
     targets,
     error: null,
   });
-  await storeMandate(novelId, mandate);
+  await storeMandate(novelId, mandate, undefined, ops=>(commit ?? (ops=>getDb().atomic(ops)))([...guards,...ops]));
   return mandate;
 }
 const active = new Set<string>();

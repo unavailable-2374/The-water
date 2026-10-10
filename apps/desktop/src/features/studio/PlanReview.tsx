@@ -1,5 +1,6 @@
 import { docTypeGuide } from '@/novel/docTypes';
 import { OutlineReviewReport } from './OutlineReviewReport';
+import { OutlineTrialPanel } from './StoryDevelopmentPanels';
 import { reviewOutlineProposal } from '@/novel/outlineReview';
 import { useRef, useState } from 'react';
 import { ActivityStatus } from '@/components/Activity';
@@ -73,6 +74,7 @@ export function PlanReview({ novel, documents = [], cards = [], chapters = [], o
         {Array.isArray(p.meta.downstreamImpact) && p.meta.downstreamImpact.map((impact, i) => <p className="mt-2 text-sm" key={i}>{String(impact)}</p>)}
         {issue && !p.meta.outlineReviewOnly && <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">{issue}</p>}
         {p.meta.outlineDone === true && docTypeGuide(novel.requirements.docType).fiction && <OutlineReviewReport value={p.meta.outlineReview} />}
+        {p.meta.outlineDone === true && <OutlineTrialPanel novelId={novel.id} proposal={p}/>}
         <div className="mt-4 space-y-2">
           {[...sections].map(([heading, rows]) => <details key={heading} open={heading === t.studio.workbench.planSections.logline || heading === t.studio.workbench.brief} className="rounded-xl bg-paper-50 p-3 dark:bg-paper-950">
             <summary className="cursor-pointer text-sm font-medium">{heading} <span className="ml-1 text-xs text-ink-400">{rows.length}</span></summary>

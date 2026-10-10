@@ -72,6 +72,7 @@ export const scenePlanStep: StepHandler = async (ctx) => {
   const context = await buildChapterContextText(env, ctx.provider, 10000);
   const planningReferences = {
     characters: env.doc.characters,
+    characterIntents: confirmedCards.filter(c => c.kind === 'character'),
     arcs: env.doc.arcs,
     volumes: confirmedCards.filter(
       (c) =>
@@ -199,7 +200,7 @@ export const writeScenesStep: StepHandler = async (ctx) => {
       continue;
     }
     const maxTokens = maxTokensForChapter(card.data.targetChars, ctx.provider.caps);
-    const context = await buildChapterContextText(env, ctx.provider, maxTokens);
+    const context = await buildChapterContextText(env, ctx.provider, maxTokens, { scene: card.data });
     const messages = [
       sys(
         `${systemBase(env.novel.requirements, styleExtrasOf(env))}\n你是小说作者。按已确认场景写纯文本正文，保持人物动机、因果和视角知识边界，不提前实现未来计划。只输出当前场景，不重写此前场景，也不提前写下一场景；此前正文仅供衔接。让 choice 的触发与理由出现在当前行动中，让 consequence 和 beforeState→afterState 的变化实际发生，不能只用叙述者总结“他理解了”。presentation=summarize 时压缩过渡，不逐秒演出操作；dramatize 时重点展开选择和人物碰撞。旧场景未提供这些字段时，依据已有 goal/obstacle/turn/outcome 行文，不补造已确认资料以外的经历。\n【本次场景篇幅】参考约 ${card.data.targetChars} 中文字，按本场的戏剧需要展开或收缩，没有固定字数上限。这是场景参考，不是整章配额；内容完整可以合理短于参考，也可超过参考，不能靠细节填满预算。不输出标题或分析。${UNTRUSTED_GUARD_RULE}`,

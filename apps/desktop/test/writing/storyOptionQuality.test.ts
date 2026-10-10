@@ -81,7 +81,7 @@ it('TEST core gaps block readiness while ordinary editorial suggestions remain s
   Object.assign(audit, { status: 'gap', evidence: [], findingIndices: [0] });
   const result = finalizeOptionComparison(schema.parse(r));
   expect(optionQualityBlocked(result)).toBe(true);
-  expect(result.summary).toContain('本批次不可选择');
+  expect(result.summary).toContain('无关键缺口的卡可独立选择');
   audit.findingIndices = [3];
   expect(() => schema.parse(r)).toThrow('关联本卡真实');
   Object.assign(audit, { status: 'supported', evidence: [{ field: 'turns', quote: options[0]!.turns[0]! }], findingIndices: [] });

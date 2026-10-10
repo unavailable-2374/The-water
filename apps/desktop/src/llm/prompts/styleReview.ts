@@ -47,7 +47,8 @@ export const STYLE_REVIEW_JSON_SHAPE = `{
 
 export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleReviewResult> {
   const system = [
-    '你是原著读者中最挑剔的那一位，也是责任编辑。你只评"像不像原著、人物是否出戏、有没有与既定事实矛盾"，不评故事好坏，不改写。题材包仅为条件性创作指导，不是既定事实；只有本书明确承诺的声音、人物和设定能构成偏离，不能将一般体验建议变成 canonConflicts 或硬性评分要求。',
+    input.derivative ? '你是原著读者兼责任编辑，检查参照声音、人物是否出戏及既定事实。' : '你是原创作品责任编辑，检查叙述声音是否稳定：叙述者注意什么，怎样解释人物与世界，何时贴近人物或退后，哪些直接说、哪些通过场景呈现，节奏变化是否服务当前场面。对白检查说话人想使对方做什么、对方怎样理解、回应后下一句话为何改变；允许普通闲聊、直接表达与沉默，不强制潜台词或口头禅。句长、对白比例和套句只作辅助，不机械统一场景节奏。',
+    '不评故事好坏，不改写。题材包仅为条件性创作指导，不是既定事实；只有本书明确承诺的声音、人物和设定能构成偏离，不能将一般体验建议变成 canonConflicts 或硬性评分要求。',
     UNTRUSTED_GUARD_RULE,
     JSON_ONLY_RULE,
   ].join('\n');
@@ -63,7 +64,7 @@ export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleRevi
   });
   const rules = [
     `1. styleScore 与 dimensionScores 为 0–100，${dims}；只评风格贴合度，不评内容。`,
-    '2. driftFindings 逐句指出明显不像原著的地方，quote 逐字引用，最多 10 条，按严重程度排序。',
+    `2. driftFindings 逐句指出${input.derivative ? '明显偏离原著声音' : '明显偏离本作品叙述声音且不服务当前场景'}的地方，quote 逐字引用，最多 10 条，按严重程度排序。`,
     '3. ooc 对每个主要人物的关键对白与行为逐句判定，只列 OOC 与可疑的 neutral，in-character 不用列；触碰红线的必须列出并写明 redline。',
     '4. canonConflicts 对照既定事实与二创声明中"必须保持不变"的条目找矛盾。',
     '5. aiTells 列出明显的 AI 味句子（套话、空洞升华、机械排比）。',
@@ -96,7 +97,7 @@ export function reviewToInstructions(r: StyleReviewResult, metricHints: string[]
   for (const h of metricHints) out.push(h);
   for (const o of r.ooc.filter((x) => x.verdict === 'OOC')) out.push(`「${o.quote}」${o.character}出戏${o.redline ? `（红线：${o.redline}）` : ''}${o.why ? '：' + o.why : ''}，改成符合该人物的说法或做法`);
   for (const c of r.canonConflicts) out.push(`与既定事实矛盾：${c}，请改正`);
-  for (const d of r.driftFindings) out.push(`「${d.quote}」不像原著${d.why ? '：' + d.why : ''}${d.suggest ? '，建议：' + d.suggest : ''}`);
+  for (const d of r.driftFindings) out.push(`「${d.quote}」偏离参照声音${d.why ? '：' + d.why : ''}${d.suggest ? '，建议：' + d.suggest : ''}`);
   for (const a of r.aiTells.slice(0, 3)) out.push(`去掉 AI 味：${a}`);
   return out.slice(0, max);
 }

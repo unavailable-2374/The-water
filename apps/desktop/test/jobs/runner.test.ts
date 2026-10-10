@@ -1,3 +1,4 @@
+import { testFirstReading } from '../helpers/writing';
 import { testReadyLengthReview, testReadyStory } from '../helpers/writing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTestDb } from '../helpers/testDb';
@@ -31,7 +32,7 @@ function makeFetch(opts: { holdFirstProse?: { release: Promise<void> } } = {}): 
       const quote = '风从河面吹过来';
       const from = prose(12).indexOf(quote);
       const event = { id:'TEST-event', kind:'event', entityId:null, threadId:null, text:'TEST 风吹过河面', knownBy:[], time:'', location:'', dependencyIds:[], evidence:{from,to:from+quote.length,quote} };
-      const json = system.includes('叙事审稿人') ? {issues:[],lengthReview:testReadyLengthReview(),story:testReadyStory()} : system.includes('设定校对') ? {numericConflicts:[],timelineConflicts:[],addressErrors:[],loreConflicts:[],verdict:'pass'} : { summary: 'TEST 老船夫章节摘要', events: [event, {...event,id:'TEST-fact',kind:'fact',text:'TEST 河面有风'}] };
+      const json = system.includes('第一次阅读作品') ? testFirstReading() : system.includes('叙事审稿人') ? {readerAlignment:[],issues:[],lengthReview:testReadyLengthReview(),story:testReadyStory()} : system.includes('设定校对') ? {numericConflicts:[],timelineConflicts:[],addressErrors:[],loreConflicts:[],verdict:'pass'} : { summary: 'TEST 老船夫章节摘要', events: [event, {...event,id:'TEST-fact',kind:'fact',text:'TEST 河面有风'}] };
       return sseResponse([sseBody([{ data: { choices: [{ delta: { content: JSON.stringify(json) } }] } }, { data: done }, { data: '[DONE]' }])]);
     }
     proseCalls++;

@@ -170,11 +170,25 @@ export const CanonEventSchema = z.object({
   entityId: id.nullable(),
   threadId: id.nullable(),
   text: prose.min(1),
+  /** Explicit scope of a statement. Legacy events leave this unspecified. */
+  epistemic: z.enum(['world_fact', 'observation', 'belief', 'claim']).optional(),
+  perspectiveId: id.nullable().optional(),
+  /** Optional phase summary for a core relationship, grounded in this event's prose. */
+  relationshipState: z.object({
+    relatedCharacterId: id,
+    changed: prose.min(1), unchanged: prose.min(1),
+    perspectives: z.array(z.object({ characterId: id, understanding: prose.min(1) })).max(2),
+    interactionLimits: prose.min(1),
+  }).optional(),
   knownBy: ids,
   time: prose,
   location: prose,
   dependencyIds: ids,
   evidence: EvidenceSchema,
+}).superRefine((event, ctx) => {
+  if (['belief', 'claim'].includes(event.epistemic ?? '') && !event.perspectiveId) ctx.addIssue({ code: 'custom', path: ['perspectiveId'], message: '人物相信或声称的内容必须保留归属人物' });
+  if (['belief', 'claim'].includes(event.epistemic ?? '') && event.kind.startsWith('thread_')) ctx.addIssue({code:'custom',path:['kind'],message:'人物相信或声称伏笔已解决不能改变实际伏笔生命周期；请记录为带归属的 knowledge 或 fact'});
+  if (event.relationshipState && (event.kind !== 'relationship' || !event.entityId || event.relationshipState.relatedCharacterId === event.entityId || event.relationshipState.perspectives.some(p => ![event.entityId, event.relationshipState!.relatedCharacterId].includes(p.characterId)))) ctx.addIssue({ code: 'custom', path: ['relationshipState'], message: '关系摘要只能用于两名不同人物的关系事件，理解必须归属于这两人' });
 });
 export type CanonEvent = z.infer<typeof CanonEventSchema>;
 export const TextProposalSchema = z.object({

@@ -1,5 +1,7 @@
 # 写作标准化框架（The-Water Writing Framework）
 
+本轮首次阅读、结构修订、叙述探索及人工评阅的实现与验收见 [从作者意图到正文](reader-grounding.md)。
+
 > 目标：把"写什么、怎么写、写成什么味道"三件事全部结构化，让 The-Water 的每一次生成、改写、二创都跑在同一套可审计的流程上，而不是靠一句自由文本的"风格"字段。
 >
 > 本目录是**规范与模版**，不是代码。落地到代码的映射见 [§7 落地到 The-Water](#7-落地到-the-water)。
@@ -107,9 +109,9 @@
 
 | 类型 | 结构框架 | 骨架关键字段 | 模版文件 |
 |---|---|---|---|
-| 长篇网文 | 雪花法（设定层）+ 分卷大纲 + Save the Cat（单卷节奏）+ 章尾钩子 | 一句话/一段话简介、题材定位（消费点/金手指）、GMC 角色卡、卷纲（爽点/情绪/伏笔）、黄金三章细纲、伏笔债务表 | [long-webnovel.md](templates/long-webnovel.md) |
-| 短篇小说 | Save the Cat 15 拍压缩版 / 情绪曲线 | 故事核、开场画面、触发事件、中点反转、结尾画面 | [short-story.md](templates/short-story.md) |
-| 剧本 | 三幕 + 场景清单 | 情节点 1/2、中点、B 故事、场景表（INT/EXT、时间、人物、目的） | [screenplay.md](templates/screenplay.md) |
+| 长篇小说 | 阅读体验 + 因果推进 + 分层兑现；结构方法可选 | 体验、目标、独特方式与限制、重要选择及后果、阶段期待、结束条件 | [long-webnovel.md](templates/long-webnovel.md) |
+| 短篇小说 | 阅读体验 + 自选结构（逐步发现 / 决定与后果 / 环形 / 片段 / 多视角 / 三幕或八拍） | 阅读体验、人物处境、视角、所选结构、关键变化、结束条件 | [short-story.md](templates/short-story.md) |
+| 剧本 | 自选结构 + 场景清单 | 观看体验、所选结构、结束条件、场景表（INT/EXT、时间、人物、目的与积累） | [screenplay.md](templates/screenplay.md) |
 | 同人 / 二创 | **原著 StyleProfile + 角色卡校对 + 原作时间线锚点** + 雪花法局部 | 原著提取报告、分歧点（canon divergence）、角色红线、CP/关系动机链、允许改动范围 | [fanfic.md](templates/fanfic.md) |
 | 技术博客 | Diátaxis 定位 + 倒金字塔开头 | 文档类型、TL;DR、前置条件、代码示例、结论前置 | [tech-blog.md](templates/tech-blog.md) |
 | 公众号推文 | SCQA 开头 + PREP 论证 + 金字塔 | 钩子标题、情景-冲突-疑问-回答、分论点+案例、CTA | [wechat-post.md](templates/wechat-post.md) |

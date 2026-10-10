@@ -144,7 +144,7 @@ export function finalizeOptionComparison(review: ModelComparison) {
   const hard = options.filter(o => o.violations.length).length, pending = options.filter(o => o.concerns.length).length;
   const insufficient = review.differences.filter(p => p.judgment !== 'substantive').length;
   const blocked = options.filter(o => optionQualityBlocked({ summary: 'check', options: [o] })).length;
-  return StoryOptionComparisonSchema.parse({ summary: `${options.length === 1 ? '融合候选已审查' : '四个候选已分别审查'}：${hard} 个被指出违反本次作者明确要求，${pending} 个有矛盾、待补信息或编辑建议。${blocked ? `${blocked} 个存在关键质量缺口，本批次不可选择，需重新抽取。` : ''}${insufficient ? `${insufficient} 对候选的差异不足或尚未确认，需重新抽取。` : ''}具体依据见各卡片；未发现问题不代表文学质量已经验证。`, options, differences: review.differences });
+  return StoryOptionComparisonSchema.parse({ summary: `${options.length === 1 ? '融合候选已审查' : '四个候选已分别审查'}：${hard} 个被指出违反本次作者明确要求，${pending} 个有矛盾、待补信息或编辑建议。${blocked ? `${blocked} 个存在关键质量缺口，这些卡需修复；无关键缺口的卡可独立选择。` : ''}${insufficient ? `${insufficient} 对候选的差异不足或尚未确认，差异作为比较建议，不阻止选择可用的单卡。` : ''}具体依据见各卡片；未发现问题不代表文学质量已经验证。`, options, differences: review.differences });
 }
 
 export const OPTION_COMBINATION_RULE = `【作者指定多卡融合】

@@ -14,6 +14,7 @@ import type { CompletionRequest, LLMProvider } from '@/llm/types';
 import { LLMError } from '@/llm/types';
 import { sceneReferenceIssues } from '@/novel/sceneReferences';
 import { PLOT_PLANNING_RULE } from '@/novel/plotDesign';
+import { upsertCharacter, upsertBeat } from '@/db/repos/storylineRepo';
 const scene = {
   title: 'TEST scene', readerInterest:'TEST reader concern',choice:'TEST active choice',choiceReason:'TEST triggering information',consequence:'TEST consequence',beforeState:'TEST before',afterState:'TEST after',presentation:'dramatize' as const,
   volumeId: null,
@@ -30,6 +31,16 @@ const scene = {
   threadIds: [],
 };
 beforeEach(() => useTestDb());
+it('TEST rolling planner receives an independent motive for a character appearing only in a later chapter',async()=>{
+  const f=await fixture('scene_plan',2);
+  const character=await upsertCharacter(f.novel.id,{name:'TEST 药铺老板',description:'TEST 严厉但善良'});
+  const motive='TEST 攒钱带女儿离城，宁可失去主角信任也不能再赊药';
+  await saveWritingCard(f.novel.id,{kind:'character',data:{characterId:character.id,goal:'TEST 离城',motivation:motive,contradiction:'TEST 善意与资源限制',independentAgenda:'TEST 攒路费',growth:[]}},{confirmed:true});
+  await upsertBeat(f.novel.id,{title:'TEST later appearance',chapterNo:2,characterIds:[character.id]});
+  f.respond(async()=>JSON.stringify({chapters:f.chapters.map(c=>({chapterId:c.id,scenes:[{...scene,characterIds:c.chapterNo===2?[character.id]:[]}]}))}));
+  await expect(scenePlanStep(f.ctx)).rejects.toThrow('章节页审阅并采纳');
+  expect(f.requests[0]!.messages.at(-1)!.content).toContain(motive);
+});
 it('TEST scheduled thread stages reach the rolling planner and omitted references require repair', async () => {
   const f=await fixture('scene_plan',3);
   const id=await saveWritingCard(f.novel.id,{kind:'thread',data:{title:'TEST cross-chapter question',setup:'TEST setup',progression:'TEST progress',payoff:'TEST payoff',plannedChapterNo:3,characterIds:[],milestones:[{chapterNo:1,kind:'setup',detail:'TEST unexplained letter'},{chapterNo:2,kind:'progress',detail:'TEST compare dates'},{chapterNo:3,kind:'payoff',detail:'TEST explain dates'}]}},{confirmed:true});

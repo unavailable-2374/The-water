@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { FirstReadingPanel } from './FirstReadingPanel';
+import { StructuralRevisionPanel, LiteraryEvaluationPanel } from './StoryDevelopmentPanels';
 import { Link } from "react-router";
 import { nanoid } from "nanoid";
 import {
@@ -38,6 +40,7 @@ import {
   listStoryBranches,
   mergeStoryBranch,
   saveStoryBranch,
+  reviewBranchFixedFacts,
   type StoryBranch,
 } from "@/novel/storyBranches";
 import {
@@ -74,6 +77,8 @@ export function StoryCandidates({
   return (
     <div className="space-y-6 p-6">
       <h3 className="text-lg font-semibold">{t.storyWorkspace.candidates}</h3>
+      <StructuralRevisionPanel novelId={novelId} w={w} act={act} busy={busy} onResume={onResume}/>
+      <LiteraryEvaluationPanel novelId={novelId} w={w} act={act} busy={busy}/>
       {data.mandates.map((m) => (
         <article key={m.id} className="rounded-xl border border-paper-300 p-4">
           <h4>
@@ -186,6 +191,7 @@ export function StoryCandidates({
               </div>
             </details>
           ))}
+          {s.reading.firstReading && <FirstReadingPanel reading={s.reading.firstReading} />}
           {!s.reading.issues.length && (
             <p className="text-sm">{t.storyWorkspace.noIssues}</p>
           )}
@@ -981,6 +987,7 @@ function BranchEditor({
         {branch.name} · {t.storyWorkspace[branch.state]}
       </summary>
       <fieldset disabled={busy || branch.state !== "draft"}>
+        {branch.exploration&&<div className="my-3 space-y-2"><p>{t.studio.development.branchFactsHint}</p><blockquote className="whitespace-pre-wrap">{branch.exploration.fixedFacts}</blockquote><Button disabled={changed||!!branch.exploration.reviewedHash} onClick={()=>act(()=>reviewBranchFixedFacts(novelId,branch))}>{t.studio.development.reviewBranchFacts}</Button></div>}
         {(["goal", "turn", "outcome"] as const).map((key) => (
           <StoryArea
             key={key}
@@ -1104,7 +1111,7 @@ function BranchEditor({
         {error != null && <p role="alert">{String(error)}</p>}
         {conflicts?.map((c) => (
           <p key={c} className="text-sm text-cinnabar-600">
-            {t.storyWorkspace[c as keyof typeof t.storyWorkspace] ?? c}
+            {c==='exploration_review'?t.studio.development.branchFactsHint:t.storyWorkspace[c as keyof typeof t.storyWorkspace] ?? c}
           </p>
         ))}
         {conflicts?.length === 0 && (

@@ -280,6 +280,7 @@ export function CreateWizard() {
                 </Select>
               </Field>
               <Field label={t.studio.wizard.novelTitle} hint={t.studio.wizard.novelTitleHint}><Input className="font-serif" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+              {docTypeGuide(req.docType).fiction && <Field label={t.studio.development.structureMethod}><Input list="story-structure-methods" value={req.structureMethod ?? ''} onChange={e=>set('structureMethod',e.target.value)}/><datalist id="story-structure-methods">{t.studio.development.structureChoices.split(' / ').map(value=><option key={value} value={value}/>)}</datalist></Field>}
               <Field label={t.studio.wizard.premise} hint={t.studio.wizard.premiseHint}><Textarea rows={12} className="font-serif leading-[1.8]" value={premise} onChange={(e) => setPremise(e.target.value)} placeholder={t.studio.wizard.premisePlaceholder} /></Field>
               <Field label={t.studio.wizard.extra}><Textarea rows={3} value={req.extra} onChange={(e) => set('extra', e.target.value)} placeholder={t.studio.wizard.extraPlaceholder} /></Field>
               <div className="rounded-2xl bg-paper-100 p-5 dark:bg-paper-800">

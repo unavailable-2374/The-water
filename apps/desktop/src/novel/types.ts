@@ -37,6 +37,8 @@ export interface NovelRequirements {
   extra: string;
   /** 文章类型（docs/writing/README.md §3）；缺省为长篇小说。 */
   docType: string;
+  /** Form and structural method are independent; unspecified means no imposed template. */
+  structureMethod?: string;
   /** 题材包 id（docs/writing/README.md §3.1，novel/genrePacks.ts）；可多选。留空时从 genre 推断。 */
   genrePackIds: string[];
   /** 关掉的题材层 lore 条目 id；作品层显式覆盖题材层用。 */
@@ -55,6 +57,7 @@ export const defaultRequirements = (): NovelRequirements => ({
   language: '简体中文',
   extra: '',
   docType: 'long-webnovel',
+  structureMethod: '',
   genrePackIds: [],
   disabledLore: [],
 });
@@ -74,6 +77,7 @@ export const NovelRequirementsSchema = z.object({
   language: reqStr('简体中文'),
   extra: reqStr(),
   docType: z.string().max(40).default('long-webnovel'),
+  structureMethod: z.string().max(2000).default(''),
   genrePackIds: z.array(z.string().max(40)).max(GENRE_PACK_IDS.length).default([]),
   disabledLore: z.array(z.string().max(80)).max(100).default([]),
 });

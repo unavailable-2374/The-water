@@ -37,6 +37,7 @@ export function requirementsBlock(req: NovelRequirements): string {
   push('题材', req.genre);
   push('风格', req.style);
   push('视角', req.pov);
+  push('作者选择的结构方法', req.structureMethod ?? '');
   push('时态', req.tense);
   push('基调', req.tone);
   push('受众', req.audience);
