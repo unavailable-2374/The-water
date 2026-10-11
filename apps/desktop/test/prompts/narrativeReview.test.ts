@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
-import { locateNarrativeIssues, NarrativeReviewSchema, narrativeSourceError, narrativeReviewPrompt } from '@/llm/prompts/narrativeReview';
-import { ChapterLengthReviewSchema, ReviewIssueSchema } from '@the-water/shared';
+import { locateNarrativeIssues, NarrativeReviewSchema, narrativeSourceError, narrativeReviewPrompt, locateNarrativeStory } from '@/llm/prompts/narrativeReview';
+import { ChapterLengthReviewSchema, ReviewIssueSchema, StoryAssessmentSchema } from '@the-water/shared';
+import { indexProseEvidence } from '@/llm/prompts/evidence';
+import { testReadyStory, testReadyLengthReview } from '../helpers/writing';
 
 const issue = (quote: string) => ({
   id: 'TEST-issue', category: 'knowledge', severity: 'block', evidence: { quote },
@@ -54,4 +56,60 @@ it('TEST model-facing review schema requires every mandatory channel before exec
   const schema=z.toJSONSchema(NarrativeReviewSchema,{io:'input'});
   expect(schema.required).toEqual(expect.arrayContaining(['issues','story','lengthReview']));
   expect(NarrativeReviewSchema.safeParse({issues:[]}).success).toBe(false);
+});
+
+
+describe('TEST indexed narrative evidence (SIMULATED reviewer fixtures)', () => {
+  const text = 'TEST 🌊。\n\n“关了。”他说。\n\n许宁看着他的手指从屏幕上移开。“我没让你删。”\n\n“我知道。”\n\n“我也没夸你。”\n\n“嗯。”\n\n“我知道。”';
+  function fixture() {
+    const spans = indexProseEvidence(text);
+    const start = spans.find(s => s.text === '“关了。”')!;
+    const end = spans.find(s => s.text === '“嗯。”')!;
+    const evidence = { startSpan: start.id, endSpan: end.id };
+    return { issues: [{ ...issue('unused TEST legacy quote'), evidence }],
+      lengthReview: testReadyLengthReview(),
+      story: { ...testReadyStory(), changes: [{ kind: 'relationship', before: 'TEST pressured', after: 'TEST agency preserved', evidence }],
+        expectations: [{ id: 'TEST-promise', question: 'TEST stop?', response: 'TEST closes page', status: 'paid', evidence }] },
+    };
+  }
+  it('preserves exact multi-paragraph evidence without asking the model to recopy whitespace', () => {
+    const prompt = narrativeReviewPrompt({ chapterNo: 3, text, context: 'TEST context' });
+    const value = prompt.schema!.parse(fixture());
+    const issues = locateNarrativeIssues(text, value.issues);
+    const story = locateNarrativeStory(text, value.story);
+    expect(issues[0]!.evidence.quote).toBe('“关了。”他说。\n\n许宁看着他的手指从屏幕上移开。“我没让你删。”\n\n“我知道。”\n\n“我也没夸你。”\n\n“嗯。”');
+    expect(issues[0]!.evidence.from).toBe(text.indexOf('“关了。”'));
+    expect(story.changes[0]!.evidence).toEqual(issues[0]!.evidence);
+    expect(story.expectations[0]!.evidence).toEqual(issues[0]!.evidence);
+    expect(StoryAssessmentSchema.safeParse(story).success).toBe(true);
+  });
+  it('checks all evidence fields and rejects reversed, blank and unknown ranges', () => {
+    const prompt = narrativeReviewPrompt({ chapterNo: 3, text, context: 'TEST context' });
+    const value = fixture();
+    value.story.changes[0]!.evidence = { startSpan: 's4', endSpan: 's1' };
+    value.story.expectations[0]!.evidence = { startSpan: 's2', endSpan: 's2' };
+    const result = prompt.schema!.safeParse(value);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.map(i => i.path.join('.'))).toEqual(expect.arrayContaining(['story.changes.0.evidence', 'story.expectations.0.evidence']));
+    expect(prompt.schema!.safeParse({ ...fixture(), issues: [{ ...issue('TEST'), evidence: { startSpan: 'missing', endSpan: 'missing' } }] }).success).toBe(false);
+    expect(prompt.schema!.safeParse({ ...fixture(), issues: [issue('“关了。”他说。 “我知道。”')] }).success).toBe(false);
+  });
+  it('distinguishes repeated dialogue using authoritative source IDs', () => {
+    const prompt = narrativeReviewPrompt({ chapterNo: 3, text, context: 'TEST context' });
+    const repeated = indexProseEvidence(text).filter(s => s.text === '“我知道。”');
+    expect(repeated).toHaveLength(2);
+    const value = fixture();
+    value.issues[0]!.evidence = { startSpan: repeated[1]!.id, endSpan: repeated[1]!.id };
+    const parsed = prompt.schema!.parse(value);
+    expect(locateNarrativeIssues(text, parsed.issues)[0]!.evidence.from).toBe(text.lastIndexOf('“我知道。”'));
+  });
+  it('advertises indexed evidence consistently for issues, changes and expectations', () => {
+    const prompt = narrativeReviewPrompt({ chapterNo: 3, text, context: 'TEST context' });
+    const wire = JSON.stringify(z.toJSONSchema(prompt.schema!));
+    expect(wire).toContain('startSpan');
+    expect(wire).not.toContain('"quote"');
+    const spans = indexProseEvidence(text);
+    expect(prompt.messages.at(-1)!.content).toContain(JSON.stringify(spans.map(({ id, text }) => ({ id, text }))));
+    expect(String(prompt.messages[0]!.content)).not.toContain('evidence.quote');
+  });
 });

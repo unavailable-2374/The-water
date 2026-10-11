@@ -226,6 +226,24 @@ describe('requestJson', () => {
 
 
 describe('TEST truncated structured output',()=>{
+ it('TEST allows a budget retry after the final schema repair, preserving validation feedback and all reported usage',async()=>{
+  const {provider,requests}=scriptedProvider([
+   {text:'{"ok":"wrong"}',usage:{inputTokens:1,outputTokens:2}},
+   {text:'{"ok":"wrong again"}',usage:{inputTokens:3,outputTokens:4}},
+   {text:'',finishReason:'length',usage:{inputTokens:5,outputTokens:100}},
+   {text:'{"ok":true}',usage:{inputTokens:7,outputTokens:8}},
+  ],{maxOutputTokens:1000});
+  const result=await requestJson(provider,{messages:[{role:'user',content:'TEST input'}],maxTokens:100,temperature:0.6,schema:z.object({ok:z.boolean()}),label:'TEST repair then length'},{retry:false});
+  expect(requests.map(r=>r.maxTokens)).toEqual([100,100,100,200]);
+  expect(requests[3]!.messages).toEqual(requests[2]!.messages);
+  expect(requests.map(r=>r.temperature)).toEqual([0.6,0,0,0]);
+  expect(result.usage).toEqual({inputTokens:16,outputTokens:114});expect(result.value.ok).toBe(true);
+ });
+ it('TEST budget exhaustion does not consume the schema repair allowance',async()=>{
+  const {provider,requests}=scriptedProvider([{text:'TEST cut',finishReason:'length'},{text:'{"ok":"wrong"}'},{text:'{"ok":true}'}],{maxOutputTokens:1000});
+  const result=await requestJson(provider,{messages:[],maxTokens:100,schema:z.object({ok:z.boolean()}),label:'TEST separate retry policies'},{retry:false,repairRounds:1});
+  expect(requests.map(r=>r.maxTokens)).toEqual([100,200,200]);expect(result.value.ok).toBe(true);
+ });
  it('TEST stops escalating after two empty budget-exhausted responses and preserves real reported usage',async()=>{
   const {provider,requests}=scriptedProvider([{text:'',finishReason:'length',usage:{inputTokens:10,outputTokens:38000}},{text:'',finishReason:'length',usage:{inputTokens:10,outputTokens:70000}},{text:'{"ok":true}'}],{reasoningTokens:32000,maxOutputTokens:262144,contextWindow:1048576});
   await expect(requestJson(provider,{messages:[],maxTokens:6000,schema:z.object({ok:z.boolean()}),label:'TEST empty output'},{retry:false})).rejects.toMatchObject({usage:{inputTokens:20,outputTokens:108000},message:expect.stringContaining('模型连续两次耗尽预算')});

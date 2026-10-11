@@ -8,7 +8,9 @@ import { setFetchImpl } from '@/llm/registry';
 import { createProvider } from '@/db/repos/providersRepo';
 import { createNovel } from '@/db/repos/novelsRepo';
 import { createVersion, getChapter, getVersion, listChapters, listVersions, saveSessionEdit, upsertChapterPlan } from '@/db/repos/chaptersRepo';
-import { createSnapshot, replaceStorylineRows } from '@/db/repos/storylineRepo';
+import { createSnapshot, replaceStorylineRows, upsertCharacter } from '@/db/repos/storylineRepo';
+import { listCanonEvents } from '@/db/repos/writingRepo';
+import { testScene } from '../helpers/writing';
 import { saveBible, listBibleSnapshots } from '@/db/repos/bibleRepo';
 import { createJob, getJob, listSteps, setJobStatus, setStepInput, stepReset, type Job } from '@/db/repos/jobsRepo';
 import { emptyBible, emptyStoryline, emptyVoice } from '@the-water/shared';
@@ -20,7 +22,7 @@ import type { FetchLike } from '@/llm/types';
 const prose = (n: number) => Array.from({ length: n }, (_, i) => `第${i + 1}句，风从河面吹过来，带着水草的气味。`).join('');
 
 /** OpenAI-compatible fake: JSON when response_format present, prose otherwise. */
-function makeFetch(opts: { holdFirstProse?: { release: Promise<void> } } = {}): { fetch: FetchLike; calls: Array<Record<string, unknown>> } {
+function makeFetch(opts: { holdFirstProse?: { release: Promise<void> }; perspectiveId?: string } = {}): { fetch: FetchLike; calls: Array<Record<string, unknown>> } {
   const calls: Array<Record<string, unknown>> = [];
   let proseCalls = 0;
   const fetch: FetchLike = async (_url, init) => {
@@ -29,9 +31,7 @@ function makeFetch(opts: { holdFirstProse?: { release: Promise<void> } } = {}): 
     const done = { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 20 } };
     if (body.response_format) {
       const system = String((body.messages as Array<{role:string;content:string}>).find(m => m.role==='system')?.content);
-      const quote = '风从河面吹过来';
-      const from = prose(12).indexOf(quote);
-      const event = { id:'TEST-event', kind:'event', entityId:null, threadId:null, text:'TEST 风吹过河面', knownBy:[], time:'', location:'', dependencyIds:[], evidence:{from,to:from+quote.length,quote} };
+      const event = { id:'TEST-event', kind:'event', entityId:null, threadId:null, text:'TEST 风吹过河面', ...(opts.perspectiveId ? {epistemic:'claim',perspectiveId:opts.perspectiveId} : {}), knownBy:[], time:'', location:'', dependencyIds:[], evidence:{startSpan:'s1',endSpan:'s1'} };
       const json = system.includes('第一次阅读作品') ? testFirstReading() : system.includes('叙事审稿人') ? {readerAlignment:[],issues:[],lengthReview:testReadyLengthReview(),story:testReadyStory()} : system.includes('设定校对') ? {numericConflicts:[],timelineConflicts:[],addressErrors:[],loreConflicts:[],verdict:'pass'} : { summary: 'TEST 老船夫章节摘要', events: [event, {...event,id:'TEST-fact',kind:'fact',text:'TEST 河面有风'}] };
       return sseResponse([sseBody([{ data: { choices: [{ delta: { content: JSON.stringify(json) } }] } }, { data: done }, { data: '[DONE]' }])]);
     }
@@ -85,6 +85,21 @@ beforeEach(() => {
 });
 
 describe('TEST job runner end-to-end (fake provider)', () => {
+  it('TEST extraction includes a registered off-plan speaker and retains subjective attribution', async () => {
+    const f=makeFetch({perspectiveId:'TEST-off-plan'});setFetchImpl(f.fetch);
+    const novel=await setupNovel(1),chapters=await listChapters(novel.id);
+    await testScene(novel.id,chapters[0]!.id,'c1');
+    await upsertCharacter(novel.id,{id:'TEST-off-plan',name:'TEST 临时出现的证人',description:'TEST fixture identity, not real generation'});
+    const job=await createJob({novelId:novel.id,type:'generate_novel',params:{},providerId:null,steps:planGenerate(chapters,{fiction:false})});
+    kick();await waitFor(async()=>terminal(await getJob(job.id)));
+    expect((await getJob(job.id))!.status).toBe('completed');
+    const request=f.calls.find(b=>(b.messages as {content:string}[]).some(m=>m.content.includes('你是正文事实记录员'))) !;
+    expect(JSON.stringify(request.messages)).toContain('TEST-off-plan');
+    expect(JSON.stringify(request.messages)).toContain('TEST 临时出现的证人');
+    const events=await listCanonEvents(novel.id,2);
+    expect(events.length).toBeGreaterThan(0);
+    for(const e of events){expect(e.epistemic).toBe('claim');expect(e.perspectiveId).toBe('TEST-off-plan');}
+  });
   it('TEST resumes a paused review against the author revision without a second continue', async () => {
     const f = makeFetch(); setFetchImpl(f.fetch);
     const novel = await setupNovel(1), chapter = (await listChapters(novel.id))[0]!;

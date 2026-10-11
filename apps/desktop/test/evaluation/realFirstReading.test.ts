@@ -7,8 +7,7 @@ import { createProvider } from '@/db/repos/providersRepo';
 import { setSecretStore } from '@/secrets/keychain';
 import { setFetchImpl, providerFromConfig } from '@/llm/registry';
 import { firstReadingPrompt, locateFirstReading } from '@/llm/prompts/firstReading';
-import { narrativeReviewPrompt, locateNarrativeIssues } from '@/llm/prompts/narrativeReview';
-import { locateStoryAssessment } from '@/novel/storyQuality';
+import { narrativeReviewPrompt, locateNarrativeIssues, locateNarrativeStory } from '@/llm/prompts/narrativeReview';
 import { requestJson } from '@/llm/json';
 import { sha256Hex } from '@the-water/shared';
 
@@ -30,7 +29,7 @@ it.skipIf(process.env.RUN_REAL_FIRST_READING!=='1')('REAL prose-only inference p
     const context='本书已确认资料：[{"id":"TEST-intent","motivation":"TEST attachment answer：父亲曾在她失败时为她保留回家的位置，她维护父亲的清白也在维护两人的依恋。师傅是她重要的依恋对象，她暂不愿全面揭发他，但需要证词。"},{"id":"TEST-scene","goal":"先争取自愿证词；关系仅恢复有限谈话，不原谅全部过往。谎称还书是人物策略，不是叙述确认书在她手里；未接笔原因暂留白。"}]';
     const spec=narrativeReviewPrompt({chapterNo:1,text,context,firstReading:reading});
     const aligned=await requestJson(provider,{...spec,schema:spec.schema!.superRefine((value,ctx)=>{
-      try{locateNarrativeIssues(text,value.issues);locateStoryAssessment(text,value.story);}catch(e){ctx.addIssue({code:'custom',message:String(e)});}
+      try{locateNarrativeIssues(text,value.issues);locateNarrativeStory(text,value.story);}catch(e){ctx.addIssue({code:'custom',message:String(e)});}
       if(value.readerAlignment?.some(a=>a.sourceIds.some(id=>!['TEST-intent','TEST-scene'].includes(id))))ctx.addIssue({code:'custom',message:'Use only supplied confirmed source IDs'});
     })},{signal:AbortSignal.timeout(240000)});
     record.alignment=aligned.value;record.alignmentUsage=aligned.usage;record.status='schema_and_evidence_verified';

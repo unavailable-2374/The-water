@@ -1,5 +1,6 @@
 /** Opt-in REAL network experiment. TEST denotes the fictional input, not simulated output. */
 import { it, expect } from 'vitest';
+import { evaluationCredential } from './runtime';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -21,8 +22,7 @@ import { kick } from '@/jobs/runner';
 it.skipIf(!process.env.RUN_REAL_WRITING)(
   'REAL fixed-input Lunaroute experiment (no self-scored quality claim)',
   async () => {
-    const key = process.env.LUNAROUTE_API_KEY;
-    if (!key) throw new Error('LUNAROUTE_API_KEY is required');
+    const { key } = evaluationCredential();
     const out = resolve(process.env.WRITING_EVAL_OUTPUT!);
     if (existsSync(out) && readdirSync(out).length) throw new Error('Refusing to overwrite real evaluation evidence; choose a new output directory');
     mkdirSync(out, { recursive: true });
@@ -103,7 +103,7 @@ it.skipIf(!process.env.RUN_REAL_WRITING)(
       maxOutputTokens: Number(process.env.WRITING_EVAL_MAX_OUTPUT ?? 65536),
       reasoningTokens: Number(process.env.WRITING_EVAL_REASONING_RESERVE ?? 32000),
       reasoningEffort: process.env.WRITING_EVAL_REASONING_EFFORT as 'low' | 'medium' | 'high' | undefined,
-      jsonMode: 'json_object',
+      jsonMode: process.env.WRITING_EVAL_JSON_MODE === 'json_schema' ? 'json_schema' : 'json_object',
       temperature: 0.7,
       extraHeaders: {},
       secretRef: 'env:LUNAROUTE_API_KEY',
@@ -114,7 +114,7 @@ it.skipIf(!process.env.RUN_REAL_WRITING)(
     const novel = await createNovel({
       title: input.title,
       premise: input.premise,
-      requirements: defaultRequirements(),
+      requirements: { ...defaultRequirements(), ...input.requirements },
       targetChars: 3000,
     });
     const doc = {
@@ -161,7 +161,7 @@ it.skipIf(!process.env.RUN_REAL_WRITING)(
             premise: input.premise,
             mainline: input.premise,
             ending: input.rules[3],
-            audience: '成人悬疑读者',
+            audience: input.requirements?.audience ?? '成人悬疑读者',
             constraints: input.rules,
             rollingChapters: 5,
           },

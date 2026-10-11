@@ -1,5 +1,6 @@
 /** Opt-in REAL crash/failure recovery from a saved TEST experiment. Never simulates model output. */
 import { it, expect } from 'vitest';
+import { evaluationCredential } from './runtime';
 import {
   copyFileSync,
   existsSync,
@@ -18,12 +19,13 @@ import { setFetchImpl } from '@/llm/registry';
 import { getJob, listSteps } from '@/db/repos/jobsRepo';
 import { listProviders, updateProvider, type ProviderInput } from '@/db/repos/providersRepo';
 import { createVersion, getVersion, listChapters, type Chapter, type ChapterVersion } from '@/db/repos/chaptersRepo';
+import { listCharacters, upsertCharacter } from '@/db/repos/storylineRepo';
+import { anchorEvidence, sha256Hex } from '@the-water/shared';
 import { retryStep, suspendJobRunnerForRestore } from '@/jobs/runner';
 it.skipIf(!process.env.RUN_REAL_RESUME)(
   'REAL resumes a saved failed TEST task without rewriting committed chapters',
   async () => {
-    const key = process.env.LUNAROUTE_API_KEY;
-    if (!key) throw new Error('LUNAROUTE_API_KEY is required');
+    const { key } = evaluationCredential();
     const deadlineMinutes = Number(process.env.WRITING_EVAL_DEADLINE_MINUTES ?? 60);
     if (!Number.isSafeInteger(deadlineMinutes) || deadlineMinutes < 1 || deadlineMinutes > 240)
       throw new Error('WRITING_EVAL_DEADLINE_MINUTES must be an integer between 1 and 240');
@@ -139,7 +141,26 @@ it.skipIf(!process.env.RUN_REAL_RESUME)(
           .filter((c) => c.committedVersionId)
           .map(async (c) => ({ chapterId: c.id, version: (await getVersion(c.committedVersionId!))! })),
       );
-    expect(committed.length).toBeGreaterThan(0);
+    // A task may stop in its first chapter before any formal submission.
+    // Preservation below applies to every committed chapter, including that empty set.
+    if (process.env.WRITING_EVAL_CHARACTER_ADDITION) {
+      const addition = JSON.parse(readFileSync(resolve(process.env.WRITING_EVAL_CHARACTER_ADDITION), 'utf8'));
+      if (addition.label !== 'TEST AUTHOR CHARACTER ADDITION' || !addition.rationale?.trim())
+        throw new Error('Character addition must be explicitly labelled with its editorial rationale');
+      const chapter = before.find(c => c.chapterNo === addition.chapterNo);
+      const version = chapter?.currentVersionId ? await getVersion(chapter.currentVersionId) : null;
+      if (!chapter || !version || chapter.committedVersionId) throw new Error('Character recovery requires an existing uncommitted source chapter');
+      if (!addition.character?.id || !addition.character?.name || !addition.quote?.includes(addition.character.name))
+        throw new Error('Added identity must be named in its source quotation');
+      const evidence = anchorEvidence(version.content, { from: -1, to: -1, quote: addition.quote });
+      const characters = await listCharacters(job.novelId);
+      if (characters.some(c => c.id === addition.character.id || c.name === addition.character.name))
+        throw new Error('Refusing to overwrite an existing character during recovery');
+      const character = await upsertCharacter(job.novelId, addition.character);
+      writeFileSync(`${out}/author-character-addition.json`, JSON.stringify({ ...addition, sourceVersionId: version.id, sourceHash: await sha256Hex(version.content), evidence, character }, null, 2));
+      // retryStep below resets the full review/extraction/commit chain; changed
+      // dependencies force fresh review rather than reusing the earlier verdict.
+    }
     if (process.env.WRITING_EVAL_AUTHOR_EDIT) {
       const authorInput = readFileSync(resolve(process.env.WRITING_EVAL_AUTHOR_EDIT), 'utf8');
       const edit = JSON.parse(authorInput) as { label: string; chapterNo: number; content: string; rationale: string };

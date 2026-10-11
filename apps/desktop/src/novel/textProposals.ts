@@ -58,6 +58,32 @@ export const RevisionPatchesSchema = z.object({
     )
     .max(80),
 });
+
+/** Model contract: copy short exact anchors; the application owns UTF-16 ranges and original prose. */
+export const AnchoredRevisionPatchesSchema = z.object({
+  patches: z.array(z.object({
+    startQuote: z.string().min(1),
+    endQuote: z.string().min(1),
+    replacement: z.string(),
+  })).max(80),
+});
+
+export function resolveRevisionPatches(
+  text: string,
+  patches: z.infer<typeof AnchoredRevisionPatchesSchema>['patches'],
+) {
+  return patches.map((patch, index) => {
+    const locate = (quote: string, field: 'startQuote' | 'endQuote') => {
+      try { return anchorEvidence(text, { from: -1, to: -1, quote }); }
+      catch(error) { throw new Error(`patches.${index}.${field} 必须是正文中唯一的逐字连续引文（含标点与换行）：${String(error)}`); }
+    };
+    const start = locate(patch.startQuote, 'startQuote');
+    const end = locate(patch.endQuote, 'endQuote');
+    if (end.from < start.from || end.to < start.to)
+      throw new Error(`patches.${index}.endQuote 必须位于 startQuote 之后；同一段原文可使用相同起止引文。`);
+    return { from: start.from, to: end.to, original: text.slice(start.from, end.to), replacement: patch.replacement };
+  });
+}
 /** TESTABLE invariant: untouched prose is copied verbatim; overlapping/remote patches fail. */
 export function applyRevisionPatches(
   original: string,

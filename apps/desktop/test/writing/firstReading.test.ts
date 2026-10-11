@@ -68,3 +68,20 @@ it('TEST inferred knowledge has its own located evidence, never a self-proving c
   expect(firstReadingPrompt(sources).schema!.safeParse({...value,inferenceChecks:[{...inference,status:'supported'}]}).success).toBe(false);
   expect(firstReadingPrompt(sources).schema!.safeParse({...value,inferenceChecks:[{...inference,basis:[{chapterNo:2,quote:'TEST invented evidence'}]}]}).success).toBe(false);
 });
+
+it('TEST quotation repairs receive every failing field and original context, without silently fixing punctuation or newlines',()=>{
+  const sources=[{chapterNo:1,versionId:'TEST v',contentHash:'TEST hash',text:'TEST “妈走之前最放心不下的就是这个店。你倒好，说走就走。”\n\n“押金至少六千。”\n\n“我知道。”'}];
+  const value={...testFirstReading(),preserve:[
+    {reason:'TEST quote',evidence:[{chapterNo:1,quote:'“妈走之前最放心不下的就是这个店。”'}]},
+    {reason:'TEST quote',evidence:[{chapterNo:1,quote:'“押金至少六千。” “我知道。”'}]},
+  ]};
+  const result=firstReadingPrompt(sources).schema!.safeParse(value);
+  expect(result.success).toBe(false);
+  if(result.success)throw new Error('TEST invalid evidence accepted');
+  expect(result.error.issues.map(i=>i.path)).toEqual([['preserve',0,'evidence',0,'quote'],['preserve',1,'evidence',0,'quote']]);
+  expect(result.error.issues[0]!.message).toContain('你倒好，说走就走。');
+  expect(result.error.issues[1]!.message).toContain('\\n\\n');
+  expect(()=>locateFirstReading(value,sources)).toThrow('preserve.0.evidence.0');
+  value.preserve=[{reason:'TEST exact sentence fragment',evidence:[{chapterNo:1,quote:'妈走之前最放心不下的就是这个店。'}]}];
+  expect(firstReadingPrompt(sources).schema!.safeParse(value).success).toBe(true);
+});

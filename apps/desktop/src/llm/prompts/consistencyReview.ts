@@ -102,7 +102,7 @@ export function consistencyReviewPrompt(input: ConsistencyReviewInput): PromptSp
     for (const key of ['numericConflicts','timelineConflicts','addressErrors','loreConflicts'] as const)
       value[key].forEach((issue,index)=>{
         try { anchorEvidence(input.chapterText,{from:-1,to:-1,quote:issue.quote}); }
-        catch { check.addIssue({code:z.ZodIssueCode.custom,path:[key,index,'quote'],message:'quote 必须是当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文，不得编造或删除已证实的冲突'}); }
+        catch(error) { check.addIssue({code:z.ZodIssueCode.custom,path:[key,index,'quote'],message:`quote 必须是当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文，不得编造或删除已证实的冲突：${String(error)}`}); }
       });
   });
   return { messages: [sys(system), user(text)], maxTokens: 2500, temperature: 0.6, schema, label: `校对第${input.chapterNo}章设定` };

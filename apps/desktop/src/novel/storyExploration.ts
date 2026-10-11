@@ -32,7 +32,7 @@ export async function auditStoryPresentation(novelId:string,goal:ExplorationGoal
   const index=z.number().int().min(0).max(candidates.length-1).describe('原样使用输入样稿的 index；从 0 开始编号，不得改成从 1 开始');
   const mechanismSchema=z.object({candidates:z.array(z.object({index,causality:CausalitySchema})).length(candidates.length)}).superRefine((value,ctx)=>{
     if(new Set(value.candidates.map(c=>c.index)).size!==candidates.length) ctx.addIssue({code:'custom',message:'须逐一核对全部样稿，不重复或遗漏'});
-    value.candidates.forEach((item,i)=>{try{item.causality.evidence.forEach(e=>anchorEvidence(candidates[item.index]!.sample,{from:-1,to:-1,quote:e.quote}));}catch{ctx.addIssue({code:'custom',path:['candidates',i],message:'机制证据须来自对应样稿唯一连续原文'});}});
+    value.candidates.forEach((item,i)=>{try{item.causality.evidence.forEach(e=>anchorEvidence(candidates[item.index]!.sample,{from:-1,to:-1,quote:e.quote}));}catch(error) { ctx.addIssue({code:'custom',path:['candidates',i],message:`机制证据须来自对应样稿唯一连续原文：${String(error)}`}); }});
   });
   // No author-fixed outcome, titles or intended reader effect: prose must establish its own mechanism.
   const mechanisms=await requestStoryJson(novelId,
@@ -43,7 +43,7 @@ export async function auditStoryPresentation(novelId:string,goal:ExplorationGoal
     differences:z.array(ExplorationAuditSchema.shape.differences.element.extend({left:index,right:index})).min(1).max(12),
   }).superRefine((audit,ctx)=>{
     if(new Set(audit.candidates.map(c=>c.index)).size!==candidates.length) ctx.addIssue({code:'custom',message:'须逐一评阅全部样稿，不重复或遗漏'});
-    audit.candidates.forEach((item,i)=>{try {item.evidence.forEach(e=>anchorEvidence(candidates[item.index]!.sample,{from:-1,to:-1,quote:e.quote}));}catch{ctx.addIssue({code:'custom',path:['candidates',i],message:'证据须来自对应样稿唯一连续原文'});}});
+    audit.candidates.forEach((item,i)=>{try {item.evidence.forEach(e=>anchorEvidence(candidates[item.index]!.sample,{from:-1,to:-1,quote:e.quote}));}catch(error) { ctx.addIssue({code:'custom',path:['candidates',i],message:`证据须来自对应样稿唯一连续原文：${String(error)}`}); }});
     audit.differences.forEach((d,i)=>{if(d.left===d.right || !candidates[d.left] || !candidates[d.right]) ctx.addIssue({code:'custom',path:['differences',i],message:'比较须引用两份不同的真实样稿'});});
   });
   const audit=await requestStoryJson(novelId,

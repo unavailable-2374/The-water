@@ -234,7 +234,22 @@ export function anchorEvidence(
 ): { from: number; to: number; quote: string } {
   if (verifyEvidence(text, evidence)) return evidence;
   const from = text.indexOf(evidence.quote);
-  if (!evidence.quote || from < 0 || text.indexOf(evidence.quote, from + 1) >= 0)
-    throw new Error('Evidence quote is missing or ambiguous');
+  if (!evidence.quote || from < 0 || text.indexOf(evidence.quote, from + 1) >= 0) {
+    // These excerpts are repair diagnostics only. Never normalize, fuzzy-match or
+    // accept an inexact quotation as evidence.
+    const positions: number[] = [];
+    if (evidence.quote && from >= 0) {
+      for (let at = from; at >= 0 && positions.length < 3; at = text.indexOf(evidence.quote, at + 1)) positions.push(at);
+    } else {
+      const prefix = evidence.quote.replace(/^[“”"'‘’]+/u, '').slice(0, 24);
+      for (let length = prefix.length; length >= Math.min(4, prefix.length) && length > 0; length--) {
+        const at = text.indexOf(prefix.slice(0, length));
+        if (at >= 0) { positions.push(at); break; }
+      }
+    }
+    const excerpts = positions.map(at => JSON.stringify(text.slice(Math.max(0, at - 100), at + 250)));
+    const reason = !evidence.quote ? '引文为空' : from < 0 ? '引文未逐字匹配' : '引文重复出现，请扩展相邻原文使它唯一';
+    throw new Error(`Evidence quote is missing or ambiguous：${reason}；返回的引文是 ${JSON.stringify(evidence.quote)}。请复制连续逐字原文，保留换行与标点，不补加引号或句号。${excerpts.length ? ` 可核对的正文片段（仅诊断，不是自动更正）：${excerpts.join('；')}` : ''}`);
+  }
   return { from, to: from + evidence.quote.length, quote: evidence.quote };
 }

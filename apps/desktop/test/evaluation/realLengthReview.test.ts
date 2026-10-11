@@ -5,7 +5,7 @@ import { useTestDb } from '../helpers/testDb';
 import { setSecretStore } from '@/secrets/keychain';
 import { setFetchImpl, providerById } from '@/llm/registry';
 import { createProvider } from '@/db/repos/providersRepo';
-import { narrativeReviewPrompt, locateNarrativeIssues } from '@/llm/prompts/narrativeReview';
+import { narrativeReviewPrompt, locateNarrativeIssues, locateNarrativeStory } from '@/llm/prompts/narrativeReview';
 import { requestJson } from '@/llm/json';
 const fixtures = [
  {id:'TEST-missing-choice',action:'expand',text:'顾岚一直坚信不能公开工人的私人住址。她得知公开名单会让十位无辜工人遭到报复。她没有遭到威胁，也没有发现任何新事实。她突然决定把名单完整公开，觉得这毫无问题。第二天名单公布了。',context:'TEST 已确认：保护工人隐私是顾岚的原则；本章计划是顾岚认真权衡后拒绝公开住址，改交匿名证据。这是她本章最重要的选择。当前正文跳过判断与权衡。'},
@@ -26,7 +26,7 @@ it.skipIf(!process.env.RUN_REAL_LENGTH_REVIEW)('REAL evidenced chapter expansion
    for(const item of value.lengthReview?.actions ?? []) if(!value.issues.some(issue=>issue.id===item.issueId)) ctx.addIssue({code:'custom',message:'篇幅建议必须有原文问题 ID'});
    try{locateNarrativeIssues(fixture.text,value.issues);}catch{ctx.addIssue({code:'custom',message:'证据必须唯一定位至 TEST 正文'});}
   })});
-  writeFileSync(`${out}/${fixture.id}-result.json`,JSON.stringify({label:'REAL response to TEST fiction; not literary quality evidence',fixture,result:{...result,value:{...result.value,issues:locateNarrativeIssues(fixture.text,result.value.issues)}}},null,2));
+  writeFileSync(`${out}/${fixture.id}-result.json`,JSON.stringify({label:'REAL response to TEST fiction; not literary quality evidence',fixture,result:{...result,value:{...result.value,issues:locateNarrativeIssues(fixture.text,result.value.issues),story:locateNarrativeStory(fixture.text,result.value.story)}}},null,2));
   expect(result.value.lengthReview!.actions.some(item=>item.action===fixture.action)).toBe(true);
  }
 },600000);

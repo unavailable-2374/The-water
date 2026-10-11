@@ -1,0 +1,351 @@
+[
+  {
+    "title": "最后一把钥匙",
+    "theme": "家庭现实",
+    "file": "/Users/caoshuo/The-Water/outputs/short-stories-20261010/最后一把钥匙.txt",
+    "sha256": "80315d6ce4a82cfca86f0282f732cd06302769427ef03aca824ba8b973532be6",
+    "result": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-03/result.json",
+    "chars": 3927,
+    "label": "Fictional creative content; REAL model responses, not simulated",
+    "novelId": "7NeZfU3eFg74j0nPkxjI_",
+    "jobId": "TbMp5rijSE1fUAHjtTKjY",
+    "pipelineProgress": {
+      "done": 18,
+      "total": 18,
+      "currentStepId": null,
+      "charsSoFar": 3927,
+      "message": ""
+    },
+    "versions": [
+      {
+        "chapterNo": 1,
+        "versionId": "vRMeDKaATEYq-WL3Ge2zi",
+        "source": "rewritten",
+        "sha256": "f3ad81c5aeb60143e91e98ddea31d59eed74856e46b6bfea278b892eff34d3f0"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "Pwil2Y-yCYUIcn1LAQ66u",
+        "source": "rewritten",
+        "sha256": "7c56a1fa689d0c5a9d156f87608be9c7482ade401a26398a2d60eafce2b572b5"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "DzA_i-XDM2ig0cID1nabI",
+        "source": "rewritten",
+        "sha256": "20040ead9ac761f150f6294599ac23c2b096a4d0384a7549f5668425067a92bd"
+      }
+    ],
+    "sourceSnapshot": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-03/source.json",
+    "verifiedReviews": [
+      {
+        "chapterNo": 1,
+        "versionId": "vRMeDKaATEYq-WL3Ge2zi",
+        "reviewId": "lU3Xjat58VPisEkGPRzdt",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 10,
+        "contentSha256": "f3ad81c5aeb60143e91e98ddea31d59eed74856e46b6bfea278b892eff34d3f0"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "Pwil2Y-yCYUIcn1LAQ66u",
+        "reviewId": "fRPUagDo_nxPKgD8dqOHe",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 10,
+        "contentSha256": "7c56a1fa689d0c5a9d156f87608be9c7482ade401a26398a2d60eafce2b572b5"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "DzA_i-XDM2ig0cID1nabI",
+        "reviewId": "kvze-AC-gqU7zCJrfrpUh",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 13,
+        "contentSha256": "20040ead9ac761f150f6294599ac23c2b096a4d0384a7549f5668425067a92bd"
+      }
+    ],
+    "qualityConclusion": "Pipeline completion and evidence integrity verified; no human literary-quality ratings claimed."
+  },
+  {
+    "title": "失物柜第七格",
+    "theme": "日常悬疑",
+    "file": "/Users/caoshuo/The-Water/outputs/short-stories-20261010/失物柜第七格.txt",
+    "sha256": "2c7d7cc366b0ac719c08a03ca759bde7a696d1f04d713d93cdeb20be767f2d38",
+    "result": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-story02-03/result.json",
+    "novelId": "S6YjRyhx0ZibMcH4PriHg",
+    "chars": 5107,
+    "versions": [
+      {
+        "chapterNo": 1,
+        "versionId": "IyinJXiHaHBU6mfpjmzPO",
+        "source": "rewritten",
+        "sha256": "f69bb7665e82b8540daebc3d097193c2163175acc0c3bc7e30dd0f02591c3a0a"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "RfheGipaajeiHjY1gN9OD",
+        "source": "rewritten",
+        "sha256": "fd5e548b25609289b3de27eabd095243518167a5c4fc41c79c1c1b9a1fbddfc2"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "IEZAyAdJVTDacCeSid5bU",
+        "source": "generated",
+        "sha256": "d6e2feefaa6e2a13d00f10504e7cd17be0715d9af850c2bab710d379a7733a7e"
+      }
+    ],
+    "authorInputAddition": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/story02-character-addition.json",
+    "label": "Fictional creative content; REAL model responses, not simulated",
+    "jobId": "_JiEnUDrHKmIRbqSybU-0",
+    "pipelineProgress": {
+      "done": 18,
+      "total": 18,
+      "currentStepId": null,
+      "charsSoFar": 5107,
+      "message": ""
+    },
+    "sourceSnapshot": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-story02-03/source.json",
+    "verifiedReviews": [
+      {
+        "chapterNo": 1,
+        "versionId": "IyinJXiHaHBU6mfpjmzPO",
+        "reviewId": "2Dk7fz4Z8Bc66jmaXVIPa",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 9,
+        "contentSha256": "f69bb7665e82b8540daebc3d097193c2163175acc0c3bc7e30dd0f02591c3a0a"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "RfheGipaajeiHjY1gN9OD",
+        "reviewId": "mP6mPra6T1cd1MviQevTl",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 11,
+        "contentSha256": "fd5e548b25609289b3de27eabd095243518167a5c4fc41c79c1c1b9a1fbddfc2"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "IEZAyAdJVTDacCeSid5bU",
+        "reviewId": "9tu4qD13puPlqQu7vu3sF",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 9,
+        "contentSha256": "d6e2feefaa6e2a13d00f10504e7cd17be0715d9af850c2bab710d379a7733a7e"
+      }
+    ],
+    "qualityConclusion": "Pipeline completion and evidence integrity verified; no human literary-quality ratings claimed."
+  },
+  {
+    "title": "明天的借条",
+    "theme": "近未来科幻",
+    "file": "/Users/caoshuo/The-Water/outputs/short-stories-20261010/明天的借条.txt",
+    "sha256": "2b680361ea45d41472a64bf6e70507c222cc6dad73f6088d4839dea403fcddcd",
+    "result": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-story03-02/result.json",
+    "novelId": "9EOMhuPnVXtYvKLzJIbxI",
+    "jobId": "bJ857xECVjfsFmEGJST6B",
+    "pipelineProgress": {
+      "done": 18,
+      "total": 18,
+      "currentStepId": null,
+      "charsSoFar": 4168,
+      "message": ""
+    },
+    "chars": 4168,
+    "versions": [
+      {
+        "chapterNo": 1,
+        "versionId": "c6VA47pG_pngGZ0NMeC8F",
+        "source": "rewritten",
+        "sha256": "19e949e46c1ec7dbc9400057034d4bcb93f848c1b6f07ab8659c09272e193022"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "C0bc7dauUE2erLPJx6Xwt",
+        "source": "rewritten",
+        "sha256": "d207fea41f8396ac7e02a4f368a805338f9fe4619944afad341fa958c6cb1ecb"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "H0fDoD2f2ptZi5oIAP90E",
+        "source": "user_edit",
+        "sha256": "ced2f78c5f74180b8f77509a88f304e8f4bd3b1d1ff8a8969b83da351e793728"
+      }
+    ],
+    "sourceSnapshot": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/recovery-story03-02/source.json",
+    "editorialIntervention": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/story03-author-edit.json",
+    "label": "Fictional creative content; REAL model responses plus explicit recorded Codex editorial intervention, not simulated responses",
+    "verifiedReviews": [
+      {
+        "chapterNo": 1,
+        "versionId": "c6VA47pG_pngGZ0NMeC8F",
+        "reviewId": "xoiu8R7yDu8bh44hXir_a",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 7,
+        "contentSha256": "19e949e46c1ec7dbc9400057034d4bcb93f848c1b6f07ab8659c09272e193022"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "C0bc7dauUE2erLPJx6Xwt",
+        "reviewId": "2GRJgjEx9rV7a0-2OUUHS",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 9,
+        "contentSha256": "d207fea41f8396ac7e02a4f368a805338f9fe4619944afad341fa958c6cb1ecb"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "H0fDoD2f2ptZi5oIAP90E",
+        "reviewId": "jBj2aK3gMFOBabXhHqlEH",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 7,
+        "contentSha256": "ced2f78c5f74180b8f77509a88f304e8f4bd3b1d1ff8a8969b83da351e793728"
+      }
+    ],
+    "qualityConclusion": "Pipeline completion and evidence integrity verified; no human literary-quality ratings claimed."
+  },
+  {
+    "title": "留种的那一行",
+    "theme": "乡村现实",
+    "file": "/Users/caoshuo/The-Water/outputs/short-stories-20261010/留种的那一行.txt",
+    "sha256": "0deb257c377e353fb3797db3afad6d878a79395700f4be2730ed52868a9c9ff9",
+    "result": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/run-04/result.json",
+    "novelId": "NsAtiv1CL3mS2XvenlSFg",
+    "jobId": "iIA3VHr1Km1KqFu-8ylfh",
+    "pipelineProgress": {
+      "done": 18,
+      "total": 18,
+      "currentStepId": null,
+      "charsSoFar": 4073,
+      "message": ""
+    },
+    "chars": 4073,
+    "versions": [
+      {
+        "chapterNo": 1,
+        "versionId": "IrgYkhsmqEP-2Y1lUnwcn",
+        "source": "generated",
+        "sha256": "d0c387c62459a56baa765e2fbca1bb3fb4c475c7c05f737e69581d5bab5043b5"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "i78fUFZxrhXJ7YzVnPWSo",
+        "source": "generated",
+        "sha256": "4a00462060dd0fa49a79744176a0de36d949ca712a021ab9c899a3c24204a1a6"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "Gm8a4qHqyN0d3TD-4ibGl",
+        "source": "rewritten",
+        "sha256": "5893ea28a076ad5d4f26d966d8f6c9b9ad588ffd5cd0332a0796d734491e55db"
+      }
+    ],
+    "sourceSnapshot": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/run-04/source.json",
+    "authorInput": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/input-04-v2.json",
+    "label": "Fictional creative content; REAL model responses, not simulated",
+    "verifiedReviews": [
+      {
+        "chapterNo": 1,
+        "versionId": "IrgYkhsmqEP-2Y1lUnwcn",
+        "reviewId": "C4QnTTS5Z9QooGLTFzqNf",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 5,
+        "contentSha256": "d0c387c62459a56baa765e2fbca1bb3fb4c475c7c05f737e69581d5bab5043b5"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "i78fUFZxrhXJ7YzVnPWSo",
+        "reviewId": "4MRZK4gwi9OeG5i1RE0dr",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 5,
+        "contentSha256": "4a00462060dd0fa49a79744176a0de36d949ca712a021ab9c899a3c24204a1a6"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "Gm8a4qHqyN0d3TD-4ibGl",
+        "reviewId": "fY-kwp_cztwLu_IE95_Et",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 8,
+        "contentSha256": "5893ea28a076ad5d4f26d966d8f6c9b9ad588ffd5cd0332a0796d734491e55db"
+      }
+    ],
+    "qualityConclusion": "Pipeline completion and evidence integrity verified; no human literary-quality ratings claimed."
+  },
+  {
+    "title": "第十九封退信",
+    "theme": "职场人情与情感边界",
+    "file": "/Users/caoshuo/The-Water/outputs/short-stories-20261010/第十九封退信.txt",
+    "sha256": "9ef8b0788211758035fbcebff4acd087d8031bbe13c406fd9db122df70285f1b",
+    "result": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/run-05/result.json",
+    "novelId": "ubV4SW15svGEkoGLa57PO",
+    "jobId": "aOilOEDpOMAAKNYSpOzkn",
+    "pipelineProgress": {
+      "done": 18,
+      "total": 18,
+      "currentStepId": null,
+      "charsSoFar": 4804,
+      "message": ""
+    },
+    "chars": 4804,
+    "versions": [
+      {
+        "chapterNo": 1,
+        "versionId": "CF1EjweamWkGFb3-C3Mh9",
+        "source": "generated",
+        "sha256": "cb4dd1362713fbb4cc9242621f4fd02fe8e979eacc69711eb0ff4f22dfa6ec7d"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "nPcS_23IwC5GWFLbYM2km",
+        "source": "rewritten",
+        "sha256": "543032f8a616a412a9bb7b4f55ccec78a465db82e2ce5396a04124f3a1b2c482"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "HctSWx5axyuikJ9KOCMdo",
+        "source": "rewritten",
+        "sha256": "97d3a5d46dcce2ac7ad58a2e79633d74bab51236856a948738255b7197a5fc52"
+      }
+    ],
+    "sourceSnapshot": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/run-05/source.json",
+    "authorInput": "/Users/caoshuo/.codex/validation/the-water-five-stories-20261010/input-05-v2.json",
+    "label": "Fictional creative content; REAL model responses, not simulated",
+    "verifiedReviews": [
+      {
+        "chapterNo": 1,
+        "versionId": "CF1EjweamWkGFb3-C3Mh9",
+        "reviewId": "hgkgDf5i8LJymifLLBOZz",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 8,
+        "contentSha256": "cb4dd1362713fbb4cc9242621f4fd02fe8e979eacc69711eb0ff4f22dfa6ec7d"
+      },
+      {
+        "chapterNo": 2,
+        "versionId": "nPcS_23IwC5GWFLbYM2km",
+        "reviewId": "qkjvvIqKJLpRvDJfONOzK",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 10,
+        "contentSha256": "543032f8a616a412a9bb7b4f55ccec78a465db82e2ce5396a04124f3a1b2c482"
+      },
+      {
+        "chapterNo": 3,
+        "versionId": "HctSWx5axyuikJ9KOCMdo",
+        "reviewId": "RP2ls8nz2oNONjg5z2DUX",
+        "verdict": "pass",
+        "storyVerdict": "ready",
+        "evidenceRangesChecked": 8,
+        "contentSha256": "97d3a5d46dcce2ac7ad58a2e79633d74bab51236856a948738255b7197a5fc52"
+      }
+    ],
+    "qualityConclusion": "Pipeline completion and evidence integrity verified; no human literary-quality ratings claimed."
+  }
+]

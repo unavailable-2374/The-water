@@ -28,6 +28,14 @@ const terse = (n: number) => 'TEST 我错了。他一步跨入元婴。\n\n' + A
 const flowery = (n: number) => Array.from({ length: n }, () => '他的心中涌起一股难以言喻的悲伤，仿佛整个世界都在这一刻崩塌了，而他却无能为力地站在那里看着一切慢慢消逝！').join('');
 
 /** Fake provider: routes by prompt content. */
+/** TEST ONLY: select a real span in the fixture prompt; this is a SIMULATED reviewer. */
+function testIndexedQuote(user: string, quote: string) {
+  for (const match of user.matchAll(/\{"id":"(s\d+)","text":("(?:[^"\\]|\\.)*")\}/gu)) {
+    if (String(JSON.parse(match[2]!)).includes(quote)) return { startSpan: match[1]!, endSpan: match[1]! };
+  }
+  throw new Error(`TEST indexed fixture quote absent: ${quote}`);
+}
+
 function makeFetch(opts: { reviewVerdict?: 'pass' | 'revise'; consistency?: 'pass' | 'revise'; prose?: () => string; clearAfterRevision?: boolean; story?: 'revise'|'replan'|'opinion'; lengthAction?: 'expand'|'trim' } = {}) {
   const calls: Array<{ kind: string; user: string; system: string }> = [];
   const fetch: FetchLike = async (_url, init) => {
@@ -39,9 +47,9 @@ function makeFetch(opts: { reviewVerdict?: 'pass' | 'revise'; consistency?: 'pas
     if (body.response_format) {
       if(system.includes('第一次阅读作品')) {calls.push({kind:'firstReading',user,system});const o={interpretation:'TEST / SIMULATED unknown inference',confidence:'unknown',evidence:[]};return reply(JSON.stringify({observations:{goal:o,stakes:o,choice:o,expectation:o,understanding:o},inferenceChecks:[],confusions:[],preserve:[]}));}
 
-      if(system.includes('局部修订编辑')) {calls.push({kind:'revise',user,system});return reply(JSON.stringify({patches:[opts.consistency==='revise' ? {from:9,to:16,original:'他一步跨入元婴',replacement:'他仍停在炼气三层'} : {from:5,to:8,original:'我错了',replacement:opts.clearAfterRevision || opts.story==='revise' ? '他按住刀鞘':'我错了'}]}));}
+      if(system.includes('局部修订编辑')) {calls.push({kind:'revise',user,system});return reply(JSON.stringify({patches:[opts.consistency==='revise' ? {startQuote:'他一步跨入元婴',endQuote:'他一步跨入元婴',replacement:'他仍停在炼气三层'} : {startQuote:'我错了',endQuote:'我错了',replacement:opts.clearAfterRevision || opts.story==='revise' ? '他按住刀鞘':'我错了'}]}));}
       if (system.includes('叙事审稿')) { calls.push({ kind: 'narrative', user, system }); const unresolved=opts.story==='revise' && !calls.some(c=>c.kind==='revise');
-        return reply(JSON.stringify({readerAlignment:[],issues:unresolved || opts.story==='opinion' ? [{id:'TEST-story-issue',category:unresolved ? opts.lengthAction==='trim' ? 'repetition' : 'motivation' : 'style',severity:'suggestion',evidence:{quote:'我错了'},basis:'TEST / SIMULATED editorial diagnosis',suggestion:'TEST 补足当前选择而不改变主线',sourceIds:[]}] : [],lengthReview:opts.lengthAction && (unresolved || opts.story==='opinion') ? {action:opts.lengthAction,reason:'TEST / SIMULATED scene completeness diagnosis, independent of word count',actions:[{action:opts.lengthAction,issueId:'TEST-story-issue'}]} : testReadyLengthReview(),story:{...testReadyStory(),verdict:opts.story==='replan'?'replan':unresolved?'revise':'ready'}})); }
+        return reply(JSON.stringify({readerAlignment:[],issues:unresolved || opts.story==='opinion' ? [{id:'TEST-story-issue',category:unresolved ? opts.lengthAction==='trim' ? 'repetition' : 'motivation' : 'style',severity:'suggestion',evidence: testIndexedQuote(user, '我错了'),basis:'TEST / SIMULATED editorial diagnosis',suggestion:'TEST 补足当前选择而不改变主线',sourceIds:[]}] : [],lengthReview:opts.lengthAction && (unresolved || opts.story==='opinion') ? {action:opts.lengthAction,reason:'TEST / SIMULATED scene completeness diagnosis, independent of word count',actions:[{action:opts.lengthAction,issueId:'TEST-story-issue'}]} : testReadyLengthReview(),story:{...testReadyStory(),verdict:opts.story==='replan'?'replan':unresolved?'revise':'ready'}})); }
       if (user.includes('请提炼这部作品的文风档案')) {
         calls.push({ kind: 'extract', user, system });
         return reply(JSON.stringify({
@@ -461,7 +469,9 @@ it('TEST optional trim preference is displayed with evidence without forcing a r
   expect((await getJob(id))!.status).toBe('completed');
   const report=(await latestReviewForChapter(chapter.id))!.report;
   expect(report.lengthReview?.action).toBe('trim');
-  expect(report.narrative?.find(issue=>issue.id===report.lengthReview!.actions[0]!.issueId)?.evidence.quote).toBe('我错了');
+  const evidence = report.narrative!.find(issue=>issue.id===report.lengthReview!.actions[0]!.issueId)!.evidence;
+  expect(evidence.quote).toBe('TEST 我错了。');
+  expect(draft.content.slice(evidence.from, evidence.to)).toBe(evidence.quote);
   expect((await getChapter(chapter.id))!.currentVersionId).toBe(draft.id);
   expect(f.calls.filter(c=>c.kind==='revise')).toHaveLength(0);
 });

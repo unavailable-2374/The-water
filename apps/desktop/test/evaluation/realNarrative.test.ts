@@ -6,9 +6,8 @@ import { useTestDb } from '../helpers/testDb';
 import { setSecretStore } from '@/secrets/keychain';
 import { setFetchImpl, providerById } from '@/llm/registry';
 import { createProvider } from '@/db/repos/providersRepo';
-import { locateNarrativeIssues, narrativeReviewPrompt } from '@/llm/prompts/narrativeReview';
+import { locateNarrativeIssues, locateNarrativeStory, narrativeReviewPrompt } from '@/llm/prompts/narrativeReview';
 import { requestJson } from '@/llm/json';
-import { anchorEvidence } from '@the-water/shared';
 const cases = [
   {
     id: 'TEST-early-knowledge',
@@ -114,7 +113,7 @@ it.skipIf(!process.env.RUN_REAL_NARRATIVE)(
           schema: spec.schema!.superRefine((v, ctx) => {
             for (const [i, issue] of v.issues.entries())
               try {
-                anchorEvidence(fixture.text, { from: -1, to: -1, quote: issue.evidence.quote });
+                locateNarrativeIssues(fixture.text, [issue]);
               } catch {
                 ctx.addIssue({
                   code: 'custom',
@@ -126,7 +125,7 @@ it.skipIf(!process.env.RUN_REAL_NARRATIVE)(
         });
         results.push({
           fixture,
-          result: { ...result, value: { issues: locateNarrativeIssues(fixture.text, result.value.issues) } },
+          result: { ...result, value: { ...result.value, issues: locateNarrativeIssues(fixture.text, result.value.issues), story: locateNarrativeStory(fixture.text, result.value.story) } },
           detected: result.value.issues.some(
             (i) => i.severity === 'block' && i.category === fixture.category,
           ),

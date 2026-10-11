@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { sys, user, systemBase, JSON_ONLY_RULE } from '@/llm/prompts/base';
 import { wrapUntrusted } from '@/llm/prompts/untrusted';
-import { applyRevisionPatches, RevisionPatchesSchema } from '@/novel/textProposals';
+import { applyRevisionPatches, AnchoredRevisionPatchesSchema, resolveRevisionPatches } from '@/novel/textProposals';
 /**
  * style_check（docs/writing/README.md §5.4–§5.5）：写章后、提交前的三条独立通道
  *   1. 机器：本地 metrics 与目标区间比对 + lint（AI 味 / 题材负面清单 / 作品负面清单）
@@ -19,8 +19,9 @@ import { getDb } from '@/db/db';
 import { assertReviewPass, findReviewByStep, saveReview, type ChapterReviewJson } from '@/db/repos/reviewsRepo';
 import { chapterDependencies } from '@/db/repos/writingRepo';
 import { AwaitingReviewError } from '../awaitingReview';
-import { locateNarrativeIssues, narrativeReviewPrompt, narrativeSourceError } from '@/llm/prompts/narrativeReview';
-import { requestJson } from '@/llm/json';
+import { locateNarrativeIssues, locateNarrativeStory, indexedNarrativeReviewSchema, narrativeReviewPrompt, narrativeSourceError } from '@/llm/prompts/narrativeReview';
+import { requestJson, schemaReserveTokens } from '@/llm/json';
+import { indexProseEvidence } from '@/llm/prompts/evidence';
 import { LLMError } from '@/llm/types';
 import { styleReviewPrompt, reviewToInstructions, type StyleReviewResult } from '@/llm/prompts/styleReview';
 import { consistencyIssueCount, consistencyReviewPrompt, consistencyToInstructions, hasConsistencyMaterial, type ConsistencyResult } from '@/llm/prompts/consistencyReview';
@@ -33,7 +34,7 @@ import { maxTokensForChapter } from '@/novel/wordBudget';
 import { loadStyleCheckConfig, type StyleCheckConfig } from '@/novel/config';
 import { primeAuthorNote } from '@/llm/prompts/authorNote';
 import { emitJobEvent } from '../events';
-import { locateStoryAssessment, storyRevisionIssues } from '@/novel/storyQuality';
+import { storyRevisionIssues } from '@/novel/storyQuality';
 import { readProseOnly } from '@/novel/firstReading';
 import type { StepHandler } from '../context';
 import { buildChapterContextText, currentVersionOf, loadChapterEnv, styleExtrasOf, type ChapterEnv } from './common';
@@ -73,7 +74,9 @@ async function assess(env: ChapterEnv, text: string, versionId: string, ctx: Par
     firstReading = blind.reading;
     const sourceIds = new Set<string>();
     const advisoryIds = new Set(genre.entries.filter(e => !ownIds.has(e.id)).map(e => e.id));
-    const context = await buildChapterContextText(env, checker, 6000, { reserved: text.length * checker.caps.cjkTokenRatio, onSources: ids => ids.forEach(id => sourceIds.add(id)) });
+    const spans = indexProseEvidence(text);
+    const indexedText = JSON.stringify(spans.map(({ id, text }) => ({ id, text })));
+    const context = await buildChapterContextText(env, checker, 6000, { reserved: indexedText.length * checker.caps.cjkTokenRatio + schemaReserveTokens(indexedNarrativeReviewSchema(spans, true), checker.caps), onSources: ids => ids.forEach(id => sourceIds.add(id)) });
     const spec = narrativeReviewPrompt({ chapterNo: chapter.chapterNo, text, context, qcReminders, firstReading });
     const result = await requestJson(checker, { ...spec, schema: spec.schema!.superRefine((value,check)=>{
       if (!value.lengthReview) check.addIssue({code:'custom',path:['lengthReview'],message:'新审查必须扫描整章并提供篇幅与场景完整性判断。'});
@@ -82,14 +85,14 @@ async function assess(env: ChapterEnv, text: string, versionId: string, ctx: Par
       for (const [index, action] of (value.lengthReview?.actions ?? []).entries()) if (!value.issues.some(issue => issue.id === action.issueId)) check.addIssue({code:'custom',path:['lengthReview','actions',index,'issueId'],message:'篇幅建议必须引用本次 issues 中有原文依据的问题 ID。'});
       if (!value.story) check.addIssue({code:'custom',path:['story'],message:'新审查必须提供故事推进结果，不能只返回空问题列表。'});
       else {
-        try { locateStoryAssessment(text,value.story); } catch { check.addIssue({code:'custom',path:['story'],message:'变化与兑现必须有本章唯一连续原文证据。'}); }
+        try { locateNarrativeStory(text,value.story); } catch(error) { check.addIssue({code:'custom',path:['story'],message:`变化与兑现必须有本章已验证的连续正文索引证据。：${String(error)}`}); }
         if (value.story.verdict==='revise' && !value.issues.some(i=>['causality','motivation','knowledge','thread','ending','repetition'].includes(i.category))) check.addIssue({code:'custom',path:['story','verdict'],message:'revise 必须提供可定位的结构问题，不得凭一般文风偏好要求修订。'});
       }
-      for(const [i,issue] of value.issues.entries()){const sourceError = narrativeSourceError(issue, sourceIds, advisoryIds); if(sourceError) check.addIssue({code:'custom',path:['issues',i,'sourceIds'],message:sourceError});try {anchorEvidence(text,{from:-1,to:-1,quote:issue.evidence.quote});} catch {check.addIssue({code:'custom',path:['issues',i,'evidence'],message:'quote 必须是当前正文中唯一的连续逐字原文，请重新选择证据。'});}}
+      for(const [i,issue] of value.issues.entries()){const sourceError = narrativeSourceError(issue, sourceIds, advisoryIds); if(sourceError) check.addIssue({code:'custom',path:['issues',i,'sourceIds'],message:sourceError});try {locateNarrativeIssues(text,[issue]);} catch(error) { check.addIssue({code:'custom',path:['issues',i,'evidence'],message:`证据必须选择当前正文索引中的有效连续范围，请重新选择片段编号。：${String(error)}`}); }}
     }) }, { signal: ctx.signal, gate: ctx.gate });
     await ctx.recordUsage(result.usage, { purpose: 'consistency', provider: checker });
     narrative = locateNarrativeIssues(text, result.value.issues);
-    story = locateStoryAssessment(text,result.value.story!);
+    story = locateNarrativeStory(text,result.value.story!);
     lengthReview = result.value.lengthReview;
     readerAlignment = result.value.readerAlignment;
     for (const issue of narrative) { try { issue.evidence = anchorEvidence(text, issue.evidence); } catch { throw new AwaitingReviewError('审稿问题无法定位原文，请重新审查'); } }
@@ -223,8 +226,8 @@ export const styleCheckStep: StepHandler = async (ctx) => {
     const maxTokens = maxTokensForChapter(target, writer.caps);
     const oldText = version.content;
     const contextUserText=await buildChapterContextText(env,writer,maxTokens,{reserved:oldText.length*writer.caps.cjkTokenRatio});
-    const schema=RevisionPatchesSchema.superRefine((value,check)=>{try{applyRevisionPatches(oldText,value.patches,blocks);}catch(error){check.addIssue({code:z.ZodIssueCode.custom,message:String(error)});}});
-    const result=await requestJson(writer,{messages:[sys(`${systemBase(novel.requirements,styleExtrasOf(env))}\n你是局部修订编辑。先修复已定位的事实与知识冲突，再处理所列人物选择、因果缺环、重复场景和期待兑现问题。只修改这些明确列出的问题，不修改未列出的文风偏好。返回 patches 数组，每项有 from、to、original（连续逐字原文）、replacement。位置采用 UTF-16。每个补丁必须与至少一条所列问题的证据范围有实质交集；若修正同一问题还必须改相邻对白或衔接，将这些修改合并为一个覆盖该证据的连续局部补丁，中间无关原文逐字保留，不要另列未覆盖任何证据的补丁。补丁不得重叠，不得返回整章替换，不改无关段落；若根本矛盾无法局部解决，返回空数组等待作者处理。\n${JSON_ONLY_RULE}`),user(`${contextUserText}\n需要修订的问题：${JSON.stringify(blocks)}\n${wrapUntrusted('当前正文',oldText)}`)],schema,maxTokens,temperature:0.2,label:`局部修订第${chapter.chapterNo}章`},{signal:ctx.signal,gate:ctx.gate}).catch(async error=>{
+    const schema=AnchoredRevisionPatchesSchema.superRefine((value,check)=>{try{applyRevisionPatches(oldText,resolveRevisionPatches(oldText,value.patches),blocks);}catch(error){check.addIssue({code:z.ZodIssueCode.custom,message:String(error)});}});
+    const result=await requestJson(writer,{messages:[sys(`${systemBase(novel.requirements,styleExtrasOf(env))}\n你是局部修订编辑。先修复已定位的事实与知识冲突，再处理所列人物选择、因果缺环、重复场景和期待兑现问题。只修改这些明确列出的问题，不修改未列出的文风偏好。返回 patches 数组，每项仅有 startQuote、endQuote、replacement。startQuote 是替换范围开头的短原文，endQuote 是结尾的短原文；两者都必须在当前正文中各自唯一、逐字连续（保留标点和换行），可用一句话，避免复制跨段长引文。同一短范围可使用相同起止引文。程序负责计算 UTF-16 位置并完整保留起止之间的原文；不要输出位置数字或 original。replacement 替换包含起止引文的整个连续范围，未涉及问题的中间内容必须逐字保留。每个补丁必须与至少一条所列问题的证据范围有实质交集；若修正同一问题还必须改相邻对白或衔接，将这些修改合并为一个覆盖该证据的连续局部补丁，中间无关原文逐字保留，不要另列未覆盖任何证据的补丁。补丁不得重叠，不得返回整章替换，不改无关段落；若根本矛盾无法局部解决，返回空数组等待作者处理。\n${JSON_ONLY_RULE}`),user(`${contextUserText}\n需要修订的问题：${JSON.stringify(blocks)}\n${wrapUntrusted('当前正文',oldText)}`)],schema,maxTokens,temperature:0.2,label:`局部修订第${chapter.chapterNo}章`},{signal:ctx.signal,gate:ctx.gate}).catch(async error=>{
       if(error instanceof LLMError && error.kind==='bad_request') {
         if(error.usage) await ctx.recordUsage(error.usage,{purpose:'writing',provider:writer});
         throw new AwaitingReviewError(`定点修订未完成，审稿问题已保存，请修改正文或重新审查：${error.message}`);
@@ -233,7 +236,7 @@ export const styleCheckStep: StepHandler = async (ctx) => {
     });
     await ctx.recordUsage(result.usage,{purpose:'writing',provider:writer});
     if(!result.value.patches.length) break;
-    const {text,patches}=applyRevisionPatches(oldText,result.value.patches,blocks);
+    const {text,patches}=applyRevisionPatches(oldText,resolveRevisionPatches(oldText,result.value.patches),blocks);
     ctx.onDelta(text);
     const instructions=blocks.map(i=>`「${i.evidence.quote}」：${i.basis}；${i.suggestion}`);
     const baseVersionId=version.id,baseHash=await sha256Hex(oldText);

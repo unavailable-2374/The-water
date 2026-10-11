@@ -243,25 +243,33 @@ export async function requestJson<T>(
   usage.outputTokens += result.usage.outputTokens;
   let outcome:ParseOutcome<T> = result.finishReason==='length' ? {ok:false,error:'输出预算耗尽，JSON 未完整返回'}:tryParse(result.text, spec.schema);
 
-  for (let round = 0; !outcome.ok && round < rounds; round++) {
+  let repairs = 0, budgetRetries = 0;
+  let attemptMessages = messages, attemptTemperature = baseReq.temperature;
+  while (!outcome.ok) {
     const truncated=result.finishReason==='length';
     if (truncated) {
       if (emptyExhaustions >= 2) {
         outcome={ok:false,error:'模型连续两次耗尽预算但未返回任何 JSON；请检查模型推理与输出格式配置，已停止继续扩大预算'};
         break;
       }
-      const next=growOutputBudget(provider,{messages,maxTokens:baseReq.maxTokens});
-      if(next<=baseReq.maxTokens) break;
+      const next=growOutputBudget(provider,{messages:attemptMessages,maxTokens:baseReq.maxTokens});
+      if(next<=baseReq.maxTokens || budgetRetries >= 2) break;
       baseReq.maxTokens=next;
+      budgetRetries++;
+    } else {
+      if (repairs >= rounds) break;
+      repairs++;
+      attemptMessages = [
+        ...messages,
+        { role: 'assistant', content: result.text },
+        { role: 'user', content: `上面的 JSON 无法通过校验，错误：${outcome.error}。请只输出修正后的完整 JSON，不要解释。` },
+      ];
+      attemptTemperature = 0;
     }
-    const repairMessages: ChatMessage[] = truncated ? messages : [
-      ...messages,
-      { role: 'assistant', content: result.text },
-      { role: 'user', content: `上面的 JSON 无法通过校验，错误：${outcome.error}。请只输出修正后的完整 JSON，不要解释。` },
-    ];
     attempts++;
     // Exhaustion is a budget retry, not a malformed-JSON repair: preserve sampling.
-    result = await run({ ...baseReq, messages: repairMessages, temperature: truncated ? baseReq.temperature : 0 });
+    // Also preserve any preceding validation feedback when retrying that repair.
+    result = await run({ ...baseReq, messages: attemptMessages, temperature: attemptTemperature });
     emptyExhaustions=result.finishReason==='length' && !result.text.trim() ? emptyExhaustions+1 : 0;
     if(result.usage.incomplete) usage.incomplete=true;
   usage.inputTokens += result.usage.inputTokens;

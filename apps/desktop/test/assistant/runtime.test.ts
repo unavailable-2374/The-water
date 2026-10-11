@@ -209,12 +209,8 @@ beforeEach(async () => {
             time: '',
             location: '',
             dependencyIds: [],
-            // SIMULATED incorrect model offsets reproduce the real failure; only the source quote is authoritative.
-            evidence: {
-              from: 0,
-              to: 0,
-              quote: '第1句，林舟把信封放在桌上，决定先核对邮戳日期，然后才把登记簿交还给顾青。',
-            },
+            // TEST / SIMULATED selection; the application computes source bytes and offsets.
+            evidence: { startSpan: 's1', endSpan: 's1' },
           },
         ],
       });

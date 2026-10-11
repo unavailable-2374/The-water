@@ -85,7 +85,7 @@ export function styleReviewPrompt(input: StyleReviewInput): PromptSpec<StyleRevi
     value.ooc.forEach((issue,index)=>{
       if(issue.verdict!=='OOC' || !issue.redline.trim()) return;
       try { anchorEvidence(input.chapterText,{from:-1,to:-1,quote:issue.quote}); }
-      catch { check.addIssue({code:z.ZodIssueCode.custom,path:['ooc',index,'quote'],message:'阻断问题须引用当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文'}); }
+      catch(error) { check.addIssue({code:z.ZodIssueCode.custom,path:['ooc',index,'quote'],message:`阻断问题须引用当前正文唯一可定位的连续逐字原文；重复短句请补充相邻原文：${String(error)}`}); }
     });
   });
   return { messages: [sys(system), user(text)], maxTokens: 4000, temperature: 0.2, schema, label: `审校第${input.chapterNo}章` };

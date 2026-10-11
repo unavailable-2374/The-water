@@ -54,7 +54,7 @@ export async function listStructuralRevisions(novelId: string): Promise<Revision
 export async function proposeStructuralRevision(novelId: string, instruction: string, signal: AbortSignal) {
   const source = await revisionSource(novelId);
   const schema = StructuralRevisionSchema.superRefine((report, ctx) => {
-    report.evidence.forEach((e, i) => { try { anchorEvidence(source.prose.find(p => p.chapterId === e.chapterId)?.version?.content ?? '', { from:-1, to:-1, quote:e.quote }); } catch { ctx.addIssue({code:'custom',path:['evidence',i],message:'结构问题必须引用实际章节唯一的连续正文'}); } });
+    report.evidence.forEach((e, i) => { try { anchorEvidence(source.prose.find(p => p.chapterId === e.chapterId)?.version?.content ?? '', { from:-1, to:-1, quote:e.quote }); } catch(error) { ctx.addIssue({code:'custom',path:['evidence',i],message:`结构问题必须引用实际章节唯一的连续正文：${String(error)}`}); } });
     report.alternatives.forEach((a,i) => a.actions.forEach((action,j) => {
       const scene = source.w.cards.find(c => c.id === action.sceneId && c.kind === 'scene');
       if (!source.w.chapters.some(c => c.id === action.chapterId) || action.sceneId && scene?.chapterId !== action.chapterId || !action.sceneId && !action.plan) ctx.addIssue({code:'custom',path:['alternatives',i,'actions',j],message:'修改引用已有章节及其场景；新增场景必须给出 plan'});
